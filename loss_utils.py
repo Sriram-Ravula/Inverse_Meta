@@ -5,9 +5,11 @@ import numpy as np
 
 def get_A(hparams):
     A_type = hparams.problem.measurement_type
+    device = hparams.device
 
     if A_type == 'gaussian':
         A = (1 / np.sqrt(hparams.problem.num_measurements)) * torch.randn(hparams.problem.num_measurements, hparams.data.n_input)
+        A = A.to(device)
     elif A_type == 'superres':
         A = None #don't explicitly form subsampling matrix
     elif A_type == 'inpaint':
@@ -16,6 +18,7 @@ def get_A(hparams):
         A = None #save memory by not forming identity
     elif A_type == 'circulant':
         A = (1 / np.sqrt(hparams.problem.num_measurements)) * torch.randn(1, hparams.data.n_input)
+        A = A.to(device)
     else:
         raise NotImplementedError
 
@@ -33,12 +36,14 @@ def get_inpaint_mask(hparams):
     return mask
 
 def get_A_inpaint(hparams):
+    device = hparams.device
+
     mask = get_inpaint_mask(hparams)
     mask = mask.view(1, -1)
     A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
     A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
 
-    return torch.from_numpy(A)
+    return torch.from_numpy(A).to(device)
 
 def get_measurements(A, x, hparams):
     A_type = hparams.problem.measurement_type
@@ -88,27 +93,7 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
     
     return grad
 
-def cond_log_likelihood_loss(c, y, A, x, hparams, scale=1):
-    """
-    Calculates and returns a regularized L2 loss whose form changes depending on hyperparameter c.
-
-    If c is a:
-        scalar: L = scale * (c/2) ||Ax - y||^2
-        vector: L = returns scale * (1/2) sum{c_i (a_i^T x - y_i)^2}
-        matrix: L = returns scale * (1/2) ||C(Ax - y)||^2
-
-    Args:
-        c: A hyperparameter whose dimensions determine the output measurement loss.
-            Torch tensor with shape [], [m], or [k, m].
-        y: The observed measurements. Torch tensor with shape [N, m].
-        A: The forward operator. Torch tensor with shape [m, n=C*H*W].
-        x: Predicted sample. Torch tensor with shape [N, C, H, W]. 
-        scale: Optional parameter that scales the final output. float.
-
-    Returns:
-        loss: A Torch scalar value calculated as shown above.
-    """
-
+def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1):
     c_type = hparams.outer.hyperparam_type
 
     Ax = get_measurements(A, x, hparams) #[N, m]
@@ -129,19 +114,15 @@ def cond_log_likelihood_loss(c, y, A, x, hparams, scale=1):
     return loss
 
 def get_meta_loss(x_hat, x_true, hparams):
-    """
-    Returns an appropriate meta loss given a set of parameters
-    """
-
     meas_loss = hparams.outer.measurement_loss
     meta_type = hparams.outer.train_loss_type
     ROI = hparams.outer.ROI
 
+    sse = torch.nn.MSELoss(reduction='sum')
+
     if meas_loss or meta_type != "l2":
         raise NotImplementedError
     
-    sse = torch.nn.MSELoss(reduction='sum')
-
     if ROI is not None:
         ROI = getRectMask(hparams)
         return 0.5 * sse(ROI*x_hat, ROI*x_true)
@@ -149,15 +130,14 @@ def get_meta_loss(x_hat, x_true, hparams):
         return 0.5 * sse(x_hat, x_true)
 
 def getRectMask(hparams):
-
     side = hparams.data.image_size
     offsets, hw = hparams.outer.ROI
     h_offset, w_offset = offsets
     height, width = hw
+    device = hparams.device
 
     mask_tensor = torch.zeros(side, side)
 
     mask_tensor[h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
-    return mask_tensor
-
+    return mask_tensor.to(device)
