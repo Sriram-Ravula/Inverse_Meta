@@ -137,13 +137,27 @@ def get_meta_loss(x_hat, x_true, hparams):
     meta_type = hparams.outer.train_loss_type
     ROI = hparams.outer.ROI
 
-    if meas_loss:
-        raise NotImplementedError #TODO implement measurement-based meta loss!
+    if meas_loss or meta_type != "l2":
+        raise NotImplementedError
     
-    if meta_type != "l2":
-        
+    sse = torch.nn.MSELoss(reduction='sum')
 
-    if meta_type == "L2":
-        return L2_loss(x_hat, x_true)
-    elif meta_type == "ROI":
-        return ROI_loss(ROI, x_hat, x_true)
+    if ROI is not None:
+        ROI = getRectMask(hparams)
+        return 0.5 * sse(ROI*x_hat, ROI*x_true)
+    else:
+        return 0.5 * sse(x_hat, x_true)
+
+def getRectMask(hparams):
+
+    side = hparams.data.image_size
+    offsets, hw = hparams.outer.ROI
+    h_offset, w_offset = offsets
+    height, width = hw
+
+    mask_tensor = torch.zeros(side, side)
+
+    mask_tensor[h_offset:h_offset+height, w_offset:w_offset+width] = 1
+
+    return mask_tensor
+
