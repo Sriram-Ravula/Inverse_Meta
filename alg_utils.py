@@ -9,7 +9,7 @@ def hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams):
     if finite_difference or net != "ncsnv2":
         raise NotImplementedError #TODO implement finite difference and other models!
     
-    labels = torch.ones(x.shape[0], device=model.device) * sigma_idx
+    labels = torch.ones(x.shape[0], device=x.device) * sigma_idx
     labels = labels.long()
 
     full_grad = cond_log_grad - model(x, labels) #full gradient of loss w.r.t. x
@@ -118,7 +118,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     for t in used_levels:
         sigma = sigmas[t]
 
-        labels = torch.ones(x_mod.shape[0], device=model.device) * t
+        labels = torch.ones(x_mod.shape[0], device=x_mod.device) * t
         labels = labels.long()
 
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
