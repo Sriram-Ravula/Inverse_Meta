@@ -3,6 +3,26 @@ import numpy as np
 import loss_utils
 
 def hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams):
+    """
+    Calculates a Hessian-vector product with the given conditional likelihood gradient
+    and generative model. Used in conjugate gradient algorithm where vec is a candidate 
+    inverse hessian-meta gradient product.
+
+    Args:
+        x:  Predicted sample used as input to model. Hessian is taken w.r.t. this.
+            Torch tensor with shape [N, C, H, W].
+        cond_log_grad:  Gradient of the conditional log-likelihood loss w.r.t. x.
+                        Torch tensor with shape [N, C, H, W].  
+        model: The Generative model. Torch.nn.model.
+        sigma_idx: The noise level index to use for the score-based network. 
+        vec: The vector in the Hessian-vector product. 
+             Torch tensor with shape [N, C, H, W]. 
+        hparams: Experimental parameters. 
+
+    Returns: 
+        hvp: Hessian of the loss function w.r.t. x, right-multiplied with vec. 
+             Torch Tensor with shape [N, C, H, W].
+    """
     finite_difference = hparams.outer.finite_difference
     net = hparams.net
 
@@ -20,6 +40,28 @@ def hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams):
     return hvp
 
 def cross_hessian_vector_product(c, cond_log_grad, vec, hparams):
+    """
+    Calculates a Hessian-vector product where the Hessian is composed of a derivative
+    w.r.t. two different variables. Used to calculate the final meta gradient w.r.t.
+    the hyperparameters. There, Hessian is the derivative of the inner loss w.r.t. x
+    and c and vec is the output of the conjugate gradient algorithm i.e. the inverse-Hessian
+    vector product. 
+
+    Args:
+        c: A hyperparameter whose dimensions determine the output likelihood loss.
+        The second derivative computation is w.r.t. this parameter.
+        Torch tensor with shape [], [m], or [k, m].
+        cond_log_grad:  Gradient of the conditional log-likelihood loss w.r.t. x.
+                        Torch tensor with shape [N, C, H, W].  
+        vec: The vector in the Hessian-vector product.
+            Expected to multiply with the first derivative of loss (w.r.t. x).
+            Torch tensor with shape [N, C, H, W].
+        hparams: Experimental parameters.
+    
+    Returns:
+        hvp: Grad_xc * vec: Gradient of loss(c, x) w.r.t. x and c, right-multiplied with vec.   
+             Torch tensor with shape [], [m], or [k, m].
+    """
     net = hparams.net
 
     if net != "ncsnv2":
@@ -32,6 +74,10 @@ def cross_hessian_vector_product(c, cond_log_grad, vec, hparams):
     return hvp
 
 def Ax(x, cond_log_grad, model, sigma_idx, hparams):
+    """
+    Helper function that returns a hessian-vector product evaluator.
+    Plug into CG optimization to evaluate Ax. 
+    """
     damping = hparams.outer.cg_damping
 
     def hvp_evaluator(vec):
@@ -42,6 +88,26 @@ def Ax(x, cond_log_grad, model, sigma_idx, hparams):
     return hvp_evaluator
 
 def cg_solver(f_Ax, b, hparams, x_init=None):
+    """
+    Solve the system Ax = b for x using the conjugate gradient method.
+    Used in implicit methods to solve for inverse hessian-meta gradient product
+    where the Hessian is of the inner loss w.r.t. x and meta gradient is w.r.t. x.
+
+    Args:
+        f_Ax:   A function that takes x as input and calculates Ax. 
+                Usually Hessian-vector product where Hessian is of inner loss w.r.t. x.
+                Output is Torch tensor with shape [N, C, H, W].
+        b:  A target quantity. Usually gradient of meta-objective w.r.t. x.
+            Torch tensor with shape [N, C, H, W].
+        hparams: Experimental parameters.
+        x_init: (Optional) an initial value for the variable we are solving for.
+                If set = None, x is initialized as all 0 tensor. Default value = None.  
+
+    Returns:
+        x:  The solution to Ax = b as found by conjugate gradient algorithm.  
+            Torch tensor with shape [N, C, H, W].  
+    """
+
     residual_tol = hparams.outer.cg_tol
     cg_iters = hparams.outer.cg_iters
     verbose = hparams.outer.verbose

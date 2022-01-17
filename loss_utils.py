@@ -11,7 +11,7 @@ def get_A(hparams):
     elif A_type == 'superres':
         A = None #don't explicitly form subsampling matrix
     elif A_type == 'inpaint':
-        A = get_A_inpaint(hparams) #TODO make inpainting more efficient!
+        A = get_A_inpaint(hparams) 
     elif A_type == 'identity':
         A = None #save memory by not forming identity
     elif A_type == 'circulant':
@@ -40,10 +40,19 @@ def get_A_inpaint(hparams):
 
     return torch.from_numpy(A)
 
-def get_measurements(A, x, hparams):
+def get_measurements(A, x, hparams, efficient_inp=False):
+    """
+    Efficient_inp uses a mask for element-wise inpainting instead of mm.
+    But the dimensions don't play nice with our gradient functions!
+    Set=True only if using automatic gradients instead of our gradient functions.
+    """
     A_type = hparams.problem.measurement_type
 
-    if A_type == 'gaussian' or A_type == 'inpaint':
+    if A_type == 'gaussian':
+        Ax = torch.mm(A, torch.flatten(x, start_dim=1).T).T #[N, m]
+    elif A_type == 'inpaint' and efficient_inp:
+        Ax = get_inpaint_mask(hparams).to(x.device) * x 
+    elif A_type == 'inpaint' and not efficient_inp:
         Ax = torch.mm(A, torch.flatten(x, start_dim=1).T).T #[N, m]
     elif A_type == 'superres':
         Ax = F.avg_pool2d(x, hparams.problem.downsample_factor)
@@ -69,47 +78,97 @@ def get_transpose_measurements(A, vec, hparams):
     return ans
 
 def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
-    img_shape = hparams.data.image_shape
     c_type = hparams.outer.hyperparam_type
+    A_type = hparams.problem.measurement_type
 
-    Ax = get_measurements(A, x, hparams) #[N, m]
-    resid = Ax - y #[N, m]
+    #[N, m] (gaussian, inpaint, circulant)
+    #[N, C, H//downsample, W//downsample] (superres)
+    #[N, C, H, W] for identity
+    Ax = get_measurements(A, x, hparams) 
+    resid = Ax - y 
 
-    grad = 0
+    grad = 0.0
 
     if c_type == 'scalar':
         grad = grad + scale * c * get_transpose_measurements(A, resid, hparams)
-    elif c_type == 'vector':
-        grad = grad + scale * get_transpose_measurements(A, c * resid, hparams)
-    elif c_type == 'matrix':
-        vec = torch.mm(torch.mm(c.T, c), resid.T).T #[N, m] 
-        grad = grad + scale * get_transpose_measurements(A, vec, hparams)
-    else:
-        raise NotImplementedError #TODO implement circulant!!
-    
-    return grad.view(-1, img_shape)
 
-def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1):
+    elif c_type == 'vector':
+        if A_type == 'superres' or A_type == 'identity':
+            c_shaped = c.view(hparams.problem.y_shape)
+            grad = grad + scale * get_transpose_measurements(A, c_shaped * resid, hparams)
+
+        else:
+            grad = grad + scale * get_transpose_measurements(A, c * resid, hparams)
+
+    elif c_type == 'matrix':
+        if A_type == 'superres' or A_type == 'identity':
+            y_c, y_h, y_w = hparams.problem.y_shape
+            vec = torch.mm(c, resid.flatten(start_dim=1).T).T #[N, k]
+            vec = (torch.mm(c.T, vec.T).T).view(-1, y_c, y_h, y_w) #[N, (y_shape)]
+
+        else:
+            vec = torch.mm(torch.mm(c.T, c), resid.T).T #[N, m] 
+
+        grad = grad + scale * get_transpose_measurements(A, vec, hparams)
+
+    else:
+        raise NotImplementedError
+    
+    return grad.view(x.shape)
+
+def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
+    """
+    Efficient_inp uses a mask for element-wise inpainting instead of mm.
+    But the dimensions don't play nice with our gradient functions!
+    Set=True only if using automatic gradients instead of our gradient functions.
+    If True, expects a y with the same shape as x.
+    """
+    if efficient_inp and y.shape != x.shape:
+        raise NotImplementedError
+
     c_type = hparams.outer.hyperparam_type
 
-    Ax = get_measurements(A, x, hparams) #[N, m]
-    resid = Ax - y #[N, m]
+    #Gaussian or Inpaint + efficient=False - shape [N, m]
+    #Inpaint with efficient=True or identity - shape [N, C, H, W]
+    #superres - shape [N, C, H//d, W//d]
+    #NOTE: Gaussian, inefficient inpaint, superres, identity have no extraneous dimensions  
+    #      We can flatten and use normally as size of c accounts for this.
+    #NOTE: Efficient Inpaint has extraneous areas of 0 entry that c shape does not account for.
+    #      We have to isolate the measurement region to play nice with c.
+    Ax = get_measurements(A, x, hparams, efficient_inp) 
+    resid = Ax - y 
 
-    loss = 0
+    loss = 0.0
 
     if c_type == 'scalar':
         loss = loss + scale * c * 0.5 * torch.sum(resid ** 2)
+
     elif c_type == 'vector':
-        loss = loss + scale * 0.5 * torch.sum(c * (resid ** 2))
+        if c_type == 'inpaint' and efficient_inp:
+            mask = get_inpaint_mask(hparams)
+            kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
+            loss = loss + scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1)[:,kept_inds])
+
+        else:    
+            loss = loss + scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1))
+
     elif c_type == 'matrix':
-        interior = torch.mm(c, resid.T).T #[N, k]
+        if c_type == 'inpaint' and efficient_inp:
+            mask = get_inpaint_mask(hparams)
+            kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
+            interior = torch.mm(c, resid.flatten(start_dim=1)[:,kept_inds].T).T #[N, k]
+
+        else:
+            interior = torch.mm(c, resid.flatten(start_dim=1).T).T #[N, k]
+
         loss = loss + scale * 0.5 * torch.sum(interior ** 2)
+
     else:
         raise NotImplementedError #TODO implement circulant!!
 
     return loss
 
-def get_meta_loss(x_hat, x_true, hparams):
+def meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
     meta_type = hparams.outer.train_loss_type
     ROI = hparams.outer.ROI
@@ -120,7 +179,7 @@ def get_meta_loss(x_hat, x_true, hparams):
         raise NotImplementedError
     
     if ROI:
-        ROI = getRectMask(hparams)
+        ROI = getRectMask(hparams).to(x_hat.device)
         return 0.5 * sse(ROI*x_hat, ROI*x_true)
     else:
         return 0.5 * sse(x_hat, x_true)
@@ -134,11 +193,11 @@ def grad_meta_loss(x_hat, x_true, hparams):
         raise NotImplementedError
     
     if ROI:
-        ROI_mat = get_ROI_matrix(hparams)
-        vec = torch.mm(ROI_mat, torch.flatten(x_hat - x_true, start_dim=1).T).T
-        return torch.mm(ROI_mat.T, torch.flatten(vec, start_dim=1).T).T
+        ROI_mat = get_ROI_matrix(hparams).to(x_hat.device)
+        vec = torch.mm(ROI_mat, torch.flatten(x_hat - x_true, start_dim=1).T).T #[N, roi_num]
+        return (torch.mm(ROI_mat.T, vec.T).T).view(x_hat.shape) 
     else:
-        return (x_hat - x_true)
+        return (x_hat - x_true) #[N, C, H, W]
 
 def get_ROI_matrix(hparams):
     mask = getRectMask(hparams).numpy()
