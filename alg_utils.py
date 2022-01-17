@@ -168,8 +168,10 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         raise NotImplementedError #TODO implement finite difference and other models!
   
     #TODO alter this for non-implicit meta
-    grad_flag = x_mod.requires_grad
+    grad_flag_x = x_mod.requires_grad
     x_mod.requires_grad_(False) 
+    grad_flag_c = c.requires_grad
+    c.requires_grad_(False)
 
     if decimate:
         used_levels = get_decimated_sigmas(len(sigmas), hparams)
@@ -190,7 +192,6 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
 
         for s in range(T):
-            print(c.grad)
             prior_grad = model(x_mod, labels)
             likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
 
@@ -213,7 +214,8 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
       
             global_step += 1
   
-    x_mod.requires_grad_(grad_flag)
+    x_mod.requires_grad_(grad_flag_x)
+    c.requires_grad_(grad_flag_c)
 
     return x_mod
 
