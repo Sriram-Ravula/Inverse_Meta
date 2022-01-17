@@ -190,6 +190,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
 
         for s in range(T):
+            print(c.grad)
             prior_grad = model(x_mod, labels)
             likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
 
