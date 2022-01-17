@@ -123,7 +123,7 @@ def get_meta_loss(x_hat, x_true, hparams):
     if meas_loss or meta_type != "l2":
         raise NotImplementedError
     
-    if ROI is not None:
+    if ROI:
         ROI = getRectMask(hparams)
         return 0.5 * sse(ROI*x_hat, ROI*x_true)
     else:
