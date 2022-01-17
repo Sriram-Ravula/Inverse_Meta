@@ -69,6 +69,7 @@ def get_transpose_measurements(A, vec, hparams):
     return ans
 
 def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
+    img_shape = hparams.data.image_shape
     c_type = hparams.outer.hyperparam_type
 
     Ax = get_measurements(A, x, hparams) #[N, m]
@@ -86,7 +87,7 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
     else:
         raise NotImplementedError #TODO implement circulant!!
     
-    return grad
+    return grad.view(-1, img_shape)
 
 def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1):
     c_type = hparams.outer.hyperparam_type
