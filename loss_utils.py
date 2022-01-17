@@ -28,12 +28,12 @@ def get_inpaint_mask(hparams):
 
     margin = (image_size - inpaint_size) // 2
     mask = torch.ones(image_shape)
-    mask[margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
+    mask[:, margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
 
     return mask
 
 def get_A_inpaint(hparams):
-    mask = get_inpaint_mask(hparams)
+    mask = get_inpaint_mask(hparams).numpy()
     mask = mask.view(1, -1)
     A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
     A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
@@ -124,14 +124,37 @@ def get_meta_loss(x_hat, x_true, hparams):
     else:
         return 0.5 * sse(x_hat, x_true)
 
+def grad_meta_loss(x_hat, x_true, hparams):
+    meas_loss = hparams.outer.measurement_loss
+    meta_type = hparams.outer.train_loss_type
+    ROI = hparams.outer.ROI
+
+    if meas_loss or meta_type != "l2":
+        raise NotImplementedError
+    
+    if ROI:
+        ROI_mat = get_ROI_matrix(hparams)
+        vec = torch.mm(ROI_mat, torch.flatten(x_hat - x_true, start_dim=1).T).T
+        return torch.mm(ROI_mat.T, torch.flatten(vec, start_dim=1).T).T
+    else:
+        return (x_hat - x_true)
+
+def get_ROI_matrix(hparams):
+    mask = getRectMask(hparams).numpy()
+    mask = mask.view(1, -1)
+    A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
+    A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
+
+    return torch.from_numpy(A)
+
 def getRectMask(hparams):
-    side = hparams.data.image_size
+    shape = hparams.data.image_shape
     offsets, hw = hparams.outer.ROI
     h_offset, w_offset = offsets
     height, width = hw
 
-    mask_tensor = torch.zeros(side, side)
+    mask_tensor = torch.zeros(shape)
 
-    mask_tensor[h_offset:h_offset+height, w_offset:w_offset+width] = 1
+    mask_tensor[:, h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
     return mask_tensor
