@@ -49,8 +49,8 @@ def cross_hessian_vector_product(c, cond_log_grad, vec, hparams):
 
     Args:
         c: A hyperparameter whose dimensions determine the output likelihood loss.
-        The second derivative computation is w.r.t. this parameter.
-        Torch tensor with shape [], [m], or [k, m].
+            The second derivative computation is w.r.t. this parameter.
+            Torch tensor with shape [], [m], or [k, m].
         cond_log_grad:  Gradient of the conditional log-likelihood loss w.r.t. x.
                         Torch tensor with shape [N, C, H, W].  
         vec: The vector in the Hessian-vector product.
@@ -213,6 +213,8 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
                     t, step_size, prior_grad_norm.item(), likelihood_grad_norm.item(), grad_norm.item()))
       
             global_step += 1
+    
+    x_mod = torch.clamp(x_mod, 0.0, 1.0)
   
     x_mod.requires_grad_(grad_flag_x)
     c.requires_grad_(grad_flag_c)
