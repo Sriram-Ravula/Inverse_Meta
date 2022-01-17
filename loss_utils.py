@@ -5,11 +5,9 @@ import numpy as np
 
 def get_A(hparams):
     A_type = hparams.problem.measurement_type
-    device = hparams.device
 
     if A_type == 'gaussian':
         A = (1 / np.sqrt(hparams.problem.num_measurements)) * torch.randn(hparams.problem.num_measurements, hparams.data.n_input)
-        A = A.to(device)
     elif A_type == 'superres':
         A = None #don't explicitly form subsampling matrix
     elif A_type == 'inpaint':
@@ -18,7 +16,6 @@ def get_A(hparams):
         A = None #save memory by not forming identity
     elif A_type == 'circulant':
         A = (1 / np.sqrt(hparams.problem.num_measurements)) * torch.randn(1, hparams.data.n_input)
-        A = A.to(device)
     else:
         raise NotImplementedError
 
@@ -36,14 +33,12 @@ def get_inpaint_mask(hparams):
     return mask
 
 def get_A_inpaint(hparams):
-    device = hparams.device
-
     mask = get_inpaint_mask(hparams)
     mask = mask.view(1, -1)
     A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
     A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
 
-    return torch.from_numpy(A).to(device)
+    return torch.from_numpy(A)
 
 def get_measurements(A, x, hparams):
     A_type = hparams.problem.measurement_type
@@ -134,10 +129,9 @@ def getRectMask(hparams):
     offsets, hw = hparams.outer.ROI
     h_offset, w_offset = offsets
     height, width = hw
-    device = hparams.device
 
     mask_tensor = torch.zeros(side, side)
 
     mask_tensor[h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
-    return mask_tensor.to(device)
+    return mask_tensor

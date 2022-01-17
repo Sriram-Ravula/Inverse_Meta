@@ -3,14 +3,13 @@ import numpy as np
 import loss_utils
 
 def hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams):
-    device = hparams.device
     finite_difference = hparams.outer.finite_difference
     net = hparams.net
 
     if finite_difference or net != "ncsnv2":
         raise NotImplementedError #TODO implement finite difference and other models!
     
-    labels = torch.ones(x.shape[0], device=device) * sigma_idx
+    labels = torch.ones(x.shape[0], device=model.device) * sigma_idx
     labels = labels.long()
 
     full_grad = cond_log_grad - model(x, labels) #full gradient of loss w.r.t. x
@@ -43,7 +42,6 @@ def Ax(x, cond_log_grad, model, sigma_idx, hparams):
     return hvp_evaluator
 
 def cg_solver(f_Ax, b, hparams, x_init=None):
-    device = hparams.device
     residual_tol = hparams.outer.cg_tol
     cg_iters = hparams.outer.cg_iters
     verbose = hparams.outer.verbose
@@ -51,7 +49,7 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
     if verbose:
         verbose = hparams.outer.cg_verbose
 
-    x = torch.zeros(b.shape, device=device) if x_init is None else x_init
+    x = torch.zeros(b.shape, device=b.device) if x_init is None else x_init
 
     r = b - f_Ax(x) 
     p = r.clone()
@@ -120,7 +118,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     for t in used_levels:
         sigma = sigmas[t]
 
-        labels = torch.ones(x_mod.shape[0], device=x_mod.device) * t
+        labels = torch.ones(x_mod.shape[0], device=model.device) * t
         labels = labels.long()
 
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
