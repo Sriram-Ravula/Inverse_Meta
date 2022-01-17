@@ -87,18 +87,16 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
     Ax = get_measurements(A, x, hparams) 
     resid = Ax - y 
 
-    grad = 0.0
-
     if c_type == 'scalar':
-        grad = grad + scale * c * get_transpose_measurements(A, resid, hparams)
+        grad = scale * c * get_transpose_measurements(A, resid, hparams)
 
     elif c_type == 'vector':
         if A_type == 'superres' or A_type == 'identity':
             c_shaped = c.view(hparams.problem.y_shape)
-            grad = grad + scale * get_transpose_measurements(A, c_shaped * resid, hparams)
+            grad = scale * get_transpose_measurements(A, c_shaped * resid, hparams)
 
         else:
-            grad = grad + scale * get_transpose_measurements(A, c * resid, hparams)
+            grad = scale * get_transpose_measurements(A, c * resid, hparams)
 
     elif c_type == 'matrix':
         if A_type == 'superres' or A_type == 'identity':
@@ -109,7 +107,7 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
         else:
             vec = torch.mm(torch.mm(c.T, c), resid.T).T #[N, m] 
 
-        grad = grad + scale * get_transpose_measurements(A, vec, hparams)
+        grad = scale * get_transpose_measurements(A, vec, hparams)
 
     else:
         raise NotImplementedError
@@ -138,19 +136,17 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
     Ax = get_measurements(A, x, hparams, efficient_inp) 
     resid = Ax - y 
 
-    loss = 0.0
-
     if c_type == 'scalar':
-        loss = loss + scale * c * 0.5 * torch.sum(resid ** 2)
+        loss = scale * c * 0.5 * torch.sum(resid ** 2)
 
     elif c_type == 'vector':
         if c_type == 'inpaint' and efficient_inp:
             mask = get_inpaint_mask(hparams)
             kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
-            loss = loss + scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1)[:,kept_inds])
+            loss = scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1)[:,kept_inds])
 
         else:    
-            loss = loss + scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1))
+            loss = scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1))
 
     elif c_type == 'matrix':
         if c_type == 'inpaint' and efficient_inp:
@@ -161,7 +157,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
         else:
             interior = torch.mm(c, resid.flatten(start_dim=1).T).T #[N, k]
 
-        loss = loss + scale * 0.5 * torch.sum(interior ** 2)
+        loss = scale * 0.5 * torch.sum(interior ** 2)
 
     else:
         raise NotImplementedError #TODO implement circulant!!
