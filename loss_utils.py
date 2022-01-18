@@ -38,7 +38,7 @@ def get_A_inpaint(hparams):
     A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
     A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
 
-    return torch.from_numpy(A)
+    return torch.from_numpy(A) * np.sqrt(hparams.data.n_input)
 
 def get_measurements(A, x, hparams, efficient_inp=False):
     """
