@@ -61,3 +61,36 @@ def split_dataset(base_dataset, hparams):
     test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
 
     return train_dataset, val_dataset, test_dataset
+
+def init_c(hparams):
+    c_type = hparams.outer.hyperparam_type
+    m = hparams.problem.num_measurements
+
+    if c_type == 'scalar':
+        c = torch.tensor(1.)
+    elif c_type == 'vector':
+        c = torch.ones(m)
+    elif c_type == 'matrix':
+        c = torch.eye(m)
+    else:
+        raise NotImplementedError 
+    
+    return c
+
+def get_meta_optimizer(opt_params, hparams):
+    lr = hparams.outer.lr
+    lr_decay = hparams.outer.lr_decay
+    opt_type = hparams.outer.optimizer
+
+    if opt_type == 'adam':
+        meta_opt = torch.optim.Adam([{'params': opt_params}], lr=lr)
+    elif opt_type == 'sgd':
+        meta_opt = torch.optim.SGD([{'params': opt_params}], lr=lr)
+    else:
+        raise NotImplementedError
+    
+    if lr_decay:
+        meta_scheduler = torch.optim.lr_scheduler.ExponentialLR(meta_opt, lr_decay)
+        return (meta_opt, meta_scheduler)
+    else:
+        return meta_opt
