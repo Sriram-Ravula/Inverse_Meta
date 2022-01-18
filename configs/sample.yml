@@ -25,7 +25,7 @@ outer:
  cg_iters: 25
  cg_verbose: 5
  cg_tol: 0.0000000001
- cg_damping: 0.1
+ cg_damping: 1
  finite_difference: false
  finite_difference_coeff: 0.00000001
  measurement_loss: false
