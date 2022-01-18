@@ -21,7 +21,7 @@ outer:
  lr_decay: 0.95
  verbose: true
  debug: false
- checkpoint_epochs: 4
+ checkpoint_epochs: 1
  cg_iters: 25
  cg_verbose: 5
  cg_tol: 0.0000000001
@@ -39,6 +39,7 @@ inner:
  decimation_type: 'linear'
  verbose: 100
  lr: 0.0000033
+ num_batches_update: -1 #number of training batches to use before updating weights. -1 means all batches 
 
 problem:
  measurement_type: 'gaussian'
