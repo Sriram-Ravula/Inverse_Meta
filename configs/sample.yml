@@ -6,8 +6,8 @@ net: 'ncsnv2'
 
 data:
  dataset: 'celeba'
- train_batch_size: 32
- val_batch_size: 32
+ train_batch_size: 16
+ val_batch_size: 16
  num_channels: 3
  num_train: 128
  num_val: 32
@@ -15,13 +15,13 @@ data:
 
 outer:
  hyperparam_type: 'scalar'
- num_epochs: 20
+ num_epochs: 5
  optimizer: 'adam'
  lr: 0.1
  lr_decay: 0.95
- verbose: true
+ verbose: false
  debug: false
- checkpoint_epochs: 2
+ checkpoint_epochs: 1
  cg_iters: 25
  cg_verbose: 5
  cg_tol: 0.00001
