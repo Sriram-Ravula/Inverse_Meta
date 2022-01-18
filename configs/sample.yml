@@ -9,7 +9,7 @@ data:
  train_batch_size: 16
  val_batch_size: 16
  num_channels: 3
- num_train: 64
+ num_train: 128
  num_val: 32
  num_test: 32
 
@@ -41,7 +41,7 @@ inner:
  lr: 0.0000033
 
 problem:
- measurement_type: 'gaussian'
+ measurement_type: 'inpaint'
  num_measurements: 1000
  downsample_factor: 2
  inpaint_size: 20
