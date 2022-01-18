@@ -2,19 +2,16 @@ import torch
 import numpy as np
 import loss_utils
 
-def hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams):
+def hessian_vector_product(x, full_grad, vec, hparams):
     """
-    Calculates a Hessian-vector product with the given conditional likelihood gradient
-    and generative model. Used in conjugate gradient algorithm where vec is a candidate 
+    Calculates a Hessian-vector product with the given first derivative.
+    Used in conjugate gradient algorithm where vec is a candidate 
     inverse hessian-meta gradient product.
 
     Args:
         x:  Predicted sample used as input to model. Hessian is taken w.r.t. this.
             Torch tensor with shape [N, C, H, W].
-        cond_log_grad:  Gradient of the conditional log-likelihood loss w.r.t. x.
-                        Torch tensor with shape [N, C, H, W].  
-        model: The Generative model. Torch.nn.model.
-        sigma_idx: The noise level index to use for the score-based network. 
+        full_grad: The first derivative of the function whose Hessian we want  
         vec: The vector in the Hessian-vector product. 
              Torch tensor with shape [N, C, H, W]. 
         hparams: Experimental parameters. 
@@ -28,14 +25,12 @@ def hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams):
 
     if finite_difference or net != "ncsnv2":
         raise NotImplementedError #TODO implement finite difference and other models!
-    
-    labels = torch.ones(x.shape[0], device=x.device) * sigma_idx
-    labels = labels.long()
-
-    full_grad = cond_log_grad - model(x, labels) #full gradient of loss w.r.t. x
 
     h_func = torch.sum(full_grad * vec) #v.T (dL/dx)
-    hvp = torch.autograd.grad(h_func, x)[0] #[N, C, H, W]
+
+    #we want to retain the graph of this hvp since we will be re-using the same first derivative
+    #during conjugate gradient
+    hvp = torch.autograd.grad(h_func, x, retain_graph=True)[0] #[N, C, H, W]
 
     return hvp
 
@@ -73,7 +68,7 @@ def cross_hessian_vector_product(c, cond_log_grad, vec, hparams):
 
     return hvp
 
-def Ax(x, cond_log_grad, model, sigma_idx, hparams):
+def Ax(x, full_grad, hparams):
     """
     Helper function that returns a hessian-vector product evaluator.
     Plug into CG optimization to evaluate Ax. 
@@ -81,7 +76,7 @@ def Ax(x, cond_log_grad, model, sigma_idx, hparams):
     damping = hparams.outer.cg_damping
 
     def hvp_evaluator(vec):
-        undamped = hessian_vector_product(x, cond_log_grad, model, sigma_idx, vec, hparams)
+        undamped = hessian_vector_product(x, full_grad, vec, hparams)
         
         return damping * vec + undamped #Hv --> (aI + H)v = av + Hv
     
