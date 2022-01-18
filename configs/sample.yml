@@ -16,7 +16,7 @@ data:
 outer:
  hyperparam_type: 'scalar'
  num_epochs: 20
- optimizer: 'adam'
+ optimizer: 'sgd'
  lr: 0.1
  lr_decay: 0.95
  verbose: true
@@ -25,7 +25,7 @@ outer:
  cg_iters: 25
  cg_verbose: 5
  cg_tol: 0.0000000001
- cg_damping: 1
+ cg_damping: 0.1
  finite_difference: false
  finite_difference_coeff: 0.00000001
  measurement_loss: false
@@ -41,7 +41,7 @@ inner:
  lr: 0.0000033
 
 problem:
- measurement_type: 'inpaint'
+ measurement_type: 'gaussian'
  num_measurements: 1000
  downsample_factor: 2
  inpaint_size: 20
