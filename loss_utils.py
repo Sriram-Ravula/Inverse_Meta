@@ -34,7 +34,7 @@ def get_inpaint_mask(hparams):
 
 def get_A_inpaint(hparams):
     mask = get_inpaint_mask(hparams).numpy()
-    mask = mask.view(1, -1)
+    mask = mask.reshape(1, -1)
     A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
     A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
 
@@ -197,7 +197,7 @@ def grad_meta_loss(x_hat, x_true, hparams):
 
 def get_ROI_matrix(hparams):
     mask = getRectMask(hparams).numpy()
-    mask = mask.view(1, -1)
+    mask = mask.reshape(1, -1)
     A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
     A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
 
