@@ -16,14 +16,14 @@ data:
 outer:
  hyperparam_type: 'scalar'
  num_epochs: 20
- optimizer: 'adam'
- lr: 0.01
+ optimizer: 'sgd'
+ lr: 0.001
  lr_decay: 0.95
- verbose: true
+ verbose: false
  debug: false
  checkpoint_epochs: 1
- cg_iters: 100
- cg_verbose: 20
+ cg_iters: 20
+ cg_verbose: 5
  cg_tol: 0.00001
  cg_damping: 0.1
  finite_difference: false
@@ -39,7 +39,7 @@ inner:
  decimation_type: 'linear'
  verbose: 100
  lr: 0.0000033
- num_batches_update: 2 #number of training batches to use before updating weights. -1 means all batches 
+ num_batches_update: -1 #number of training batches to use before updating weights. -1 means all batches 
 
 problem:
  measurement_type: 'gaussian'
