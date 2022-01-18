@@ -41,7 +41,7 @@ inner:
 	lr: 0.0000033
 
 problem:
-	measurement_type: 'superres'
+	measurement_type: 'gaussian'
 	num_measurements: 1000
 	downsample_factor: 2
 	inpaint_size: 20
@@ -51,4 +51,3 @@ problem:
 	add_dependent_noise: false
 	dependent_noise_type: "gaussian"
 	dependent_noise_std: 1
-
