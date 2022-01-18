@@ -9,12 +9,12 @@ data:
  train_batch_size: 16
  val_batch_size: 16
  num_channels: 3
- num_train: 128
+ num_train: 64
  num_val: 32
  num_test: 32
 
 outer:
- hyperparam_type: 'scalar'
+ hyperparam_type: 'vector'
  num_epochs: 5
  optimizer: 'adam'
  lr: 0.1
