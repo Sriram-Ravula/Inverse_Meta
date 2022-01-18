@@ -11,7 +11,7 @@ def get_A(hparams):
     elif A_type == 'superres':
         A = None #don't explicitly form subsampling matrix
     elif A_type == 'inpaint':
-        A = get_A_inpaint(hparams) 
+        A = get_A_inpaint(hparams).float() 
     elif A_type == 'identity':
         A = None #save memory by not forming identity
     elif A_type == 'circulant':
