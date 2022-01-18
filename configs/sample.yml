@@ -17,7 +17,7 @@ outer:
  hyperparam_type: 'scalar'
  num_epochs: 20
  optimizer: 'sgd'
- lr: 0.001
+ lr: 0.1
  lr_decay: 0.95
  verbose: false
  debug: false
