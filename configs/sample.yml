@@ -6,8 +6,8 @@ net: 'ncsnv2'
 
 data:
  dataset: 'celeba'
- train_batch_size: 1
- val_batch_size: 16
+ train_batch_size: 32
+ val_batch_size: 32
  num_channels: 3
  num_train: 128
  num_val: 32
@@ -39,7 +39,7 @@ inner:
  decimation_type: 'linear'
  verbose: 100
  lr: 0.0000033
- num_batches_update: 16 #number of training batches to use before updating weights. -1 means all batches 
+ num_batches_update: -1 #number of training batches to use before updating weights. -1 means all batches 
 
 problem:
  measurement_type: 'gaussian'
