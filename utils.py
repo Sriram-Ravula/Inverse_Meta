@@ -2,6 +2,9 @@ import random
 import torch
 import numpy as np
 import argparse
+import os
+import yaml
+
 
 
 def set_all_seeds(random_seed):
@@ -94,3 +97,58 @@ def get_meta_optimizer(opt_params, hparams):
         return (meta_opt, meta_scheduler)
     else:
         return meta_opt
+
+def parse_config(config_path):
+    with open(config_path, 'r') as f:
+        hparams = yaml.load(f)
+
+    if hparams['use_gpu']:
+        hparams['device'] = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu:0')
+    else:
+        hparams['device'] = torch.device('cpu:0')
+
+    if hparams['net'] != 'ncsnv2' or hparams['meta_type'] != 'implicit':
+        raise NotImplementedError
+    
+    if hparams['data']['dataset'] == "celeba":
+        hparams['data']['image_size'] = 64
+    elif hparams['data']['dataset'] == "ffhq":
+        hparams['data']['image_size'] = 256
+    else:
+        raise NotImplementedError
+
+    hparams['data']['image_shape'] = (hparams['data']['num_channels'],\
+         hparams['data']['image_size'], hparams['data']['image_size'])
+    hparams['data']['n_input'] = np.prod(hparams['data']['image_shape'])
+
+    #automatically set ROI to eye region if not specified
+    if hparams['outer']['ROI'] and not isinstance(hparams['outer']['ROI'], tuple):
+        if hparams['data']['dataset'] == "celeba":
+            hparams['outer']['ROI'] = ((27, 15),(10, 35))
+        else:
+            raise NotImplementedError #TODO add FFHQ!
+
+    #TODO implement finite difference
+    if hparams['outer']['finite_difference'] or hparams['outer']['measurement_loss'] \
+        or hparams['outer']['train_loss_type'] != 'l2':
+        raise NotImplementedError
+
+    if hparams['problem']['measurement_type'] == 'circulant':
+        hparams['problem']['train_indices'] = np.random.randint(0, hparams['data']['n_input'], hparams['problem']['num_measurements'])
+        hparams['problem']['sign_pattern'] = np.float32((np.random.rand(1, hparams['data']['n_input']) < 0.5)*2 - 1.)
+    elif hparams['problem']['measurement_type'] == 'superres':
+        hparams['problem']['y_shape'] = (hparams['data']['num_channels'], hparams['data']['image_size']//hparams['problem']['downsample_factor'], hparams['data']['image_size']//hparams['problem']['downsample_factor'])
+        hparams['problem']['num_measurements'] = np.prod(hparams['problem']['y_shape'])
+    elif hparams['problem']['measurement_type'] == 'identity':
+        hparams['problem']['y_shape'] = hparams['data']['image_shape']
+        hparams['problem']['num_measurements'] = hparams['data']['n_input']
+    elif hparams['problem']['measurement_type'] == 'inpaint':
+        hparams['problem']['num_measurements'] = hparams['data']['n_input'] - hparams['data']['num_channels']*hparams['problem']['inpaint_size']**2
+
+    if hparams['problem']['add_noise'] or hparams['problem']['add_dependent_noise']:
+        raise NotImplementedError
+
+    HPARAMS = dict2namespace(hparams)
+
+    return HPARAMS
+    
