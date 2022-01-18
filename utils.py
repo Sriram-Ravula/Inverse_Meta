@@ -100,7 +100,7 @@ def get_meta_optimizer(opt_params, hparams):
 
 def parse_config(config_path):
     with open(config_path, 'r') as f:
-        hparams = yaml.load(f)
+        hparams = yaml.safe_load(f)
 
     if hparams['use_gpu']:
         hparams['device'] = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu:0')
@@ -151,4 +151,3 @@ def parse_config(config_path):
     HPARAMS = dict2namespace(hparams)
 
     return HPARAMS
-    
