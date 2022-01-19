@@ -33,18 +33,18 @@ outer:
  ROI: true
 
 inner:
- alg: 'map'
- T: 5
+ alg: 'map' #['map', 'langevin']
+ T: 5 #[int] (5 for celeba, 3 for ffhq)
  decimation_factor: 5
  decimation_type: 'linear'
  verbose: 100
- lr: 0.0000033
+ lr: 0.0000033 #[float] (0.0000033 for celeba, 0.0000009 for ffhq)
  num_batches_update: -1 #number of training batches to use before updating weights. -1 means all batches 
 
 problem:
- measurement_type: 'inpaint'
+ measurement_type: 'superres'
  num_measurements: 1000
- downsample_factor: 2
+ downsample_factor: 4
  inpaint_size: 20
  add_noise: false
  noise_type: "gaussian"
