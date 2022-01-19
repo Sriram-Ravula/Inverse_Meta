@@ -110,7 +110,7 @@ def parse_config(config_path):
     else:
         hparams['device'] = torch.device('cpu:0')
 
-    if hparams['net'] != 'ncsnv2' or hparams['meta_type'] != 'implicit':
+    if hparams['net']['model'] != 'ncsnv2' or hparams['meta_type'] not in ['implicit', 'fomaml']:
         raise NotImplementedError
     
     if hparams['data']['dataset'] == "celeba":
@@ -166,6 +166,6 @@ def parse_args(docstring):
     parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
                                                                'Will be the name of the log folder.')
     parser.add_argument('--verbose', type=str, default='low', help='Verbose level: low | med | high')
-    
+
 
 
