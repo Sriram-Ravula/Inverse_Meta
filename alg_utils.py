@@ -109,6 +109,9 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
 
     if verbose:
         verbose = hparams.outer.cg_verbose
+    
+    if cg_iters < 1:
+        return b.clone()
 
     x = torch.zeros(b.shape, device=b.device) if x_init is None else x_init
 

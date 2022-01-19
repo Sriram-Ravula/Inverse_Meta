@@ -4,6 +4,9 @@ import numpy as np
 import argparse
 import os
 import yaml
+import torch.utils.tensorboard as tb
+import time
+from datetime import datetime
 
 
 
@@ -153,3 +156,16 @@ def parse_config(config_path):
     HPARAMS = dict2namespace(hparams)
 
     return HPARAMS
+
+def parse_args(docstring):
+    now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+    parser = argparse.ArgumentParser(description=docstring)
+
+    parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
+    parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
+                                                               'Will be the name of the log folder.')
+    parser.add_argument('--verbose', type=str, default='low', help='Verbose level: low | med | high')
+    
+
+
