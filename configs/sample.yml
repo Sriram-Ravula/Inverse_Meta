@@ -12,12 +12,12 @@ net:
 data:
  data_path: "" #directory to grab the dataset from
  dataset: 'ffhq'
- train_batch_size: 4
- val_batch_size: 4
+ train_batch_size: 1
+ val_batch_size: 1
  num_channels: 3
- num_train: 64
- num_val: 32
- num_test: 32
+ num_train: 1
+ num_val: 1
+ num_test: 1
 
 outer:
  meta_type: 'implicit' #implicit, maml, fomaml, hessian-free MAML, 
@@ -44,7 +44,7 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 100 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 250 #print every n iterations.
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
