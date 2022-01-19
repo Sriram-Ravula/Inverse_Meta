@@ -137,7 +137,7 @@ def parse_config(config_path):
 
     #TODO implement finite difference
     if hparams['outer']['finite_difference'] or hparams['outer']['measurement_loss'] \
-        or hparams['outer']['train_loss_type'] != 'l2':
+        or hparams['outer']['meta_loss_type'] != 'l2':
         raise NotImplementedError
 
     if hparams['problem']['measurement_type'] == 'circulant':
