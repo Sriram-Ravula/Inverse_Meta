@@ -162,8 +162,6 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     verbose = hparams.outer.verbose
     if verbose:
         verbose = hparams.inner.verbose
-    if hparams.net != "ncsnv2":
-        raise NotImplementedError #TODO implement finite difference and other models!
   
     #TODO alter this for non-implicit meta
     grad_flag_x = x_mod.requires_grad
