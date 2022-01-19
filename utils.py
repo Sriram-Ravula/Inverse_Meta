@@ -110,7 +110,7 @@ def parse_config(config_path):
     else:
         hparams['device'] = torch.device('cpu:0')
 
-    if hparams['net']['model'] != 'ncsnv2' or hparams['meta_type'] not in ['implicit', 'fomaml']:
+    if hparams['net']['model'] != 'ncsnv2' or hparams['outer']['meta_type'] not in ['implicit', 'fomaml']:
         raise NotImplementedError
     
     if hparams['data']['dataset'] == "celeba":
