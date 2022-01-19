@@ -30,7 +30,7 @@ outer:
  finite_difference_coeff: 0.00000001
  measurement_loss: false
  train_loss_type: 'l2'
- ROI: false
+ ROI: true
 
 inner:
  alg: 'map'
