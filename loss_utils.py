@@ -166,7 +166,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
 
 def meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
-    meta_type = hparams.outer.train_loss_type
+    meta_type = hparams.outer.meta_loss_type
     ROI = hparams.outer.ROI
 
     sse = torch.nn.MSELoss(reduction='sum')
@@ -182,7 +182,7 @@ def meta_loss(x_hat, x_true, hparams):
 
 def grad_meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
-    meta_type = hparams.outer.train_loss_type
+    meta_type = hparams.outer.meta_loss_type
     ROI = hparams.outer.ROI
 
     if meas_loss or meta_type != "l2":
