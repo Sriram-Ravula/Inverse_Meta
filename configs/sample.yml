@@ -10,7 +10,7 @@ net:
  checkpoint_dir: "" #Path to pretrained model
 
 data:
- data_path: "" #directory to grab the dataset from
+ data_path: "" 
  dataset: 'ffhq'
  train_batch_size: 1
  val_batch_size: 1
