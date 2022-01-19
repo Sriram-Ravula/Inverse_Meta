@@ -74,7 +74,8 @@ def init_c(hparams):
     elif c_type == 'vector':
         c = torch.ones(m)
     elif c_type == 'matrix':
-        c = torch.eye(m) + torch.randn(m, m) * (1 / np.sqrt(m))
+        c = torch.eye(m)
+        c = c + (1 / np.sqrt(m)) * torch.randn(m, m)
     else:
         raise NotImplementedError 
     
