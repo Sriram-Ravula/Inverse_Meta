@@ -14,7 +14,7 @@ data:
  num_test: 32
 
 outer:
- hyperparam_type: 'vector'
+ hyperparam_type: 'matrix'
  num_epochs: 5
  optimizer: 'adam'
  lr: 0.1
