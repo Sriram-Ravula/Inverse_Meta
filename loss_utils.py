@@ -189,7 +189,7 @@ def grad_meta_loss(x_hat, x_true, hparams):
         raise NotImplementedError
     
     if ROI:
-        ROI_mat = get_ROI_matrix(hparams).to(x_hat.device)
+        ROI_mat = get_ROI_matrix(hparams).to(x_hat.device).float()
         vec = torch.mm(ROI_mat, torch.flatten(x_hat - x_true, start_dim=1).T).T #[N, roi_num]
         return (torch.mm(ROI_mat.T, vec.T).T).view(x_hat.shape) 
     else:

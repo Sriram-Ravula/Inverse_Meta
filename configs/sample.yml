@@ -1,4 +1,4 @@
-meta_type: 'implicit'
+meta_type: 'implicit' #implicit, maml, fomaml, hessian-free MAML, 
 use_gpu: true
 save_dir: ""
 seed: 2022
