@@ -14,7 +14,7 @@ data:
  num_test: 32
 
 outer:
- hyperparam_type: 'matrix'
+ hyperparam_type: 'scalar'
  num_epochs: 5
  optimizer: 'adam'
  lr: 0.1
@@ -42,7 +42,7 @@ inner:
  num_batches_update: -1 #number of training batches to use before updating weights. -1 means all batches 
 
 problem:
- measurement_type: 'gaussian'
+ measurement_type: 'inpaint'
  num_measurements: 1000
  downsample_factor: 2
  inpaint_size: 20
