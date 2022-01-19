@@ -169,5 +169,8 @@ def parse_args(docstring):
                                                                'Will be the name of the log folder.')
     parser.add_argument('--verbose', type=str, default='low', help='Verbose level: low | med | high')
 
+    args = parser.parse_args()
 
+    return args
 
+#TODO add logging
