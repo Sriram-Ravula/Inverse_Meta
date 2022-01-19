@@ -15,7 +15,7 @@ data:
 
 outer:
  hyperparam_type: 'vector'
- num_epochs: 5
+ num_epochs: 25
  optimizer: 'adam'
  lr: 0.1
  lr_decay: 0.95
@@ -43,7 +43,7 @@ inner:
 
 problem:
  measurement_type: 'superres'
- num_measurements: 1000
+ num_measurements: 2
  downsample_factor: 4
  inpaint_size: 20
  add_noise: false
