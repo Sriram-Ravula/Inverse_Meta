@@ -21,7 +21,7 @@ def hessian_vector_product(x, full_grad, vec, hparams):
              Torch Tensor with shape [N, C, H, W].
     """
     finite_difference = hparams.outer.finite_difference
-    net = hparams.net
+    net = hparams.net.model
 
     if finite_difference or net != "ncsnv2":
         raise NotImplementedError #TODO implement finite difference and other models!
@@ -57,7 +57,7 @@ def cross_hessian_vector_product(c, cond_log_grad, vec, hparams):
         hvp: Grad_xc * vec: Gradient of loss(c, x) w.r.t. x and c, right-multiplied with vec.   
              Torch tensor with shape [], [m], or [k, m].
     """
-    net = hparams.net
+    net = hparams.net.model
 
     if net != "ncsnv2":
         raise NotImplementedError #TODO implement other models!
