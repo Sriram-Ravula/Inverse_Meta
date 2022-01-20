@@ -128,7 +128,6 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     step_lr = hparams.inner.lr
     decimate = hparams.inner.decimation_factor if hparams.inner.decimation_factor > 0 else False
     add_noise = True if hparams.inner.alg == 'langevin' else False
-    maml_forward = hparams.outer.maml_forward if hparams.outer.meta_type == 'maml' else False
     maml_use_last = hparams.outer.maml_use_last
     use_autograd = hparams.outer.auto_cond_log
     verbose = hparams.outer.verbose
@@ -143,11 +142,10 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         total_steps = len(sigmas) * T
         used_levels = np.arange(len(sigmas))
 
-    #if we are doing maml and only care about the last n iterations for second-order derivatives
     if maml_use_last not in np.arange(start=1, stop=total_steps) or hparams.outer.meta_type != 'maml':
         maml_use_last = False
 
-    if hparams.outer.meta_type == 'maml' and not maml_use_last and :
+    if hparams.outer.meta_type == 'maml' and (not maml_use_last or maml_use_last==total_steps):
         create_graph = True  
     else:
         create_graph = False
@@ -157,6 +155,11 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         x_mod.requires_grad_(False) 
         grad_flag_c = c.requires_grad
         c.requires_grad_(False)    
+
+    if hparams.outer.auto_cond_log and hparams.outer.hyperparam_type == 'inpaint':
+        efficient_inp = True
+    else:
+        efficient_inp = False
 
     fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
     titlestr = "%10s %10s %10s %10s %10s"
@@ -174,15 +177,20 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
 
         for s in range(T):
+            if not create_graph and hparams.outer.meta_type == 'maml' and (total_steps - step_num) == maml_use_last:
+                create_graph = True  
+                x_mod.requires_grad_()
+                c.requires_grad_() 
+
             prior_grad = model(x_mod, labels)
             
             if not create_graph and use_autograd:
                 x_mod.requires_grad_()
-                likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+                likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2), efficient_inp=efficient_inp)
                 likelihood_grad = torch.autograd.grad(likelihood_loss, x_mod, create_graph=create_graph)[0]
                 x_mod.requires_grad_(False) 
             elif use_autograd:
-                likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+                likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2), efficient_inp=efficient_inp)
                 likelihood_grad = torch.autograd.grad(likelihood_loss, x_mod, create_graph=create_graph)[0]
             else:
                 likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
@@ -201,7 +209,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
                     likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
                     if not use_autograd:
-                        likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2)).item()
+                        likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2), efficient_inp=efficient_inp).item()
 
                     print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       

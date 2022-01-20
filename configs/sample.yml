@@ -1,8 +1,9 @@
 use_gpu: true #whether to use cuda
-save_dir: "" #root of folder to save run information 
+gpu_num: 0 #the GPU number to use. default is 0. 
+save_dir: "" #root of folder to save run information (format: save_dir/datasets, save_dir/logs, save_dir/model_weights)
 seed: 2022
 resume: false #whether to resume from a checkpoint
-resume_dir: "" #the root of the checkpoint folder to resume from
+resume_dir: "" #the root of the checkpoint (log) folder to resume from
 
 net:
  model: 'ncsnv2'
@@ -20,10 +21,10 @@ data:
  num_test: 1
 
 outer:
- meta_type: 'implicit' #implicit, maml, fomaml
+ meta_type: 'implicit' #implicit, maml, mle, map, prior
  auto_cond_log: true #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
- maml_forward: false #whether to use forward mode autodiff for maml. saves memory but increases computation time.   
+ save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 

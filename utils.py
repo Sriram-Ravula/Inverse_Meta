@@ -106,13 +106,14 @@ def parse_config(config_path):
         hparams = yaml.safe_load(f)
 
     if hparams['use_gpu']:
-        hparams['device'] = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu:0')
+        num = hparams['gpu_num']
+        hparams['device'] = torch.device('cuda:'+str(num)) if torch.cuda.is_available() else torch.device('cpu:0')
     else:
         hparams['device'] = torch.device('cpu:0')
 
     if hparams['net']['model'] != 'ncsnv2':
         raise NotImplementedError
-    if hparams['outer']['meta_type'] not in ['implicit', 'fomaml']:
+    if hparams['outer']['meta_type'] not in ['implicit', 'maml', 'mle', 'map', 'prior']:
         raise NotImplementedError
     
     if hparams['data']['dataset'] == "celeba":
@@ -122,8 +123,7 @@ def parse_config(config_path):
     else:
         raise NotImplementedError
 
-    hparams['data']['image_shape'] = (hparams['data']['num_channels'],\
-         hparams['data']['image_size'], hparams['data']['image_size'])
+    hparams['data']['image_shape'] = (hparams['data']['num_channels'], hparams['data']['image_size'], hparams['data']['image_size'])
     hparams['data']['n_input'] = np.prod(hparams['data']['image_shape'])
 
     #automatically set ROI to eye region if not specified
