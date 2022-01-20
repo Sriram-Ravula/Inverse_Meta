@@ -2,23 +2,26 @@ import torch
 import numpy as np
 import loss_utils
 
-def hessian_vector_product(x, full_grad, vec, hparams):
+def hessian_vector_product(x, jacobian, vec, hparams, retain_graph=False):
     """
-    Calculates a Hessian-vector product with the given first derivative.
-    Used in conjugate gradient algorithm where vec is a candidate 
-    inverse hessian-meta gradient product.
+    Calculates a Hessian-vector product with the given first derivative (Jacobian).
 
     Args:
-        x:  Predicted sample used as input to model. Hessian is taken w.r.t. this.
-            Torch tensor with shape [N, C, H, W].
-        full_grad: The first derivative of the function whose Hessian we want  
+        x: Hessian is taken w.r.t. this variable. Jacobian must be a function of x.  
+           Torch tensor.
+        jacobian: The first derivative of the function whose Hessian we want.  
+                  Must be a leaf tensor with root at x.
+                  Torch tensor with dimension [N, C, H, W].
         vec: The vector in the Hessian-vector product. 
-             Torch tensor with shape [N, C, H, W]. 
+             Torch tensor with dimension that can broadcast with jacobian dimension.
         hparams: Experimental parameters. 
+        retain_graph: Whether to keep the computation graphs of x, jacobian, and vec intact.
+                      Useful when e.g. we need to re-use the same Jacobian multiple times
+                        like in conjugate gradient during implicit meta methods.
 
     Returns: 
         hvp: Hessian of the loss function w.r.t. x, right-multiplied with vec. 
-             Torch Tensor with shape [N, C, H, W].
+             Torch Tensor with same shape as x.
     """
     finite_difference = hparams.outer.finite_difference
     net = hparams.net.model
@@ -26,57 +29,22 @@ def hessian_vector_product(x, full_grad, vec, hparams):
     if finite_difference or net != "ncsnv2":
         raise NotImplementedError #TODO implement finite difference and other models!
 
-    h_func = torch.sum(full_grad * vec) #v.T (dL/dx)
+    h_func = torch.sum(jacobian * vec) #v.T (dL/dx)
 
-    #we want to retain the graph of this hvp since we will be re-using the same first derivative
-    #during conjugate gradient
-    hvp = torch.autograd.grad(h_func, x, retain_graph=True)[0] #[N, C, H, W]
+    hvp = torch.autograd.grad(h_func, x, retain_graph=retain_graph)[0]
 
     return hvp
 
-def cross_hessian_vector_product(c, cond_log_grad, vec, hparams):
-    """
-    Calculates a Hessian-vector product where the Hessian is composed of a derivative
-    w.r.t. two different variables. Used to calculate the final meta gradient w.r.t.
-    the hyperparameters. There, Hessian is the derivative of the inner loss w.r.t. x
-    and c and vec is the output of the conjugate gradient algorithm i.e. the inverse-Hessian
-    vector product. 
-
-    Args:
-        c: A hyperparameter whose dimensions determine the output likelihood loss.
-            The second derivative computation is w.r.t. this parameter.
-            Torch tensor with shape [], [m], or [k, m].
-        cond_log_grad:  Gradient of the conditional log-likelihood loss w.r.t. x.
-                        Torch tensor with shape [N, C, H, W].  
-        vec: The vector in the Hessian-vector product.
-            Expected to multiply with the first derivative of loss (w.r.t. x).
-            Torch tensor with shape [N, C, H, W].
-        hparams: Experimental parameters.
-    
-    Returns:
-        hvp: Grad_xc * vec: Gradient of loss(c, x) w.r.t. x and c, right-multiplied with vec.   
-             Torch tensor with shape [], [m], or [k, m].
-    """
-    net = hparams.net.model
-
-    if net != "ncsnv2":
-        raise NotImplementedError #TODO implement other models!
-
-    h_func = torch.sum(cond_log_grad * vec) #v.T (dL/dx)
-
-    hvp = torch.autograd.grad(h_func, c)[0] #[N, C, H, W]
-
-    return hvp
-
-def Ax(x, full_grad, hparams):
+def Ax(x, jacobian, hparams, retain_graph=False):
     """
     Helper function that returns a hessian-vector product evaluator.
-    Plug into CG optimization to evaluate Ax. 
+    Plug into CG optimization to evaluate Ax (where here A is the Hessian and x is vector). 
+    NOTE: only works when x and vector have the same shape
     """
     damping = hparams.outer.cg_damping
 
     def hvp_evaluator(vec):
-        undamped = hessian_vector_product(x, full_grad, vec, hparams)
+        undamped = hessian_vector_product(x, jacobian, vec, hparams, retain_graph=retain_graph)
         
         return damping * vec + undamped #Hv --> (aI + H)v = av + Hv
     
@@ -108,7 +76,7 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
     verbose = hparams.outer.verbose
 
     if verbose:
-        verbose = hparams.outer.cg_verbose
+        verbose = hparams.outer.cg_verbose if hparams.outer.cg_verbose > 0 else False
     
     if cg_iters < 1:
         return b.clone()
@@ -140,7 +108,8 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
 
         if torch.sqrt(rsnew) < residual_tol:
             if verbose:
-                print("Early CG termination due to small residual value")
+                print("\nEarly CG termination due to small residual value\n")
+                verbose=False
             break
 
         p = r + (rsnew / rsold) * p
@@ -157,17 +126,18 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
 def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     T = hparams.inner.T
     step_lr = hparams.inner.lr
-    decimate = hparams.inner.decimation_factor
+    decimate = hparams.inner.decimation_factor if hparams.inner.decimation_factor > 0 else False
     add_noise = True if hparams.inner.alg == 'langevin' else False
     verbose = hparams.outer.verbose
     if verbose:
-        verbose = hparams.inner.verbose
-  
-    #TODO alter this for non-implicit meta
-    grad_flag_x = x_mod.requires_grad
-    x_mod.requires_grad_(False) 
-    grad_flag_c = c.requires_grad
-    c.requires_grad_(False)
+        verbose = hparams.inner.verbose if hparams.inner.verbose > 0 else False
+    create_graph = True if hparams.outer.meta_type == 'maml' else False
+    
+    if not create_graph:
+        grad_flag_x = x_mod.requires_grad
+        x_mod.requires_grad_(False) 
+        grad_flag_c = c.requires_grad
+        c.requires_grad_(False)
 
     if decimate:
         used_levels = get_decimated_sigmas(len(sigmas), hparams)
@@ -175,6 +145,10 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     else:
         num_used_levels = len(sigmas)
         used_levels = np.arange(len(sigmas))
+
+    fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
+    titlestr = "%10s %10s %10s %10s %10s"
+    if verbose: print(titlestr % ("Noise Level", "Meas Loss", "Score Norm", "Meas Grad Norm", "Total Grad Norm"))
 
     global_step = 0
 
@@ -189,7 +163,14 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
 
         for s in range(T):
             prior_grad = model(x_mod, labels)
-            likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+            
+            if not create_graph:
+                x_mod.requires_grad_()
+            likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+            likelihood_grad = torch.autograd.grad(likelihood_loss, x_mod, create_graph=create_graph)[0]
+            if not create_graph:
+                x_mod.requires_grad_(False) 
+            #likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
 
             grad = prior_grad - likelihood_grad
 
@@ -199,21 +180,21 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
             else:
                 x_mod = x_mod + step_size * grad
 
-            #logging
             if verbose and (global_step % verbose == 0 or global_step == T*num_used_levels - 1):
-                prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean()
-                likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean()
-                grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
+                with torch.no_grad():
+                    prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
+                    likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
+                    grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
 
-                print("Noise Level: {}, Step Size: {:.3f}, Prior Grad Norm: {:.3f}, Likelihood Grad Norm: {:.3f}, Total Grad Norm: {:.3f}".format(
-                    t, step_size, prior_grad_norm.item(), likelihood_grad_norm.item(), grad_norm.item()))
+                    print(fmtstr % (t, likelihood_loss.item(), prior_grad_norm, likelihood_grad_norm, grad_norm))
       
             global_step += 1
     
     x_mod = torch.clamp(x_mod, 0.0, 1.0)
   
-    x_mod.requires_grad_(grad_flag_x)
-    c.requires_grad_(grad_flag_c)
+    if not create_graph:
+        x_mod.requires_grad_(grad_flag_x)
+        c.requires_grad_(grad_flag_c)
 
     return x_mod
 

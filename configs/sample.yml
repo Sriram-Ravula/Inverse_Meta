@@ -36,7 +36,7 @@ outer:
  cg_iters: 0 #number of conjugate gradient iterations to run if using meta_type=implicit. 0 returns b as the solution. A usual value is 25.
  cg_verbose: 0 #print from conjugate gradient every n iterations. 0 means don't print
  cg_tol: 0.00001 #tolerance parameter for conjugate gradient residual. A usual value is 0.00001.
- cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 
+ cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 0 means no damping
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
  finite_difference_coeff: 0.00000001 #value of r to use in finite difference. 0.00000001 is usual val
  ROI: true #[False, True, ((h_offset, w_offset),(h, w))] - whether to use an ROI
@@ -46,7 +46,7 @@ inner:
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
  decimation_factor: 100 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
- verbose: 250 #print every n iterations.
+ verbose: 250 #print every n iterations. 0 means don't print
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
