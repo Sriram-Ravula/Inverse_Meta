@@ -20,7 +20,10 @@ data:
  num_test: 1
 
 outer:
- meta_type: 'implicit' #implicit, maml, fomaml, hessian-free MAML, 
+ meta_type: 'implicit' #implicit, maml, fomaml
+ auto_cond_log: true #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
+ maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
+ maml_forward: false #whether to use forward mode autodiff for maml. saves memory but increases computation time.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 

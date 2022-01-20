@@ -128,29 +128,41 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     step_lr = hparams.inner.lr
     decimate = hparams.inner.decimation_factor if hparams.inner.decimation_factor > 0 else False
     add_noise = True if hparams.inner.alg == 'langevin' else False
+    maml_forward = hparams.outer.maml_forward if hparams.outer.meta_type == 'maml' else False
+    maml_use_last = hparams.outer.maml_use_last
+    use_autograd = hparams.outer.auto_cond_log
     verbose = hparams.outer.verbose
+
     if verbose:
         verbose = hparams.inner.verbose if hparams.inner.verbose > 0 else False
-    create_graph = True if hparams.outer.meta_type == 'maml' else False
+
+    if decimate:
+        used_levels = get_decimated_sigmas(len(sigmas), hparams)
+        total_steps = len(used_levels) * T
+    else:
+        total_steps = len(sigmas) * T
+        used_levels = np.arange(len(sigmas))
+
+    #if we are doing maml and only care about the last n iterations for second-order derivatives
+    if maml_use_last not in np.arange(start=1, stop=total_steps) or hparams.outer.meta_type != 'maml':
+        maml_use_last = False
+
+    if hparams.outer.meta_type == 'maml' and not maml_use_last and :
+        create_graph = True  
+    else:
+        create_graph = False
     
     if not create_graph:
         grad_flag_x = x_mod.requires_grad
         x_mod.requires_grad_(False) 
         grad_flag_c = c.requires_grad
-        c.requires_grad_(False)
-
-    if decimate:
-        used_levels = get_decimated_sigmas(len(sigmas), hparams)
-        num_used_levels = len(used_levels)
-    else:
-        num_used_levels = len(sigmas)
-        used_levels = np.arange(len(sigmas))
+        c.requires_grad_(False)    
 
     fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
     titlestr = "%10s %10s %10s %10s %10s"
     if verbose: print(titlestr % ("Noise Level", "Meas Loss", "Score Norm", "Meas Grad Norm", "Total Grad Norm"))
 
-    global_step = 0
+    step_num = 0
 
     #iterate over noise level index
     for t in used_levels:
@@ -164,13 +176,16 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         for s in range(T):
             prior_grad = model(x_mod, labels)
             
-            if not create_graph:
+            if not create_graph and use_autograd:
                 x_mod.requires_grad_()
-            likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2))
-            likelihood_grad = torch.autograd.grad(likelihood_loss, x_mod, create_graph=create_graph)[0]
-            if not create_graph:
+                likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+                likelihood_grad = torch.autograd.grad(likelihood_loss, x_mod, create_graph=create_graph)[0]
                 x_mod.requires_grad_(False) 
-            #likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+            elif use_autograd:
+                likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2))
+                likelihood_grad = torch.autograd.grad(likelihood_loss, x_mod, create_graph=create_graph)[0]
+            else:
+                likelihood_grad = loss_utils.gradient_log_cond_likelihood(c, y, A, x_mod, hparams, scale=1/(sigma**2))
 
             grad = prior_grad - likelihood_grad
 
@@ -180,15 +195,17 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
             else:
                 x_mod = x_mod + step_size * grad
 
-            if verbose and (global_step % verbose == 0 or global_step == T*num_used_levels - 1):
+            if verbose and (step_num % verbose == 0 or step_num == total_steps - 1):
                 with torch.no_grad():
                     prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
                     likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
+                    if not use_autograd:
+                        likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2)).item()
 
-                    print(fmtstr % (t, likelihood_loss.item(), prior_grad_norm, likelihood_grad_norm, grad_norm))
+                    print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       
-            global_step += 1
+            step_num += 1
     
     x_mod = torch.clamp(x_mod, 0.0, 1.0)
   
