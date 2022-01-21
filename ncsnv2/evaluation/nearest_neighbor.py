@@ -10,7 +10,7 @@ import pathlib
 import numpy as np
 import torch
 from torchvision.datasets import LSUN, CelebA, CIFAR10
-from datasets.ffhq import FFHQ
+from ncsnv2.datasets.ffhq import FFHQ
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Resize, CenterCrop, RandomHorizontalFlip, ToPILImage, ToTensor
 from torchvision.utils import save_image

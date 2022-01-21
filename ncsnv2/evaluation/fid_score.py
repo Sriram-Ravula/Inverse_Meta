@@ -49,7 +49,7 @@ except ImportError:
     # If not tqdm is not available, provide a mock version of it
     def tqdm(x): return x
 
-from .inception import InceptionV3
+from ncsnv2.evaluation.inception import InceptionV3
 
 def imread(filename):
     """

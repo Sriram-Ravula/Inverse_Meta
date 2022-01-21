@@ -2,8 +2,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from functools import partial
-from .layers import *
-from .normalization import get_normalization
+from ncsnv2.models.layers import *
+from ncsnv2.models.normalization import get_normalization
 
 
 class NCSN(nn.Module):

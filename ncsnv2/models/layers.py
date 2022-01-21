@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from torch.nn.parameter import Parameter
 import torch.nn.functional as F
-from .normalization import *
+from ncsnv2.models.normalization import *
 from functools import partial
 import math
 import torch.nn.init as init

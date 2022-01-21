@@ -10,7 +10,7 @@ import torch
 import numpy as np
 import torch.utils.tensorboard as tb
 import copy
-from runners import *
+from ncsnv2.runners import *
 
 import os
 

@@ -1,1 +1,1 @@
-from runners.ncsn_runner import *
+from ncsnv2.runners.ncsn_runner import *

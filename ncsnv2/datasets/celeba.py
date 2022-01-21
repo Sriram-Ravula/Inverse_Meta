@@ -1,8 +1,8 @@
 import torch
 import os
 import PIL
-from .vision import VisionDataset
-from .utils import download_file_from_google_drive, check_integrity
+from ncsnv2.datasets.vision import VisionDataset
+from ncsnv2.datasets.utils import download_file_from_google_drive, check_integrity
 
 
 class CelebA(VisionDataset):
