@@ -123,7 +123,7 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
 
     return x  
 
-def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
+def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, eval=False):
     T = hparams.inner.T
     step_lr = hparams.inner.lr
     decimate = hparams.inner.decimation_factor if hparams.inner.decimation_factor > 0 else False
@@ -150,7 +150,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
     else:
         create_graph = False
     
-    if not create_graph:
+    if not create_graph or eval:
         grad_flag_x = x_mod.requires_grad
         x_mod.requires_grad_(False) 
         grad_flag_c = c.requires_grad
@@ -177,7 +177,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
 
         for s in range(T):
-            if not create_graph and hparams.outer.meta_type == 'maml' and (total_steps - step_num) == maml_use_last:
+            if not eval and not create_graph and hparams.outer.meta_type == 'maml' and (total_steps - step_num) == maml_use_last:
                 create_graph = True  
                 x_mod.requires_grad_()
                 c.requires_grad_() 
