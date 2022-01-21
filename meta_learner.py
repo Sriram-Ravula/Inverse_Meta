@@ -10,10 +10,10 @@ from utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
 from loss_utils import get_A, meta_loss, get_measurements, gradient_log_cond_likelihood, log_cond_likelihood_loss
 from alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver
 
-from ncsnv2.models.ncsnv2 import NCSNv2Deeper, NCSNv2, NCSNv2Deepest
+from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
 from ncsnv2.models.ema import EMAHelper
-from ncsnv2.datasets import get_dataset, utils
+from ncsnv2.datasets import get_dataset
 
 
 class MetaLearner:
@@ -108,12 +108,12 @@ class MetaLearner:
         if self.A is not None:
             self.A = self.A.to(self.hparams.device)
 
-        self.c = utils.init_c(self.hparams).to(self.hparams.device)
+        self.c = init_c(self.hparams).to(self.hparams.device)
 
         if self.hparams.outer.lr_decay:
-            self.meta_opt, self.meta_scheduler = utils.get_meta_optimizer(self.c, self.hparams.outer.lr_decay)
+            self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams.outer.lr_decay)
         else:
-            self.meta_opt = utils.get_meta_optimizer(self.c, self.hparams.outer.lr_decay)
+            self.meta_opt = get_meta_optimizer(self.c, self.hparams.outer.lr_decay)
         
         #values used for loss min appx
         s_idx = len(self.sigmas)-1
