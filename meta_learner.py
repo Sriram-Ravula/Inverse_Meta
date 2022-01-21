@@ -163,6 +163,9 @@ class MetaLearner:
 
             self.global_iter += 1
         
+        #replace current c with the one from the best iteration
+        self.c.copy_(self.c_list[self.best_iter])
+
         #Test
         self.val_or_test(validate=False)
 
@@ -172,6 +175,10 @@ class MetaLearner:
             print(self.test_losses)
             print("VAL LOSSES: ")
             print(self.val_losses)
+            print("BEST VAL LOSS: ")
+            print(self.val_losses[self.best_val_iter])
+            print("BEST ITERATION: ")
+            print(self.best_iter)
             print("META LOSSES: ")
             print(self.meta_losses)
             print("GRAD NORMS: ")
