@@ -264,7 +264,7 @@ class MetaLearner:
             num_batches -= 1
 
         #(3) Update the hyperparam weights
-        self.c.requires_grad()
+        self.c.requires_grad_()
         if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
             dummy_loss = torch.sum(self.c)
             dummy_loss.backward()
