@@ -57,7 +57,8 @@ def get_measurements(A, x, hparams, efficient_inp=False):
     elif A_type == 'superres':
         Ax = F.avg_pool2d(x, hparams.problem.downsample_factor)
     elif A_type == 'identity':
-        Ax = torch.nn.Identity(x)
+        I = torch.nn.Identity()
+        Ax = I(x)
     else:
         raise NotImplementedError #TODO implement circulant!!
     
@@ -71,7 +72,8 @@ def get_transpose_measurements(A, vec, hparams):
     elif A_type == 'superres': #make sure y is in the right shape
         ans = F.interpolate(vec, scale_factor=hparams.problem.downsample_factor)
     elif A_type == 'identity':
-        ans = torch.nn.Identity(vec)
+        I = torch.nn.Identity()
+        ans = I(vec)
     else:
         raise NotImplementedError #TODO implement circulant!!
     

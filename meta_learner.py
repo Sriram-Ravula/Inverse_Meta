@@ -69,7 +69,7 @@ class MetaLearner:
 
         if self.hparams.outer.verbose:
             end = time()
-            print("\nNET TIME: ", str(end - start), " S\n")
+            print("\nNET TIME: ", str(end - start), "S\n")
 
         return 
     
@@ -95,7 +95,7 @@ class MetaLearner:
 
         if self.hparams.outer.verbose:
             end = time()
-            print("\nDATA TIME: ", str(end - start), " S\n")
+            print("\nDATA TIME: ", str(end - start), "S\n")
 
         return
     
@@ -139,7 +139,7 @@ class MetaLearner:
 
         if self.hparams.outer.verbose:
             end = time()
-            print("\nPROBLEM TIME: ", str(end - start), " S\n")
+            print("\nPROBLEM TIME: ", str(end - start), "S\n")
 
         return
     
