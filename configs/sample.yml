@@ -7,38 +7,38 @@ resume_dir: "" #the root of the checkpoint (log) folder to resume from
 
 net:
  model: 'ncsnv2'
- config_file: "" #Path to a config file for the model (if it used configs)
- checkpoint_dir: "" #Path to pretrained model
+ config_file: "/content/ncsnv2/configs/celeba.yml" #Path to a config file for the model (if it used configs)
+ checkpoint_dir: "/content/ncsnv2/exp/logs/celeba/checkpoint_210000.pth" #Path to pretrained model
 
 data:
- data_path: "" 
- dataset: 'ffhq'
- train_batch_size: 1
- val_batch_size: 1
+ data_path: "/content/ncsnv2/exp/datasets/celeba" #or 'FFHQ' (all caps)
+ dataset: 'celeba'
+ train_batch_size: 8
+ val_batch_size: 16
  num_channels: 3
- num_train: 1
- num_val: 1
- num_test: 1
+ num_train: 64
+ num_val: 32
+ num_test: 32
 
 outer:
- meta_type: 'implicit' #implicit, maml, mle
+ meta_type: 'mle' #implicit, maml, mle
  auto_cond_log: true #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
  save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
- num_iters: 1 #number of meta iterations to run
- optimizer: 'adam' #meta optimizer. [adam, sgd]
- lr: 0.01 #meta learning rate
+ num_iters: 25 #number of meta iterations to run
+ optimizer: 'sgd' #meta optimizer. [adam, sgd]
+ lr: 0.1 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 means no decay
  verbose: true #whether to print during execution. TODO supplant this with command line argument.
  debug: false #debug mode doesn't save anything
- val_iters: 1 #validate every n iterations
+ val_iters: 2 #validate every n iterations
  checkpoint_iters: 5 #checkpoint every n iterations
- batches_per_iter: 1 #number of training batches to use per iteration. -1 means all batches 
- cg_iters: 0 #number of conjugate gradient iterations to run if using meta_type=implicit. 0 returns b as the solution. A usual value is 25.
- cg_verbose: 0 #print from conjugate gradient every n iterations. 0 means don't print
+ batches_per_iter: 2 #number of training batches to use per iteration. -1 means all batches 
+ cg_iters: 25 #number of conjugate gradient iterations to run if using meta_type=implicit. 0 returns b as the solution. A usual value is 25.
+ cg_verbose: 5 #print from conjugate gradient every n iterations. 0 means don't print
  cg_tol: 0.00001 #tolerance parameter for conjugate gradient residual. A usual value is 0.00001.
  cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 0 means no damping
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
@@ -47,14 +47,14 @@ outer:
 
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
- T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 100 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
+ decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
- verbose: 250 #print every n iterations. 0 means don't print
- lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
+ verbose: 100 #print every n iterations. 0 means don't print
+ lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'superres' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
  num_measurements: 5000 #number of measurements for gaussian and circulant
  downsample_factor: 8 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting

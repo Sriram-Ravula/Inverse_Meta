@@ -32,7 +32,7 @@ def get_dataset(args, config):
 
     elif config.data.dataset == 'CELEBA':
         if config.data.random_flip:
-            dataset = CelebA(root=os.path(args.data_path), split='train',
+            dataset = CelebA(root=os.path.join(args.data_path), split='train',
                              transform=transforms.Compose([
                                  transforms.CenterCrop(140),
                                  transforms.Resize(config.data.image_size),
@@ -40,14 +40,14 @@ def get_dataset(args, config):
                                  transforms.ToTensor(),
                              ]), download=True)
         else:
-            dataset = CelebA(root=os.path(args.data_path), split='train',
+            dataset = CelebA(root=os.path.join(args.data_path), split='train',
                              transform=transforms.Compose([
                                  transforms.CenterCrop(140),
                                  transforms.Resize(config.data.image_size),
                                  transforms.ToTensor(),
                              ]), download=True)
 
-        test_dataset = CelebA(root=os.path(args.data_path), split='test',
+        test_dataset = CelebA(root=os.path.join(args.data_path), split='test',
                               transform=transforms.Compose([
                                   transforms.CenterCrop(140),
                                   transforms.Resize(config.data.image_size),
@@ -83,12 +83,12 @@ def get_dataset(args, config):
 
     elif config.data.dataset == "FFHQ":
         if config.data.random_flip:
-            dataset = FFHQ(path=os.path(args.data_path), transform=transforms.Compose([
+            dataset = FFHQ(path=os.path.join(args.data_path), transform=transforms.Compose([
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.ToTensor()
             ]), resolution=config.data.image_size)
         else:
-            dataset = FFHQ(path=os.path(args.data_path), transform=transforms.ToTensor(),
+            dataset = FFHQ(path=os.path.join(args.data_path), transform=transforms.ToTensor(),
                            resolution=config.data.image_size)
 
         num_items = len(dataset)
