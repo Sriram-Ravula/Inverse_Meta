@@ -1,4 +1,3 @@
-from importlib.metadata import requires
 from cupshelpers import Printer
 import torch
 from torch.utils.data import DataLoader
