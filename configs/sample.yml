@@ -28,7 +28,7 @@ outer:
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
- num_iters: 1 #number of meta iterations to run
+ num_iters: 25 #number of meta iterations to run
  optimizer: 'sgd' #meta optimizer. [adam, sgd]
  lr: 0.1 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 means no decay
@@ -36,7 +36,7 @@ outer:
  debug: false #debug mode doesn't save anything
  val_iters: 1 #validate every n iterations
  checkpoint_iters: 5 #checkpoint every n iterations
- batches_per_iter: 1 #number of training batches to use per iteration. -1 means all batches 
+ batches_per_iter: 4 #number of training batches to use per iteration. -1 means all batches 
  cg_iters: 25 #number of conjugate gradient iterations to run if using meta_type=implicit. 0 returns b as the solution. A usual value is 25.
  cg_verbose: 5 #print from conjugate gradient every n iterations. 0 means don't print
  cg_tol: 0.00001 #tolerance parameter for conjugate gradient residual. A usual value is 0.00001.
