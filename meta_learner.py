@@ -160,6 +160,11 @@ class MetaLearner:
             if self.hparams.outer.verbose:
                 print("\nTRAIN META LOSS: ", meta_train_loss)
                 print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
+                print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')
+                print("\nC STD: ", torch.std(self.c_list[-1]), '\n')
+                print("\nC MIN: ", torch.min(self.c_list[-1]), '\n')
+                print("\nC MAX: ", torch.max(self.c_list[-1]), '\n')
+                 
 
             self.global_iter += 1
         

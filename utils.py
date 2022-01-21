@@ -173,4 +173,3 @@ def parse_args(docstring):
 
     return args
 
-#TODO add logging
