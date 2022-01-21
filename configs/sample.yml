@@ -7,7 +7,7 @@ resume_dir: "" #the root of the checkpoint (log) folder to resume from
 
 net:
  model: 'ncsnv2'
- config_file: "/content/ncsnv2/configs/celeba.yml" #Path to a config file for the model (if it used configs)
+ config_file: "/content/Inverse_Meta/ncsnv2/configs/celeba.yml" #Path to a config file for the model (if it used configs)
  checkpoint_dir: "/content/ncsnv2/exp/logs/celeba/checkpoint_210000.pth" #Path to pretrained model
 
 data:
