@@ -210,6 +210,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams):
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
                     if not use_autograd:
                         likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1/(sigma**2), efficient_inp=efficient_inp).item()
+                        likelihood_loss /= x_mod.shape[0]
 
                     print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       
