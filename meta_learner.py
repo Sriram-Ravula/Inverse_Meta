@@ -1,4 +1,3 @@
-from cupshelpers import Printer
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
