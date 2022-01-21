@@ -146,7 +146,7 @@ class MetaLearner:
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.outer.num_iters)):
             #validate
-            if iter % self.hparams.val_iters == 0:
+            if iter % self.hparams.outer.val_iters == 0:
                 self.val_or_test(validate=True)
             
             #train
