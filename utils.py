@@ -129,7 +129,7 @@ def parse_config(config_path):
     #automatically set ROI to eye region if not specified
     if hparams['outer']['ROI'] and not isinstance(hparams['outer']['ROI'], tuple):
         if hparams['data']['dataset'] == "celeba":
-            hparams['outer']['ROI'] = ((27, 15),(10, 35))
+            hparams['outer']['ROI'] = ((27, 15),(35, 35))
         elif hparams['data']['dataset'] == "ffhq":
             hparams['outer']['ROI'] = ((90, 50),(60, 156))
         else:
