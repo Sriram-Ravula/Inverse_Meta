@@ -113,7 +113,7 @@ def parse_config(config_path):
 
     if hparams['net']['model'] != 'ncsnv2':
         raise NotImplementedError
-    if hparams['outer']['meta_type'] not in ['implicit', 'maml', 'mle', 'map', 'prior']:
+    if hparams['outer']['meta_type'] not in ['implicit', 'maml', 'mle']:
         raise NotImplementedError
     
     if hparams['data']['dataset'] == "celeba":

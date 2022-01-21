@@ -21,7 +21,7 @@ data:
  num_test: 1
 
 outer:
- meta_type: 'implicit' #implicit, maml, mle, map, prior
+ meta_type: 'implicit' #implicit, maml, mle
  auto_cond_log: true #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
  save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
