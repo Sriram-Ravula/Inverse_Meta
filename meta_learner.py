@@ -111,9 +111,9 @@ class MetaLearner:
         self.c = init_c(self.hparams).to(self.hparams.device)
 
         if self.hparams.outer.lr_decay:
-            self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams.outer.lr_decay)
+            self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams)
         else:
-            self.meta_opt = get_meta_optimizer(self.c, self.hparams.outer.lr_decay)
+            self.meta_opt = get_meta_optimizer(self.c, self.hparams)
         
         #values used for loss min appx
         s_idx = len(self.sigmas)-1
