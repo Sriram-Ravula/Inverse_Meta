@@ -22,9 +22,8 @@ class MetaLearner:
     """
     Meta Learning for inverse problems
     """
-    def __init__(self, hparams, args):
+    def __init__(self, hparams):
         self.hparams = hparams
-        self.args = args
         self.__init_net()
         self.__init_datasets()
         self.__init_problem()
