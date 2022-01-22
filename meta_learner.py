@@ -8,7 +8,7 @@ from time import time
 
 from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
 from utils.loss_utils import get_A, meta_loss, get_measurements, get_likelihood_grad, get_meta_grad
-from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver
+from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
@@ -150,8 +150,19 @@ class MetaLearner:
                 self.val_or_test(validate=True)
             
             #train
+            self.meta_opt.zero_grad()
             meta_grad, meta_train_loss = self.outer_step()
 
+            #update weights
+            self.c.requires_grad_()
+            if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
+                dummy_loss = torch.sum(self.c)
+                dummy_loss.backward()
+            self.c.grad.copy_(meta_grad)
+            self.meta_opt.step()
+            self.c.requires_grad_(False)
+
+            #stats
             self.meta_losses.append(meta_train_loss)
             self.grads.append(meta_grad)
             self.grad_norms.append(torch.norm(meta_grad.flatten()).item())
@@ -192,7 +203,6 @@ class MetaLearner:
         return
     
     def outer_step(self):  
-        self.meta_opt.zero_grad()
         meta_grad = 0.0 
         cur_meta_loss = 0.0
         n_samples = 0
@@ -201,58 +211,29 @@ class MetaLearner:
         for i, (x, _) in tqdm(enumerate(self.train_loader)):
             if num_batches == 0:
                 break
+
             n_samples += x.shape[0]
 
             if self.hparams.outer.meta_type == 'maml':
                 self.c.requires_grad_()
             
-            #(1) Find x(c)
+            #(1) Find x(c) by running the inner optimization
             x = x.to(self.hparams.device)
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
-            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams)
+            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
 
             with torch.no_grad():
                 cur_meta_loss += meta_loss(x_hat, x, self.hparams).item()
             
             #(2) Find meta loss
             if self.hparams.outer.meta_type == 'maml':
-                #simply find the HVP grad_c(x)*grad_x(meta_loss)
-                grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams, retain_graph=True)
-                meta_grad += hessian_vector_product(self.c, x_hat, grad_x_meta_loss, self.hparams)
-
+                meta_grad += self.maml_step(x_hat, x)
             elif self.hparams.outer.meta_type == 'implicit':
-                #(2)a - do conjugate gradient and find the inverse HVP ihvp=[grad^2_x(inner_loss)]^-1 * grad_x(meta_loss)
-                grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
-
-                cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
-                    efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
-                prior_grad = self.model(x_hat, self.labels) 
-
-                hvp_helper = Ax(x_hat, (cond_log_grad - prior_grad), self.hparams, retain_graph=True)
-
-                ihvp = cg_solver(hvp_helper, grad_x_meta_loss, self.hparams)
-
-                #(2)b Find the HVP of grad_x_c(inner_loss)*ihvp
-                self.c.requires_grad_()
-
-                cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
-                    efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
-
-                meta_grad -= hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
-
+                meta_grad += self.implicit_maml_step(x_hat, x, y)
             elif self.hparams.outer.meta_type == 'mle':
-                #We just want to find the HVP grad_x_c(inner_loss) * grad_x(meta_loss)
-                grad_x_meta_loss = torch.autograd.grad(meta_loss(x_hat, x, self.hparams), x_hat)[0]
-                
-                self.c.requires_grad_()
-                
-                cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
-                    efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True) 
-
-                meta_grad -= hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
-
+                meta_grad += self.mle_step(x_hat, x, y)
             else: 
                 raise NotImplementedError
             
@@ -260,22 +241,68 @@ class MetaLearner:
             self.c.requires_grad_(False)
 
             num_batches -= 1
-
-        #(3) Update the hyperparam weights
-        self.c.requires_grad_()
-        if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
-            dummy_loss = torch.sum(self.c)
-            dummy_loss.backward()
         
         meta_grad /= n_samples
-        self.c.grad.copy_(meta_grad)
-        self.meta_opt.step()
-
-        self.c.requires_grad_(False)
-
         cur_meta_loss /= n_samples
 
-        return meta_grad.detach().cpu(), cur_meta_loss
+        return meta_grad, cur_meta_loss
+
+    def maml_step(self, x_hat, x):
+        """
+        Calculates the meta-gradient for a MAML step. 
+        grad_c(x_hat) = grad_c(x_hat_0)*...*grad_c(x_hat_(T-1))*grad_(x_hat_(T-1))(x_hat) + grad_c(x_hat)
+        (1) Find the meta loss 
+        (2) Find the HVP of grad_c(x_hat)*(meta_loss)
+        """
+        #(1)
+        grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams, retain_graph=True)
+
+        #(2)
+        return hessian_vector_product(self.c, x_hat, grad_x_meta_loss, self.hparams)
+    
+    def implicit_maml_step(self, x_hat, x, y):
+        """
+        Calculates the meta-gradient for an Implicit MAML step.
+        grad_c(x_hat) = - grad_x_c[recon_loss] * grad^2_x[recon_loss]^-1 * (meta_loss)
+        (1) Find meta loss
+        (2) Do conjugate gradient and find the inverse HVP
+        (3) Find the HVP of grad_x_c[recon_loss]*ihvp
+        """
+        #(1)
+        grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
+
+        #(2)
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+            efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
+        prior_grad = self.model(x_hat, self.labels) 
+
+        hvp_helper = Ax(x_hat, (cond_log_grad - prior_grad), self.hparams, retain_graph=True)
+
+        ihvp = cg_solver(hvp_helper, grad_x_meta_loss, self.hparams)
+
+        #(3)
+        self.c.requires_grad_()
+
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+            efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
+
+        return -hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
+
+    def mle_step(self, x_hat, x, y):
+        """
+        Calculates the meta-gradient for an MLE step.
+        grad_c(x_hat) = - grad_x_c[recon_loss] * (meta_loss)
+        (1) Find meta loss
+        (2) HVP of grad_x_c(recon_loss) * grad_x(meta_loss)
+        """
+        grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
+        
+        self.c.requires_grad_()
+        
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+            efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True) 
+
+        return -hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
 
     def val_or_test(self, validate):
         if validate:
@@ -299,7 +326,7 @@ class MetaLearner:
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
-            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams)
+            x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
 
             cur_loss += meta_loss(x_hat, x, self.hparams).item()
         
