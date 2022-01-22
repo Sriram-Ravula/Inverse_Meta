@@ -147,7 +147,25 @@ class MetaLearner:
         for iter in tqdm(range(self.hparams.outer.num_iters)):
             #validate
             if iter % self.hparams.outer.val_iters == 0:
-                self.val_or_test(validate=True)
+                if self.hparams.outer.verbose:
+                    print("\nBEGINNING VALIDATION\n")
+                meta_val_loss = self.val_or_test(validate=True)
+
+                self.val_losses.append(meta_val_loss)
+
+                #check if we have a new best value for c
+                if len(self.val_losses) > 1 and self.val_losses[self.best_val_iter] > meta_val_loss:
+                    self.best_iter = self.global_iter
+                    self.best_val_iter = len(self.val_losses)-1
+                    if self.hparams.outer.verbose:
+                        print("\nNEW BEST VAL LOSS: ", meta_val_loss, "\n")
+                elif (len(self.val_losses) - self.best_val_iter) >= 3 and self.hparams.outer.lr_decay:
+                    self.meta_scheduler.step()
+                    if self.hparams.outer.verbose :
+                        print("\nVAL LOSS HASN'T IMPROVED IN 2 ITERS; DECAYING LR\n")
+
+                if self.hparams.outer.verbose:
+                    print("\nVAL LOSS: ", meta_val_loss)
             
             #train
             self.meta_opt.zero_grad()
@@ -164,7 +182,7 @@ class MetaLearner:
 
             #stats
             self.meta_losses.append(meta_train_loss)
-            self.grads.append(meta_grad)
+            self.grads.append(meta_grad.detach().cpu())
             self.grad_norms.append(torch.norm(meta_grad.flatten()).item())
             self.c_list.append(self.c.detach().cpu())
 
@@ -183,7 +201,8 @@ class MetaLearner:
         self.c.copy_(self.c_list[self.best_iter])
 
         #Test
-        self.val_or_test(validate=False)
+        meta_test_loss = self.val_or_test(validate=False)
+        self.test_losses.append(meta_test_loss)
 
         if self.hparams.outer.verbose:
             print("FINISHED!\n")
@@ -306,20 +325,14 @@ class MetaLearner:
 
     def val_or_test(self, validate):
         if validate:
-            val_test = 'VALIDATION'
             cur_loader = self.val_loader
         else:
-            val_test = 'TESTING'
             cur_loader = self.test_loader
-
-        if self.hparams.outer.verbose:
-            print("\nBEGINNING " + val_test + "\n")
-            start = time()
 
         cur_loss = 0.0
         n_samples = 0
 
-        for i, (x, _) in enumerate(cur_loader):
+        for i, (x, _) in tqdm(enumerate(cur_loader)):
             n_samples += x.shape[0]
 
             x = x.to(self.hparams.device)
@@ -332,24 +345,4 @@ class MetaLearner:
         
         cur_loss /= n_samples
 
-        if validate:
-            self.val_losses.append(cur_loss)
-
-            if len(self.val_losses) > 1 and self.val_losses[self.best_val_iter] > cur_loss:
-                self.best_iter = self.global_iter
-                self.best_val_iter = len(self.val_losses)-1
-                if self.hparams.outer.verbose:
-                    print("\nNEW BEST VAL LOSS: ", cur_loss, "\n")
-            elif (len(self.val_losses) - self.best_val_iter) >= 3 and self.hparams.outer.lr_decay:
-                self.meta_scheduler.step()
-                if self.hparams.outer.verbose :
-                    print("\nVAL LOSS HASN'T IMPROVED IN 2 ITERS; DECAYING LR\n")
-        else:
-            self.test_losses.append(cur_loss)
-            
-        if self.hparams.outer.verbose:
-            end = time()
-            print("\n" + val_test + " LOSS: ", cur_loss)
-            print(val_test + " TIME: ", str(end - start), " S\n")
-
-        return
+        return cur_loss

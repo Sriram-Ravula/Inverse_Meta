@@ -249,3 +249,4 @@ def getRectMask(hparams):
     mask_tensor[:, h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
     return mask_tensor
+    
