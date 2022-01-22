@@ -6,9 +6,9 @@ import argparse
 import yaml
 from time import time
 
-from utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
-from loss_utils import get_A, meta_loss, get_measurements, gradient_log_cond_likelihood, log_cond_likelihood_loss
-from alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver
+from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
+from utils.loss_utils import get_A, meta_loss, get_measurements, get_likelihood_grad, get_meta_grad
+from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
@@ -219,18 +219,15 @@ class MetaLearner:
             #(2) Find meta loss
             if self.hparams.outer.meta_type == 'maml':
                 #simply find the HVP grad_c(x)*grad_x(meta_loss)
-                grad_x_meta_loss = torch.autograd.grad(meta_loss(x_hat, x, self.hparams), x_hat, retain_graph=True)[0]
+                grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams, retain_graph=True)
                 meta_grad += hessian_vector_product(self.c, x_hat, grad_x_meta_loss, self.hparams)
 
             elif self.hparams.outer.meta_type == 'implicit':
                 #(2)a - do conjugate gradient and find the inverse HVP ihvp=[grad^2_x(inner_loss)]^-1 * grad_x(meta_loss)
-                grad_x_meta_loss = torch.autograd.grad(meta_loss(x_hat, x, self.hparams), x_hat)[0]
+                grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
 
-                if self.hparams.outer.auto_cond_log:
-                    cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
-                        (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
-                else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)  
+                cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+                    efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
                 prior_grad = self.model(x_hat, self.labels) 
 
                 hvp_helper = Ax(x_hat, (cond_log_grad - prior_grad), self.hparams, retain_graph=True)
@@ -239,12 +236,10 @@ class MetaLearner:
 
                 #(2)b Find the HVP of grad_x_c(inner_loss)*ihvp
                 self.c.requires_grad_()
-                if self.hparams.outer.auto_cond_log:
-                    cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
-                        (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
-                else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)  
-            
+
+                cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+                    efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
+
                 meta_grad -= hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
 
             elif self.hparams.outer.meta_type == 'mle':
@@ -252,11 +247,9 @@ class MetaLearner:
                 grad_x_meta_loss = torch.autograd.grad(meta_loss(x_hat, x, self.hparams), x_hat)[0]
                 
                 self.c.requires_grad_()
-                if self.hparams.outer.auto_cond_log:
-                    cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
-                        (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
-                else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)  
+                
+                cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+                    efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True) 
 
                 meta_grad -= hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
 

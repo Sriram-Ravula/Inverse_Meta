@@ -172,4 +172,3 @@ def parse_args(docstring):
     args = parser.parse_args()
 
     return args
-

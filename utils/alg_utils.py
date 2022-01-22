@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-import loss_utils
+
+from utils import loss_utils
 
 def hessian_vector_product(x, jacobian, vec, hparams, retain_graph=False):
     """

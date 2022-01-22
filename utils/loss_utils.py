@@ -166,6 +166,23 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
 
     return loss
 
+def get_likelihood_grad(c, y, A, x, hparams, scale=1, efficient_inp=False,\
+    retain_graph=False, create_graph=False):
+    """
+    A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)
+        and log_cond_likelihood_loss with autograd. 
+    """
+    if hparams.outer.auto_cond_log:
+        grad_flag_x = x.requires_grad
+        x.requires_grad_()
+        likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss\
+                    (c, y, A, x, hparams, scale, efficient_inp), x, retain_graph=retain_graph, create_graph=create_graph)[0]
+        x.requires_grad_(grad_flag_x)
+    else:
+        likelihood_grad = gradient_log_cond_likelihood(c, y, A, x, hparams, scale)
+    
+    return likelihood_grad
+
 def meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
     meta_type = hparams.outer.meta_loss_type
@@ -196,6 +213,22 @@ def grad_meta_loss(x_hat, x_true, hparams):
         return (torch.mm(ROI_mat.T, vec.T).T).view(x_hat.shape) 
     else:
         return (x_hat - x_true) #[N, C, H, W]
+
+def get_meta_grad(x_hat, x_true, hparams, retain_graph=False, create_graph=False):
+    """
+    A method for choosing between grad_meta_loss (explicitly-formed gradient)
+        and meta_loss with autograd. 
+    """
+    if hparams.outer.auto_cond_log:
+        grad_flag_x = x_hat.requires_grad
+        x_hat.requires_grad_()
+        meta_grad = torch.autograd.grad(meta_loss\
+            (x_hat, x_true, hparams), x_hat, retain_graph=retain_graph, create_graph=create_graph)[0]
+        x_hat.requires_grad_(grad_flag_x)
+    else:
+        meta_grad = grad_meta_loss(x_hat, x_true, hparams)
+    
+    return meta_grad
 
 def get_ROI_matrix(hparams):
     mask = getRectMask(hparams).numpy()
