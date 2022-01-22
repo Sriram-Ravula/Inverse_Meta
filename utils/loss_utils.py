@@ -249,4 +249,8 @@ def getRectMask(hparams):
     mask_tensor[:, h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
     return mask_tensor
-    
+
+def tv_loss(img, weight=1):      
+    tv_h = ((img[:,:,1:,:] - img[:,:,:-1,:]).pow(2)).sum()
+    tv_w = ((img[:,:,:,1:] - img[:,:,:,:-1]).pow(2)).sum()    
+    return weight * (tv_h + tv_w)
