@@ -48,8 +48,12 @@ def save_measurement_images(est_images, hparams, save_prefix):
             image = F.interpolate(image, scale_factor=hparams.problem.downsample_factor)
         save_image(image, os.path.join(save_prefix, str(image_num), '.png'))
 
-def get_img_matrix(images):
-    return torchvision.utils.make_grid(images.detach().cpu().numpy(), nrow=8)
+def plot_images(images, title, figsize=(8, 8), nrow=8):
+    plt.figure(figsize=figsize)
+    grid_img = torchvision.utils.make_grid(images, nrow=nrow)
+    plt.title(title)
+    plt.imshow(grid_img.permute(1, 2, 0))
+    plt.show()
 
 def save_to_pickle(data, pkl_filepath):
     """Save the data to a pickle file"""
@@ -99,12 +103,37 @@ class Logger:
             yaml.dump(self.hparams, f, default_flow_style=False)
     
     def checkpoint(self):
-        save_to_pickle(self.metrics, os.path.join(self.metrics_root, str(self.learner.global_iter)))
-        #TODO save everything from learner but the net, dataset, and optimizers in pickle
+        suffix = str(self.learner.global_iter)
+        checkpoint_dict = self.get_checkpoint_dict()
+        if hasattr(self.learner, 'meta_scheduler'):
+            states = [
+                self.learner.meta_opt.state_dict(),
+                self.learner.meta_scheduler.state_dict()
+            ]
+        else:
+            states = [
+                self.learner.meta_opt.state_dict()
+            ]
+
+        save_to_pickle(self.metrics, os.path.join(self.metrics_root, 'metrics', suffix))
+        save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint', suffix))
+        torch.save(states, os.path.join(self.log_dir, states, suffix + '.pth'))
 
         return
     
-    def save_image_measurments(self, images, image_nums, save_prefix):
+    def get_checkpoint_dict(self):
+        out_dict = {
+            'A': self.learner.A,
+            'global_iter': self.learner.global_iter,
+            'best_iter': self.learner.best_iter,
+            'c_list': self.learner.c_list,
+            'c': self.learner.c,
+            'grad_norms': self.learner.grad_norms,
+            'grads': self.learner.grads
+        }
+        return out_dict
+    
+    def save_image_measurements(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
 
         image_dict = {}
@@ -123,8 +152,59 @@ class Logger:
             image_dict[image_nums[i]] = images[i]
         
         save_images(image_dict, save_path)
+    
+    def save_image_measurements_torch(self, images, image_nums, save_prefix):
+        A_type = self.hparams.problem.measurement_type
+        save_path = os.path.join(self.image_root, save_prefix + '.pth')
 
+        if A_type not in ['superres', 'inpaint']:
+            print("Can't save given measurement type")
+            return
 
+        if A_type == 'superres':
+            images = images * get_inpaint_mask(self.hparams)
+        elif A_type == 'inpaint':
+            images = F.avg_pool2d(images, self.hparams.problem.downsample_factor)
+            images = F.interpolate(images, scale_factor=self.hparams.problem.downsample_factor)
+        
+        torch.save(images, save_path)
+    
+    def save_images_torch(self, images, image_nums, save_prefix):
+        save_path = os.path.join(self.image_root, save_prefix + '.pth')
+        torch.save(images, save_path)
+    
+    def add_tb_images(self, images, tag):
+        step = self.learner.global_iter
+        self.tb_logger(tag, images, global_step=step)
 
+    def add_metrics_to_tb(self, iter_type='train'):
+        """
+        Run through this Logger's metrics object and log everything there.
+        For each type of metric, we want to log the train, val, and test metrics on the same plot.
+        Intended to be called at the end of each type of iteration (train, test, val)
+        """
+        assert iter_type in ['train', 'val', 'test']
 
+        raw_dict = self.metrics.__retrieve_dict(iter_type, dict_type='raw')
+        agg_dict = self.metrics.__retrieve_dict(iter_type, dict_type='aggregate')
+        best_dict = self.metrics.__retrieve_dict(iter_type, dict_type='best')
 
+        step = self.learner.global_iter
+        iterkey ='iter_' + str(step)
+
+        if iterkey not in raw_dict:
+            print("current iteration has not yet been logged")
+            return
+        
+        for metric_type, metric_value in raw_dict[iterkey].items():
+            for i, val in enumerate(metric_value):
+                self.tb_logger.add_scalars("raw " + metric_type, {iter_type: val}, i)
+        
+        for metric_type, metric_value in agg_dict[iterkey].items():
+            self.tb_logger.add_scalars(metric_type, {iter_type: metric_value}, step)
+        
+        for metric_type, metric_value in best_dict.items():
+            self.tb_logger.add_scalars("best " + metric_type + " iter", {iter_type: metric_value[0]}, step)
+            self.tb_logger.add_scalars("best " + metric_type + " value", {iter_type: metric_value[1]}, step)
+        
+        return

@@ -7,7 +7,7 @@ import yaml
 import torch.utils.tensorboard as tb
 import time
 from datetime import datetime
-
+import scipy as sp
 
 
 def set_all_seeds(random_seed):
@@ -161,7 +161,7 @@ def parse_config(config_path):
 
     return HPARAMS
 
-def parse_args(docstring):
+def parse_args(docstring, manual=False, config=None, doc=None):
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
     parser = argparse.ArgumentParser(description=docstring)
@@ -169,9 +169,11 @@ def parse_args(docstring):
     parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
     parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
                                                                'Will be the name of the log folder.')
-    parser.add_argument('--verbose', type=str, default='low', help='Verbose level: low | med | high')
 
-    args = parser.parse_args()
+    if manual:
+        args = parser.parse_args(["--config", config, "--doc", doc])
+    else:
+        args = parser.parse_args()
 
     return args
 

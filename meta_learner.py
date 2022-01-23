@@ -1,3 +1,4 @@
+from sys import path
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
@@ -5,11 +6,13 @@ from tqdm import tqdm
 import argparse
 import yaml
 from time import time
+import os
 
 from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
 from utils.loss_utils import get_A, meta_loss, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
 from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
 from utils.metrics_utils import Metrics
+from utils.logging_utils import Logger
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
@@ -21,12 +24,14 @@ class MetaLearner:
     """
     Meta Learning for inverse problems
     """
-    def __init__(self, hparams):
+    def __init__(self, hparams, args):
         self.hparams = hparams
+        self.args = args
         self.__init_net()
         self.__init_datasets()
         self.__init_problem()
         self.metrics = Metrics()
+        self.logger = Logger(self.metrics, self, hparams, os.path.join(hparams.save_dir, args.doc))
         return
     
     def __init_net(self):
