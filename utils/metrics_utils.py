@@ -266,7 +266,7 @@ class Metrics:
 
         #go through all the metrics in the raw data and aggregate them 
         iterkey = 'iter_' + str(iter_num)
-        for key, value in raw_dict[iterkey]:
+        for key, value in raw_dict[iterkey].items():
             mean_key = "mean_" + key
             std_key = "std_" + key
             mean_value = np.mean(value)
@@ -278,7 +278,7 @@ class Metrics:
             out_dict = None
         
         #aggregation is done, now we check if the aggregates values contain any bests
-        for key, value in agg_dict[iterkey]:
+        for key, value in agg_dict[iterkey].items():
             if 'mean' not in key: #we are only interested in the mean values
                 continue
             
