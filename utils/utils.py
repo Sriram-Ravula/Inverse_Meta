@@ -8,8 +8,8 @@ import torch.utils.tensorboard as tb
 import time
 from datetime import datetime
 import scipy as sp
+import matplotlib.pyplot as plt
 %matplotlib inline
-from matplotlib import pyplot as plt
 import torch.nn.functional as F
 import torchvision
 from utils.loss_utils import get_inpaint_mask
