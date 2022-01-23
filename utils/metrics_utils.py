@@ -15,7 +15,11 @@ def get_msssim(x_hat, x, range=1.):
     """
     Calculates MS-SSIM(x_hat, x)
     """
-    ms_ssim_val = ms_ssim(x_hat, x, data_range=range, size_average=False)
+    try:
+        ms_ssim_val = ms_ssim(x_hat, x, data_range=range, size_average=False)
+    except Exception as e:
+        print("Current data is too small (", e.__class__, " occurred). Not using ms-ssim.")
+        ms_ssim_val = 0
 
     return ms_ssim_val.cpu().numpy().flatten()
 
