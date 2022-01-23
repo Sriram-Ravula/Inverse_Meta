@@ -108,7 +108,7 @@ class Logger:
 
         save_to_pickle(metrics_dict, os.path.join(self.metrics_root, 'metrics'))
         save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint'))
-        torch.save(states, os.path.join(self.log_dir, states, '.pth'))
+        torch.save(states, os.path.join(self.log_dir, 'states', '.pth'))
 
         return
     
