@@ -38,7 +38,7 @@ def get_nmse(x_hat, x):
     """
     Calculate ||x_hat - x|| / ||x||
     """
-    sse = get_sse(x_hat, x) #shape [N] - sse per image
+    sse = torch.sum((x_hat - x)**2, dim=[1,2,3]) #shape [N] - sse per image
     denom = torch.sum(x**2, dim=[1,2,3]) #shape [N] - squared l2 norm per ground truth image
 
     nmse_val = sse / denom
@@ -51,7 +51,7 @@ def get_psnr(x_hat, x, range=1.):
     Calculate 20 * log_10(range / sqrt(mse(x_hat, x))) for each image in the batch dimension.
         range is the range between high and low possible pixel values.
     """
-    mse = get_mse(x_hat, x) #shape [N]
+    mse = torch.sum((x_hat - x)**2, dim=[1,2,3]) / np.prod(x_hat.shape[1:]) #shape [N]
 
     psnr_val = 20 * torch.log10(range / torch.sqrt(mse))
 
