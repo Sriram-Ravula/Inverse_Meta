@@ -1,6 +1,6 @@
 from utils.utils import parse_args, parse_config, set_all_seeds
 import os
-from meta_learner import MetaLearner
+from .meta_learner import MetaLearner
 import sys
 
 def main():
