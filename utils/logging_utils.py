@@ -15,7 +15,7 @@ import pickle
 
 
 from utils.metrics_utils import Metrics
-from meta_learner import MetaLearner
+from learners.meta_learner import MetaLearner
 from loss_utils import get_inpaint_mask
 
 def save_image(image, path):
