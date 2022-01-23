@@ -1,6 +1,6 @@
 use_gpu: true #whether to use cuda
 gpu_num: 0 #the GPU number to use. default is 0. 
-save_dir: "" #root of folder to save run information (might look something like save_dir/exp1, save_dir/exp2, etc.)
+save_dir: "/content/exp" #root of folder to save run information (might look something like save_dir/exp1, save_dir/exp2, etc.)
 seed: 2022
 resume: false #whether to resume from a checkpoint
 resume_dir: "" #the root of the checkpoint (log) folder to resume from
@@ -8,16 +8,16 @@ resume_dir: "" #the root of the checkpoint (log) folder to resume from
 net:
  model: 'ncsnv2'
  config_file: "/content/Inverse_Meta/ncsnv2/configs/celeba.yml" #Path to a config file for the model (if it used configs)
- checkpoint_dir: "/content/ncsnv2/exp/logs/celeba/checkpoint_210000.pth" #Path to pretrained model
+ checkpoint_dir: "/content/meta_exp/checkpoints/celeba/checkpoint_210000.pth" #Path to pretrained model
 
 data:
- data_path: "/content/ncsnv2/exp/datasets/celeba" #or 'ffhq'
+ data_path: "/content/meta_exp/datasets/celeba" 
  dataset: 'celeba'
  train_batch_size: 8
  val_batch_size: 16
  num_channels: 3
  num_train: 64
- num_val: 32
+ num_val: 16
  num_test: 32
 
 outer:
@@ -28,7 +28,7 @@ outer:
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
- num_iters: 25 #number of meta iterations to run
+ num_iters: 2 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 1 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
@@ -37,7 +37,7 @@ outer:
  debug: false #debug mode doesn't save anything. 
  use_validation: true #if set to true, will use a validation set. 
  val_iters: 1 #validate every n iterations
- checkpoint_iters: 5 #checkpoint every n iterations
+ checkpoint_iters: 1 #checkpoint every n iterations
  batches_per_iter: 4 #number of training batches to use per iteration. -1 means all batches 
  cg_iters: 25 #number of conjugate gradient iterations to run if using meta_type=implicit. 0 returns b as the solution. A usual value is 25.
  cg_verbose: 5 #print from conjugate gradient every n iterations. 0 means don't print
@@ -50,13 +50,13 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 100 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
  lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ measurement_type: 'superres' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
  num_measurements: 5000 #number of measurements for gaussian and circulant
  downsample_factor: 8 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
