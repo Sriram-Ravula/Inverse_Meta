@@ -342,8 +342,8 @@ class MetaLearner:
         #check if we have a new best validation loss
         #if so, update best iter
         if new_best_dict is not None and 'nmse' in new_best_dict:
-            best_iter, best_value = new_best_dict['nmse']
-            self.best_iter = best_iter
+            best_value = new_best_dict['nmse']
+            self.best_iter = self.global_iter
             if self.hparams.outer.verbose:
                 print("\nNEW BEST VAL LOSS: ", best_value, "\n")
         elif self.hparams.outer.lr_decay:
