@@ -172,3 +172,20 @@ def parse_args(docstring):
     args = parser.parse_args()
 
     return args
+
+# computes mvue from kspace and coil sensitivities
+def get_mvue(kspace, s_maps):
+    '''
+    Get mvue estimate from coil measurements
+    Parameters:
+    -----------
+    kspace : complex np.array of size b x c x n x n
+            kspace measurements
+    s_maps : complex np.array of size b x c x n x n
+            coil sensitivities
+    Returns:
+    -------
+    mvue : complex np.array of shape b x n x n
+            returns minimum variance estimate of the scan
+    '''
+    return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
