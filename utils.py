@@ -120,6 +120,8 @@ def parse_config(config_path):
         hparams['data']['image_size'] = 64
     elif hparams['data']['dataset'] == "ffhq":
         hparams['data']['image_size'] = 256
+    elif hparams['data']['dataset'] == "mri":
+        hparams['data']['image_size'] = 384
     else:
         raise NotImplementedError
 

@@ -26,11 +26,11 @@ class MetaLearner:
         self.__init_datasets()
         self.__init_problem()
         return
-    
+
     def __init_net(self):
         if self.hparams.net.model != "ncsnv2":
             raise NotImplementedError #TODO implement other models!
-        
+
         if self.hparams.outer.verbose:
             print("\nINITIALIZING NETWORK\n")
             start = time()
@@ -45,11 +45,13 @@ class MetaLearner:
 
         states = torch.load(ckpt_path, map_location=self.hparams.device)
 
-        if self.hparams.data.dataset == 'ffhq':
+        if self.hparams.data.dataset in ['ffhq', 'mri']:
             test_score = NCSNv2Deepest(net_config).to(self.hparams.device)
         elif self.hparams.data.dataset == 'celeba':
             test_score = NCSNv2(net_config).to(self.hparams.device)
-        
+        else:
+            raise NotImplementedError
+
         test_score = torch.nn.DataParallel(test_score)
         test_score.load_state_dict(states[0], strict=True)
 
@@ -71,8 +73,8 @@ class MetaLearner:
             end = time()
             print("\nNET TIME: ", str(end - start), "S\n")
 
-        return 
-    
+        return
+
     def __init_datasets(self):
         if self.hparams.outer.verbose:
             print("\nINITIALIZING DATA\n")
@@ -98,7 +100,7 @@ class MetaLearner:
             print("\nDATA TIME: ", str(end - start), "S\n")
 
         return
-    
+
     def __init_problem(self):
         if self.hparams.outer.verbose:
             print("\nINITIALIZING INNER PROBLEM\n")
@@ -114,7 +116,7 @@ class MetaLearner:
             self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams)
         else:
             self.meta_opt = get_meta_optimizer(self.c, self.hparams)
-        
+
         #values used for loss min appx
         s_idx = len(self.sigmas)-1
         self.loss_scale = 1 / (self.sigmas[s_idx]**2)
@@ -142,13 +144,13 @@ class MetaLearner:
             print("\nPROBLEM TIME: ", str(end - start), "S\n")
 
         return
-    
+
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.outer.num_iters)):
             #validate
             if iter % self.hparams.outer.val_iters == 0:
                 self.val_or_test(validate=True)
-            
+
             #train
             meta_grad, meta_train_loss = self.outer_step()
 
@@ -164,10 +166,10 @@ class MetaLearner:
                 print("\nC STD: ", torch.std(self.c_list[-1]), '\n')
                 print("\nC MIN: ", torch.min(self.c_list[-1]), '\n')
                 print("\nC MAX: ", torch.max(self.c_list[-1]), '\n')
-                 
+
 
             self.global_iter += 1
-        
+
         #replace current c with the one from the best iteration
         self.c.copy_(self.c_list[self.best_iter])
 
@@ -190,10 +192,10 @@ class MetaLearner:
             print(self.grad_norms)
 
         return
-    
-    def outer_step(self):  
+
+    def outer_step(self):
         self.meta_opt.zero_grad()
-        meta_grad = 0.0 
+        meta_grad = 0.0
         cur_meta_loss = 0.0
         n_samples = 0
         num_batches = self.hparams.outer.batches_per_iter
@@ -205,7 +207,7 @@ class MetaLearner:
 
             if self.hparams.outer.meta_type == 'maml':
                 self.c.requires_grad_()
-            
+
             #(1) Find x(c)
             x = x.to(self.hparams.device)
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
@@ -215,7 +217,7 @@ class MetaLearner:
 
             with torch.no_grad():
                 cur_meta_loss += meta_loss(x_hat, x, self.hparams).item()
-            
+
             #(2) Find meta loss
             if self.hparams.outer.meta_type == 'maml':
                 #simply find the HVP grad_c(x)*grad_x(meta_loss)
@@ -230,8 +232,8 @@ class MetaLearner:
                     cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
                         (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
                 else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)  
-                prior_grad = self.model(x_hat, self.labels) 
+                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)
+                prior_grad = self.model(x_hat, self.labels)
 
                 hvp_helper = Ax(x_hat, (cond_log_grad - prior_grad), self.hparams, retain_graph=True)
 
@@ -243,26 +245,26 @@ class MetaLearner:
                     cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
                         (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
                 else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)  
-            
+                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)
+
                 meta_grad -= hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
 
             elif self.hparams.outer.meta_type == 'mle':
                 #We just want to find the HVP grad_x_c(inner_loss) * grad_x(meta_loss)
                 grad_x_meta_loss = torch.autograd.grad(meta_loss(x_hat, x, self.hparams), x_hat)[0]
-                
+
                 self.c.requires_grad_()
                 if self.hparams.outer.auto_cond_log:
                     cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
                         (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
                 else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)  
+                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)
 
                 meta_grad -= hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
 
-            else: 
+            else:
                 raise NotImplementedError
-            
+
             x_hat.requires_grad_(False)
             self.c.requires_grad_(False)
 
@@ -273,7 +275,7 @@ class MetaLearner:
         if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
             dummy_loss = torch.sum(self.c)
             dummy_loss.backward()
-        
+
         meta_grad /= n_samples
         self.c.grad.copy_(meta_grad)
         self.meta_opt.step()
@@ -309,7 +311,7 @@ class MetaLearner:
             x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams)
 
             cur_loss += meta_loss(x_hat, x, self.hparams).item()
-        
+
         cur_loss /= n_samples
 
         if validate:
@@ -326,7 +328,7 @@ class MetaLearner:
                     print("\nVAL LOSS HASN'T IMPROVED IN 2 ITERS; DECAYING LR\n")
         else:
             self.test_losses.append(cur_loss)
-            
+
         if self.hparams.outer.verbose:
             end = time()
             print("\n" + val_test + " LOSS: ", cur_loss)
