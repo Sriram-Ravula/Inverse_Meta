@@ -36,6 +36,6 @@ class FFHQ(Dataset):
         buffer = BytesIO(img_bytes)
         img = Image.open(buffer)
         img = self.transform(img)
-        target = 0
+        target = index
 
         return img, target
