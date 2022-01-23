@@ -209,7 +209,7 @@ def get_mvue(kspace, s_maps):
 
 def plot_images(images, title, figsize=(8, 8), nrow=8):
     plt.figure(figsize=figsize)
-    grid_img = torchvision.utils.make_grid(images, nrow=nrow)
+    grid_img = torchvision.utils.make_grid(images.cpu(), nrow=nrow)
     plt.title(title)
     plt.imshow(grid_img.permute(1, 2, 0))
     plt.show()
