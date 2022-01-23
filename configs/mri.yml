@@ -14,14 +14,14 @@ net:
 data:
  data_path: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
  input_dir: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
- maps_dir: "validation_cplx_scans/maps" #or 'FFHQ' (all caps)
+ maps_dir: "validation_cplx_scans/maps_768" #or 'FFHQ' (all caps)
  dataset: 'mri'
  train_batch_size: 1
  val_batch_size: 1
  num_channels: 2
- num_train: 1
- num_val: 1
- num_test: 1
+ num_train: 2
+ num_val: 2
+ num_test: 2
  R: 4
 
 outer:

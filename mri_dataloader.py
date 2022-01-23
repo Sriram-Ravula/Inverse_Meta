@@ -89,6 +89,14 @@ class MVU_Estimator_Brain(Dataset):
         slice_idx = int(idx) if scan_idx == 0 else \
             int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
 
+        # Load raw data for specific scan and slice
+        raw_file = os.path.join(self.input_dir,
+                                os.path.basename(self.file_list[scan_idx]))
+        with h5py.File(os.path.join(self.project_dir, raw_file), 'r') as data:
+            # Get kspace data
+            gt_ksp = np.asarray(data['kspace'][slice_idx])
+
+
         # Load maps for specific scan and slice
         maps_file = os.path.join(self.maps_dir,
                                  os.path.basename(self.file_list[scan_idx]))
@@ -96,42 +104,38 @@ class MVU_Estimator_Brain(Dataset):
             # Get maps
             maps = np.asarray(data['s_maps'][slice_idx])
 
-        # Load raw data for specific scan and slice
-        raw_file = os.path.join(self.input_dir,
-                                os.path.basename(self.file_list[scan_idx]))
-        with h5py.File(os.path.join(self.project_dir, raw_file), 'r') as data:
-            # Get maps
-            gt_ksp = np.asarray(data['kspace'][slice_idx])
+
         # Crop extra lines and reduce FoV in phase-encode
-        gt_ksp = sp.resize(gt_ksp, (
-            gt_ksp.shape[0], gt_ksp.shape[1], self.image_size[1]))
+        gt_ksp = sp.resize(gt_ksp, (gt_ksp.shape[0], gt_ksp.shape[1],
+                                    self.image_size))
 
         # Reduce FoV by half in the readout direction
         gt_ksp = sp.ifft(gt_ksp, axes=(-2,))
-        gt_ksp = sp.resize(gt_ksp, (gt_ksp.shape[0], self.image_size[0],
+        gt_ksp = sp.resize(gt_ksp, (gt_ksp.shape[0], self.image_size,
                                     gt_ksp.shape[2]))
         gt_ksp = sp.fft(gt_ksp, axes=(-2,)) # Back to k-space
 
         # Crop extra lines and reduce FoV in phase-encode
         maps = sp.fft(maps, axes=(-2, -1)) # These are now maps in k-space
         maps = sp.resize(maps, (
-            maps.shape[0], maps.shape[1], self.image_size[1]))
+            maps.shape[0], maps.shape[1], self.image_size))
 
         # Reduce FoV by half in the readout direction
         maps = sp.ifft(maps, axes=(-2,))
-        maps = sp.resize(maps, (maps.shape[0], self.image_size[0],
+        maps = sp.resize(maps, (maps.shape[0], self.image_size,
                                     maps.shape[2]))
         maps = sp.fft(maps, axes=(-2,)) # Back to k-space
         maps = sp.ifft(maps, axes=(-2, -1)) # Finally convert back to image domain
 
         # find mvue image
-        mvue = get_mvue(gt_ksp.reshape((1,) + gt_ksp.shape), maps.reshape((1,) + maps.shape))
+        mvue = get_mvue(gt_ksp.reshape((1,) + gt_ksp.shape),
+                        maps.reshape((1,)+maps.shape))
 
         # !!! Removed ACS-based scaling if handled on the outside
         scale_factor = 1.
 
         # Scale data
-        mvue   = mvue   / scale_factor
+        mvue = mvue  / scale_factor
         gt_ksp = gt_ksp / scale_factor
 
         # Compute ACS size based on R factor and sample size
@@ -158,17 +162,18 @@ class MVU_Estimator_Brain(Dataset):
         mvue_file = os.path.join(self.input_dir,
                                  os.path.basename(self.file_list[scan_idx]))
         # Output
-        sample = {
-                  'mvue': mvue,
-                  'maps': maps,
-                  'ground_truth': gt_ksp,
-                  'mask': mask,
-                  'scale_factor': scale_factor,
-                  # Just for feedback
-                  'scan_idx': scan_idx,
-                  'slice_idx': slice_idx,
-                  'mvue_file': mvue_file}
-        return sample
+        # sample = {
+        #           'mvue': mvue,
+        #           'maps': maps,
+        #           'ground_truth': gt_ksp,
+        #           'mask': mask,
+        #           'scale_factor': scale_factor,
+        #           # Just for feedback
+        #           'scan_idx': scan_idx,
+        #           'slice_idx': slice_idx,
+        #           'mvue_file': mvue_file}
+        # return sample
+        return gt_ksp, mask, mvue
 
 class MVU_Estimator_Knees(Dataset):
     def __init__(self, file_list, maps_dir, input_dir,

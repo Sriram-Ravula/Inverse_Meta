@@ -86,6 +86,10 @@ class MetaLearner:
 
         _, base_dataset = get_dataset(args, self.model_config)
 
+        # self.train_loader = DataLoader(base_dataset,
+        #                                batch_size=self.hparams.data.train_batch_size,
+        #                                shuffle=False, num_workers=1,
+        #                                drop_last=True)
         train_dataset, val_dataset, test_dataset = split_dataset(base_dataset, self.hparams)
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,

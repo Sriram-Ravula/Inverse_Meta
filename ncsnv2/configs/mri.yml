@@ -37,8 +37,12 @@ test:
   batch_size: 100
 
 data:
-  dataset: "mri-mvue"
-  image_size: 320
+  dataset: "mri"
+  data_path: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
+  input_dir: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
+  maps_dir: "validation_cplx_scans/maps_768" #or 'FFHQ' (all caps)
+  project_dir: './'
+  image_size: 384
   channels: 2
   logit_transform: false
   uniform_dequantization: false
@@ -46,6 +50,9 @@ data:
   random_flip: false
   rescaled: false
   num_workers: 8
+  R: 4
+  pattern: 'equispaced'
+  orientation: 'vertical'
 
 model:
   sigma_begin: 232

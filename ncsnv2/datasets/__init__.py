@@ -6,6 +6,8 @@ from ncsnv2.datasets.celeba import CelebA
 from ncsnv2.datasets.ffhq import FFHQ
 from torch.utils.data import Subset
 import numpy as np
+from mri_dataloader import MVU_Estimator_Brain
+import glob
 
 def get_dataset(args, config):
     if config.data.random_flip is False:
@@ -103,7 +105,7 @@ def get_dataset(args, config):
 
     elif config.data.dataset == "mri":
         folder_path = os.path.join(config.data.project_dir, config.data.input_dir)
-        files = glob.glob(folder_path, '*.h5')
+        files = sorted(glob.glob(os.path.join(folder_path, '*.h5')))
         test_dataset = MVU_Estimator_Brain(files,
                                 input_dir=config.data.input_dir,
                                 maps_dir=config.data.maps_dir,
