@@ -4,6 +4,9 @@ import numpy as np
 import argparse
 import os
 import yaml
+import torch.utils.tensorboard as tb
+import time
+from datetime import datetime
 
 
 
@@ -103,11 +106,14 @@ def parse_config(config_path):
         hparams = yaml.safe_load(f)
 
     if hparams['use_gpu']:
-        hparams['device'] = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu:0')
+        num = hparams['gpu_num']
+        hparams['device'] = torch.device('cuda:'+str(num)) if torch.cuda.is_available() else torch.device('cpu:0')
     else:
         hparams['device'] = torch.device('cpu:0')
 
-    if hparams['net'] != 'ncsnv2' or hparams['meta_type'] != 'implicit':
+    if hparams['net']['model'] != 'ncsnv2':
+        raise NotImplementedError
+    if hparams['outer']['meta_type'] not in ['implicit', 'maml', 'mle']:
         raise NotImplementedError
 
     if hparams['data']['dataset'] == "celeba":
@@ -117,20 +123,21 @@ def parse_config(config_path):
     else:
         raise NotImplementedError
 
-    hparams['data']['image_shape'] = (hparams['data']['num_channels'],\
-         hparams['data']['image_size'], hparams['data']['image_size'])
+    hparams['data']['image_shape'] = (hparams['data']['num_channels'], hparams['data']['image_size'], hparams['data']['image_size'])
     hparams['data']['n_input'] = np.prod(hparams['data']['image_shape'])
 
     #automatically set ROI to eye region if not specified
     if hparams['outer']['ROI'] and not isinstance(hparams['outer']['ROI'], tuple):
         if hparams['data']['dataset'] == "celeba":
-            hparams['outer']['ROI'] = ((27, 15),(10, 35))
+            hparams['outer']['ROI'] = ((27, 15),(35, 35))
+        elif hparams['data']['dataset'] == "ffhq":
+            hparams['outer']['ROI'] = ((90, 50),(60, 156))
         else:
-            raise NotImplementedError #TODO add FFHQ!
+            raise NotImplementedError
 
     #TODO implement finite difference
     if hparams['outer']['finite_difference'] or hparams['outer']['measurement_loss'] \
-        or hparams['outer']['train_loss_type'] != 'l2':
+        or hparams['outer']['meta_loss_type'] != 'l2':
         raise NotImplementedError
 
     if hparams['problem']['measurement_type'] == 'circulant':
@@ -170,4 +177,18 @@ def get_mvue(kspace, s_maps):
             returns minimum variance estimate of the scan
     '''
     return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
+
+def parse_args(docstring):
+    now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+    parser = argparse.ArgumentParser(description=docstring)
+
+    parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
+    parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
+                                                               'Will be the name of the log folder.')
+    parser.add_argument('--verbose', type=str, default='low', help='Verbose level: low | med | high')
+
+    args = parser.parse_args()
+
+    return args
 
