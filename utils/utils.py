@@ -8,6 +8,7 @@ import torch.utils.tensorboard as tb
 import time
 from datetime import datetime
 import scipy as sp
+%matplotlib inline
 from matplotlib import pyplot as plt
 import torch.nn.functional as F
 import torchvision
