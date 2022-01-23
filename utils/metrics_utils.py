@@ -91,7 +91,7 @@ class Metrics:
     A class for storing and aggregating metrics during a run.
     Metrics are stored as numpy arrays.
     """
-    def __init__(self, range=1.):
+    def __init__(self, range=1.0):
         #dicts for olding raw, image-by-image stats for each iteration.
         #e.g. self.train_metrics['iter_0']['psnr'] = [0.9, 0.1, 0.3] means that at train iteration 0, the images had psnrs of 0.9, 0.1, 0.3
         self.train_metrics = {}
@@ -172,19 +172,47 @@ class Metrics:
         
         return cur_dict
     
-    def __retrieve_best(self, iter_type, metric_key):
+    def get_best(self, iter_type, metric_key):
         """
-        Helper method for retrieving the best iter and value for a given metric.
+        Getter method for retrieving the best iter and value for a given metric.
         If the best doesn't exist yet, return None.
         """
         cur_dict = self.__retrieve_dict(iter_type, dict_type='best')
 
         if metric_key not in cur_dict:
-            best = None
-        else:
-            best = cur_dict[metric_key]
+            cur_dict[metric_key] = None
 
-        return best
+        return cur_dict[metric_key]
+
+    def get_metric(self, iter_num, iter_type, metric_key):
+        """
+        Getter method for retrieving a mean aggregated metric for a certain iteration. 
+        """
+        cur_dict = self.__retrieve_dict(iter_type, dict_type='aggregate')
+
+        metric_key = "mean_" + metric_key
+        iterkey = 'iter_' + str(iter_num)
+        if iterkey not in cur_dict or metric_key not in cur_dict[iterkey]:
+            out_metric = None
+        else:
+            out_metric = cur_dict[iterkey][metric_key]
+
+        return out_metric
+    
+    def get_all_metrics(self, iter_num, iter_type):
+        """
+        Getter method for retrieiving all the aggregated metrics for a certain iteration.
+        """
+        cur_dict = self.__retrieve_dict(iter_type, dict_type='aggregate')
+
+        iterkey = 'iter_' + str(iter_num)
+        if iterkey not in cur_dict:
+            out_dict = None
+        else:
+            out_dict = cur_dict[iterkey]
+        
+        return out_dict
+
         
     def calc_iter_metrics(self, x_hat, x, iter_num, iter_type='train'):
         """
@@ -221,11 +249,12 @@ class Metrics:
     def aggregate_iter_metrics(self, iter_num, iter_type='train', return_best=False):
         """
         Called at the end of an iteration/epoch to find summary stats for all the metrics.
-        If desired, returns a dict with the names of each metric from the iteration and whether or not
-            that metric achieved its best overall value this iteration.
+        If desired, returns a dict with the name and value of each metric from the iteration that 
+            achieved their best value. If no metric had its best value, return None.
         """
         agg_dict = self.__retrieve_dict(iter_type, dict_type='aggregate') #validate and retrieve the right dicts
         raw_dict = self.__retrieve_dict(iter_type, dict_type='raw')
+        best_dict = self.__retrieve_dict(iter_type, dict_type='best')
 
         self.__init_iter_dict(agg_dict, iter_num) #check that the iter dict is initialized
         self.__init_iter_dict(raw_dict, iter_num, should_exist=True) #make sure the corresponding dict exists in the raw
@@ -240,13 +269,40 @@ class Metrics:
             agg_dict[iterkey][mean_key] = mean_value
             agg_dict[iterkey][std_key] = std_value 
         
+        if return_best:
+            out_dict = None
+        
         #aggregation is done, now we check if the aggregates values contain any bests
         for key, value in agg_dict[iterkey]:
             if 'mean' not in key: #we are only interested in the mean values
                 continue
             
-            metric_name = key[5:] #strip "mean_" from the front of the key
+            metric_key = key[5:] #strip "mean_" from the front of the key
 
+            best = self.get_best(iter_type, metric_key)
 
+            if best is None:
+                best_dict[metric_key] = (iter_num, value)
+            else:
+                _, best_value = best
+                best_flag = False
 
+                if metric_key in ['psnr', 'ssim', 'ms-ssim']:
+                    if best_value < value:
+                        best_dict[metric_key] = (iter_num, value)
+                        best_flag = True
+                else:
+                    if best_value > value:
+                        best_dict[metric_key] = (iter_num, value)
+                        best_flag = True
 
+                if return_best and best_flag:
+                    if out_dict is None:
+                        out_dict = {}
+                    out_dict[metric_key] = value
+        
+        if return_best:
+            return out_dict
+        else:
+            return
+    

@@ -166,6 +166,19 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
 
     return loss
 
+def simple_likelihood_loss(y, A, x, hparams, efficient_inp=False):
+    """
+    Returns ||Ax - y||^2 for each image in the batch dimension
+    """
+    Ax = get_measurements(A, x, hparams, efficient_inp) 
+    resid = Ax - y
+    resid = resid.flatten(start_dim=1)
+
+    loss = torch.sum(resid**2, dim=[-1]) #shape [N]
+
+    return loss
+    
+
 def get_likelihood_grad(c, y, A, x, hparams, scale=1, efficient_inp=False,\
     retain_graph=False, create_graph=False):
     """
@@ -198,6 +211,24 @@ def meta_loss(x_hat, x_true, hparams):
         return 0.5 * sse(ROI*x_hat, ROI*x_true)
     else:
         return 0.5 * sse(x_hat, x_true)
+
+def elementwise_meta_loss(x_hat, x_true, hparams):
+    """
+    Like meta loss, but returns element-wise loss for each image in the batch dimension
+    """
+    meas_loss = hparams.outer.measurement_loss
+    meta_type = hparams.outer.meta_loss_type
+    ROI = hparams.outer.ROI
+
+    if ROI:
+        ROI = getRectMask(hparams).to(x_hat.device)
+        roi_diff = ROI * (x_hat - x_true)
+        loss = torch.sum(roi_diff**2, dim=[1,2,3])
+    else:
+        diff = x_hat - x_true
+        loss = torch.sum(diff**2, dim=[1,2,3])
+    
+    return loss
 
 def grad_meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
@@ -249,6 +280,20 @@ def getRectMask(hparams):
     mask_tensor[:, h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
     return mask_tensor
+
+def get_loss_dict(y, A, x_hat, x, hparams, efficient_inp=False):
+    """
+    Calculates and returns a dictionary with the measurement loss and te meta loss
+    """
+    cur_meta_loss = elementwise_meta_loss(x_hat, x, hparams).detach().cpu().numpy().flatten()
+    cur_likelihood_loss = simple_likelihood_loss(y, A, x_hat, hparams, efficient_inp).detach().cpu().numpy().flatten()
+
+    out_dict = {
+        'meta_loss': cur_meta_loss,
+        'likelihood_loss': cur_likelihood_loss
+    }
+
+    return out_dict
 
 def tv_loss(img, weight=1):      
     tv_h = ((img[:,:,1:,:] - img[:,:,:-1,:]).pow(2)).sum()

@@ -7,8 +7,9 @@ import yaml
 from time import time
 
 from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
-from utils.loss_utils import get_A, meta_loss, get_measurements, get_likelihood_grad, get_meta_grad
+from utils.loss_utils import get_A, meta_loss, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
 from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
+from utils.metrics_utils import Metrics
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
@@ -25,11 +26,12 @@ class MetaLearner:
         self.__init_net()
         self.__init_datasets()
         self.__init_problem()
+        self.metrics = Metrics()
         return
     
     def __init_net(self):
         if self.hparams.net.model != "ncsnv2":
-            raise NotImplementedError #TODO implement other models!
+            raise NotImplementedError 
         
         if self.hparams.outer.verbose:
             print("\nINITIALIZING NETWORK\n")
@@ -128,11 +130,7 @@ class MetaLearner:
 
         self.global_iter = 0
         self.best_iter = 0
-        self.best_val_iter = 0 #used to match best_iter and val_idx if val_iters is not = 1
 
-        self.meta_losses = []
-        self.val_losses = []
-        self.test_losses = []
         self.grad_norms = []
         self.grads = []
         self.c_list = [self.c.detach().cpu()]
@@ -145,85 +143,57 @@ class MetaLearner:
     
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.outer.num_iters)):
-            #validate
+            #val
             if iter % self.hparams.outer.val_iters == 0:
-                if self.hparams.outer.verbose:
-                    print("\nBEGINNING VALIDATION\n")
-                meta_val_loss = self.val_or_test(validate=True)
-
-                self.val_losses.append(meta_val_loss)
-
-                #check if we have a new best value for c
-                if len(self.val_losses) > 1 and self.val_losses[self.best_val_iter] > meta_val_loss:
-                    self.best_iter = self.global_iter
-                    self.best_val_iter = len(self.val_losses)-1
-                    if self.hparams.outer.verbose:
-                        print("\nNEW BEST VAL LOSS: ", meta_val_loss, "\n")
-                elif (len(self.val_losses) - self.best_val_iter) >= 3 and self.hparams.outer.lr_decay:
-                    self.meta_scheduler.step()
-                    if self.hparams.outer.verbose :
-                        print("\nVAL LOSS HASN'T IMPROVED IN 2 ITERS; DECAYING LR\n")
-
-                if self.hparams.outer.verbose:
-                    print("\nVAL LOSS: ", meta_val_loss)
+                self.run_validation()
             
             #train
-            self.meta_opt.zero_grad()
-            meta_grad, meta_train_loss = self.outer_step()
-
-            #update weights
-            self.c.requires_grad_()
-            if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
-                dummy_loss = torch.sum(self.c)
-                dummy_loss.backward()
-            self.c.grad.copy_(meta_grad)
-            self.meta_opt.step()
-            self.c.requires_grad_(False)
-
-            #stats
-            self.meta_losses.append(meta_train_loss)
-            self.grads.append(meta_grad.detach().cpu())
-            self.grad_norms.append(torch.norm(meta_grad.flatten()).item())
-            self.c_list.append(self.c.detach().cpu())
-
-            if self.hparams.outer.verbose:
-                print("\nTRAIN META LOSS: ", meta_train_loss)
-                print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
-                print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')
-                print("\nC STD: ", torch.std(self.c_list[-1]), '\n')
-                print("\nC MIN: ", torch.min(self.c_list[-1]), '\n')
-                print("\nC MAX: ", torch.max(self.c_list[-1]), '\n')
+            self.run_outer_step()
                  
-
             self.global_iter += 1
         
         #replace current c with the one from the best iteration
         self.c.copy_(self.c_list[self.best_iter])
 
         #Test
-        meta_test_loss = self.val_or_test(validate=False)
-        self.test_losses.append(meta_test_loss)
+        if self.hparams.outer.verbose:
+            print("\nBEGINNING TESTING\n")
+            
+        self.val_or_test(validate=False) 
 
         if self.hparams.outer.verbose:
-            print("FINISHED!\n")
-            print("TEST LOSSES: ")
-            print(self.test_losses)
-            print("VAL LOSSES: ")
-            print(self.val_losses)
-            print("BEST VAL LOSS: ")
-            print(self.val_losses[self.best_val_iter])
-            print("BEST ITERATION: ")
-            print(self.best_iter)
-            print("META LOSSES: ")
-            print(self.meta_losses)
-            print("GRAD NORMS: ")
-            print(self.grad_norms)
+            print("\nTEST LOSS: ", self.metrics.get_metric(self.global_iter, 'test', 'nmse'))
 
         return
     
+    def run_outer_step(self):
+        self.meta_opt.zero_grad()
+        meta_grad = self.outer_step()
+
+        self.c.requires_grad_()
+        if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
+            dummy_loss = torch.sum(self.c)
+            dummy_loss.backward()
+        self.c.grad.copy_(meta_grad)
+        self.meta_opt.step()
+        self.c.requires_grad_(False)
+
+        self.grads.append(meta_grad.detach().cpu())
+        self.grad_norms.append(torch.norm(meta_grad.flatten()).item())
+        self.c_list.append(self.c.detach().cpu())
+
+        if self.hparams.outer.verbose:
+            print("\nTRAIN META LOSS: ", self.metrics.get_metric(self.global_iter, 'train', 'meta_loss'))
+            print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
+            print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')
+            print("\nC STD: ", torch.std(self.c_list[-1]), '\n')
+            print("\nC MIN: ", torch.min(self.c_list[-1]), '\n')
+            print("\nC MAX: ", torch.max(self.c_list[-1]), '\n')
+
+        return 
+    
     def outer_step(self):  
         meta_grad = 0.0 
-        cur_meta_loss = 0.0
         n_samples = 0
         num_batches = self.hparams.outer.batches_per_iter
 
@@ -242,11 +212,8 @@ class MetaLearner:
 
             x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
             x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
-
-            with torch.no_grad():
-                cur_meta_loss += meta_loss(x_hat, x, self.hparams).item()
             
-            #(2) Find meta loss
+            #(2) Find meta gradient
             if self.hparams.outer.meta_type == 'maml':
                 meta_grad += self.maml_step(x_hat, x)
             elif self.hparams.outer.meta_type == 'implicit':
@@ -259,12 +226,17 @@ class MetaLearner:
             x_hat.requires_grad_(False)
             self.c.requires_grad_(False)
 
+            loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
+            self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, 'train')
+            self.metrics.add_external_metrics(loss_metrics, self.global_iter, 'train')
+
             num_batches -= 1
+
+        self.metrics.aggregate_iter_metrics(self.global_iter, 'train', return_best=False)
         
         meta_grad /= n_samples
-        cur_meta_loss /= n_samples
 
-        return meta_grad, cur_meta_loss
+        return meta_grad
 
     def maml_step(self, x_hat, x):
         """
@@ -277,7 +249,9 @@ class MetaLearner:
         grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams, retain_graph=True)
 
         #(2)
-        return hessian_vector_product(self.c, x_hat, grad_x_meta_loss, self.hparams)
+        out_grad = hessian_vector_product(self.c, x_hat, grad_x_meta_loss, self.hparams)
+
+        return out_grad 
     
     def implicit_maml_step(self, x_hat, x, y):
         """
@@ -304,8 +278,10 @@ class MetaLearner:
 
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
             efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
+        
+        out_grad = -hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
 
-        return -hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
+        return out_grad
 
     def mle_step(self, x_hat, x, y):
         """
@@ -320,29 +296,67 @@ class MetaLearner:
         
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
             efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True) 
+        
+        out_grad = -hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
 
-        return -hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
+        return out_grad
+    
+    def run_validation(self):
+        """
+        Runs a validation epoch and checks if we have a new best loss
+        """
+        if self.hparams.outer.verbose:
+            print("\nBEGINNING VALIDATION\n")
+        new_best_dict = self.val_or_test(validate=True)
+
+        #check if we have a new best validation loss
+        #if so, update best iter
+        if new_best_dict is not None and 'nmse' in new_best_dict:
+            best_iter, best_value = new_best_dict['nmse']
+            self.best_iter = best_iter
+            if self.hparams.outer.verbose:
+                print("\nNEW BEST VAL LOSS: ", best_value, "\n")
+        elif self.hparams.outer.lr_decay:
+            self.meta_scheduler.step()
+            if self.hparams.outer.verbose :
+                print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
+
+        if self.hparams.outer.verbose and self.global_iter != self.best_iter:
+            print("\nVAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', 'nmse'))
+        
+        return
 
     def val_or_test(self, validate):
+        """
+        Performs one validation or test run. Calculates and stores related metrics.
+
+        Returns:
+            new_best_dict: dict or None. A dictionary with any new best val or test metrics and their values. 
+                           If no new bests are found, returns None.
+        """
         if validate:
             cur_loader = self.val_loader
+            iter_type = 'val'
         else:
             cur_loader = self.test_loader
-
-        cur_loss = 0.0
-        n_samples = 0
+            iter_type = 'test'
 
         for i, (x, _) in tqdm(enumerate(cur_loader)):
-            n_samples += x.shape[0]
-
             x = x.to(self.hparams.device)
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
             x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
 
-            cur_loss += meta_loss(x_hat, x, self.hparams).item()
+            loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
+            self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, iter_type)
+            self.metrics.add_external_metrics(loss_metrics, self.global_iter, iter_type)
         
-        cur_loss /= n_samples
+        if validate:
+            new_best_dict = self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=True)
+            return new_best_dict
+        else:
+            self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=False)
+            return
 
-        return cur_loss
+        
