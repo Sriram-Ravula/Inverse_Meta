@@ -55,6 +55,22 @@ def plot_images(images, title, figsize=(8, 8), nrow=8):
     plt.imshow(grid_img.permute(1, 2, 0))
     plt.show()
 
+def get_measurement_images(images, hparams):
+    A_type = hparams.problem.measurement_type
+
+    if A_type not in ['superres', 'inpaint']:
+        print("Can't save given measurement type")
+        return
+
+    if A_type == 'superres':
+        images = images * get_inpaint_mask(hparams)
+    elif A_type == 'inpaint':
+        images = F.avg_pool2d(images, hparams.problem.downsample_factor)
+        images = F.interpolate(images, scale_factor=hparams.problem.downsample_factor)
+    
+    return images
+
+
 def save_to_pickle(data, pkl_filepath):
     """Save the data to a pickle file"""
     with open(pkl_filepath, 'wb') as pkl_file:
@@ -103,8 +119,8 @@ class Logger:
             yaml.dump(self.hparams, f, default_flow_style=False)
     
     def checkpoint(self):
-        suffix = str(self.learner.global_iter)
         checkpoint_dict = self.get_checkpoint_dict()
+        metrics_dict = self.get_metrics_dict()
         if hasattr(self.learner, 'meta_scheduler'):
             states = [
                 self.learner.meta_opt.state_dict(),
@@ -115,9 +131,9 @@ class Logger:
                 self.learner.meta_opt.state_dict()
             ]
 
-        save_to_pickle(self.metrics, os.path.join(self.metrics_root, 'metrics', suffix))
-        save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint', suffix))
-        torch.save(states, os.path.join(self.log_dir, states, suffix + '.pth'))
+        save_to_pickle(metrics_dict, os.path.join(self.metrics_root, 'metrics'))
+        save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint'))
+        torch.save(states, os.path.join(self.log_dir, states, '.pth'))
 
         return
     
@@ -131,6 +147,22 @@ class Logger:
             'grad_norms': self.learner.grad_norms,
             'grads': self.learner.grads
         }
+        return out_dict
+    
+    def get_metrics_dict(self):
+        out_dict = {
+            'range': self.metrics.range,
+            'train_metrics': self.metrics.train_metrics,
+            'val_metrics': self.metrics.val_metrics,
+            'test_metrics': self.metrics.test_metrics,
+            'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
+            'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
+            'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
+            'best_train_metrics': self.metrics.best_train_metrics,
+            'best_val_metrics': self.metrics.best_val_metrics,
+            'best_test_metrics': self.metrics.best_test_metrics
+        }
+
         return out_dict
     
     def save_image_measurements(self, images, image_nums, save_prefix):

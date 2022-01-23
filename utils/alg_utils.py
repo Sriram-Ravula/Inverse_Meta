@@ -150,10 +150,11 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
     else:
         create_graph = False
     
+    grad_flag_x = x_mod.requires_grad
+    grad_flag_c = c.requires_grad
+
     if not create_graph:
-        grad_flag_x = x_mod.requires_grad
         x_mod.requires_grad_(False) 
-        grad_flag_c = c.requires_grad
         c.requires_grad_(False)    
 
     fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
@@ -172,10 +173,13 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
         step_size = step_lr * (sigma / sigmas[-1]) ** 2
 
         for s in range(T):
-            if not create_graph and hparams.outer.meta_type == 'maml' and (total_steps - step_num) == maml_use_last:
-                create_graph = True  
-                x_mod.requires_grad_()
-                c.requires_grad_() 
+            if not create_graph and hparams.outer.meta_type == 'maml': 
+                if (total_steps - step_num) == maml_use_last:
+                    create_graph = True  
+                    x_mod.requires_grad_()
+                    c.requires_grad_() 
+                    if verbose:
+                        print("\nStarting to track MAML gradient at iter " + str(step_num) + '\n')
 
             prior_grad = model(x_mod, labels)
 
@@ -195,8 +199,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
                     prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
                     likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
-                    likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1, efficient_inp=efficient_inp).item()
-                    likelihood_loss /= x_mod.shape[0]
+                    likelihood_loss = loss_utils.simple_likelihood_loss(y, A, x_mod, hparams, efficient_inp).mean()
 
                     print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       
@@ -204,9 +207,8 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
     
     x_mod = torch.clamp(x_mod, 0.0, 1.0)
   
-    if not create_graph:
-        x_mod.requires_grad_(grad_flag_x)
-        c.requires_grad_(grad_flag_c)
+    x_mod.requires_grad_(grad_flag_x)
+    c.requires_grad_(grad_flag_c)
 
     return x_mod
 
@@ -216,7 +218,6 @@ def SGLD_inverse_eval(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=Fals
     decimate = hparams.inner.decimation_factor if hparams.inner.decimation_factor > 0 else False
     add_noise = True if hparams.inner.alg == 'langevin' else False
     verbose = hparams.outer.verbose
-    create_graph = False
 
     if verbose:
         verbose = hparams.inner.verbose if hparams.inner.verbose > 0 else False
@@ -251,8 +252,7 @@ def SGLD_inverse_eval(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=Fals
         for s in range(T):
             prior_grad = model(x_mod, labels)
 
-            likelihood_grad = loss_utils.get_likelihood_grad(c, y, A, x_mod, hparams, 1/(sigma**2), efficient_inp,\
-                retain_graph=create_graph, create_graph=create_graph)
+            likelihood_grad = loss_utils.get_likelihood_grad(c, y, A, x_mod, hparams, 1/(sigma**2), efficient_inp)
 
             grad = prior_grad - likelihood_grad
 
@@ -267,8 +267,7 @@ def SGLD_inverse_eval(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=Fals
                     prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
                     likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
-                    likelihood_loss = loss_utils.log_cond_likelihood_loss(c, y, A, x_mod, hparams, scale=1, efficient_inp=efficient_inp).item()
-                    likelihood_loss /= x_mod.shape[0]
+                    likelihood_loss = loss_utils.simple_likelihood_loss(y, A, x_mod, hparams, efficient_inp).mean()
 
                     print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       

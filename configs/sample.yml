@@ -1,6 +1,6 @@
 use_gpu: true #whether to use cuda
 gpu_num: 0 #the GPU number to use. default is 0. 
-save_dir: "" #root of folder to save run information
+save_dir: "" #root of folder to save run information (might look something like save_dir/exp1, save_dir/exp2, etc.)
 seed: 2022
 resume: false #whether to resume from a checkpoint
 resume_dir: "" #the root of the checkpoint (log) folder to resume from
@@ -22,18 +22,20 @@ data:
 
 outer:
  meta_type: 'mle' #implicit, maml, mle
- auto_cond_log: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
+ use_autograd: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
  save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
  num_iters: 25 #number of meta iterations to run
- optimizer: 'sgd' #meta optimizer. [adam, sgd]
- lr: 0.1 #meta learning rate
- lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 means no decay
- verbose: true #whether to print during execution. TODO supplant this with command line argument.
- debug: false #debug mode doesn't save anything
+ optimizer: 'adam' #meta optimizer. [adam, sgd]
+ lr: 1 #meta learning rate
+ lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
+ verbose: true #whether to print during execution. 
+ plot_imgs: true #whether to plot the data and reconstructions inline. set false if not in a notebook. 
+ debug: false #debug mode doesn't save anything. 
+ use_validation: true #if set to true, will use a validation set. 
  val_iters: 1 #validate every n iterations
  checkpoint_iters: 5 #checkpoint every n iterations
  batches_per_iter: 4 #number of training batches to use per iteration. -1 means all batches 

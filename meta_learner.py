@@ -9,10 +9,10 @@ from time import time
 import os
 
 from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
-from utils.loss_utils import get_A, meta_loss, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
+from utils.loss_utils import get_A, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
 from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
 from utils.metrics_utils import Metrics
-from utils.logging_utils import Logger
+from utils.logging_utils import Logger, plot_images, get_measurement_images
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
@@ -31,10 +31,12 @@ class MetaLearner:
         self.__init_datasets()
         self.__init_problem()
         self.metrics = Metrics()
-        self.logger = Logger(self.metrics, self, hparams, os.path.join(hparams.save_dir, args.doc))
+        if not self.hparams.outer.debug:
+            self.logger = Logger(self.metrics, self, hparams, os.path.join(hparams.save_dir, args.doc))
         return
     
     def __init_net(self):
+        """Initializes score net and related attributes"""
         if self.hparams.net.model != "ncsnv2":
             raise NotImplementedError 
         
@@ -93,9 +95,11 @@ class MetaLearner:
 
         train_dataset, val_dataset, test_dataset = split_dataset(base_dataset, self.hparams)
 
+        if self.hparams.outer.use_validation:
+            self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
+                        num_workers=2, drop_last=True)
+
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
-                                num_workers=2, drop_last=True)
-        self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
                                 num_workers=2, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
                                 num_workers=2, drop_last=True)
@@ -128,7 +132,7 @@ class MetaLearner:
         self.labels = torch.ones(self.hparams.data.train_batch_size, device=self.hparams.device) * s_idx
         self.labels = self.labels.long()
 
-        if self.hparams.outer.auto_cond_log and self.hparams.outer.hyperparam_type == 'inpaint':
+        if self.hparams.outer.use_autograd and self.hparams.outer.hyperparam_type == 'inpaint':
             self.efficient_inp = True
         else:
             self.efficient_inp = False
@@ -148,26 +152,39 @@ class MetaLearner:
     
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.outer.num_iters)):
+            #checkpointing
+            if not self.hparams.outer.debug and iter % self.hparams.outer.checkpoint_iters == 0:
+                self.logger.checkpoint()
             #val
-            if iter % self.hparams.outer.val_iters == 0:
+            if self.hparams.outer.use_validation and iter % self.hparams.outer.val_iters == 0:
                 self.run_validation()
-            
+                if not self.hparams.outer.debug:
+                    self.logger.add_metrics_to_tb('val')            
             #train
             self.run_outer_step()
+            if not self.hparams.outer.debug:
+                self.logger.add_metrics_to_tb('train')      
                  
             self.global_iter += 1
         
         #replace current c with the one from the best iteration
-        self.c.copy_(self.c_list[self.best_iter])
+        if self.hparams.outer.use_validation:
+            self.c.copy_(self.c_list[self.best_iter])
 
         #Test
         if self.hparams.outer.verbose:
             print("\nBEGINNING TESTING\n")
             
         self.val_or_test(validate=False) 
+        if not self.hparams.outer.debug:
+            self.logger.add_metrics_to_tb('test') 
 
         if self.hparams.outer.verbose:
             print("\nTEST LOSS: ", self.metrics.get_metric(self.global_iter, 'test', 'nmse'))
+            print(self.metrics.get_all_metrics(self.global_iter, 'test'))
+        
+        if not self.hparams.outer.debug:
+            self.logger.checkpoint()
 
         return
     
@@ -188,7 +205,8 @@ class MetaLearner:
         self.c_list.append(self.c.detach().cpu())
 
         if self.hparams.outer.verbose:
-            print("\nTRAIN META LOSS: ", self.metrics.get_metric(self.global_iter, 'train', 'meta_loss'))
+            print("\TRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', 'nmse'))
+            print(self.metrics.get_all_metrics(self.global_iter, 'train'))
             print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
             print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')
             print("\nC STD: ", torch.std(self.c_list[-1]), '\n')
@@ -202,7 +220,7 @@ class MetaLearner:
         n_samples = 0
         num_batches = self.hparams.outer.batches_per_iter
 
-        for i, (x, _) in tqdm(enumerate(self.train_loader)):
+        for i, (x, x_idx) in tqdm(enumerate(self.train_loader)):
             if num_batches == 0:
                 break
 
@@ -234,6 +252,11 @@ class MetaLearner:
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, 'train')
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, 'train')
+
+            if self.hparams.outer.plot_imgs:
+                plot_images(x, "Training Images")
+                plot_images(get_measurement_images(x, self.hparams), "Training Measurements")
+                plot_images(x_hat, "Reconstructed")
 
             num_batches -= 1
 
@@ -295,8 +318,10 @@ class MetaLearner:
         (1) Find meta loss
         (2) HVP of grad_x_c(recon_loss) * grad_x(meta_loss)
         """
+        #(1)
         grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
         
+        #(2)
         self.c.requires_grad_()
         
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
@@ -326,8 +351,9 @@ class MetaLearner:
             if self.hparams.outer.verbose :
                 print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
 
-        if self.hparams.outer.verbose and self.global_iter != self.best_iter:
-            print("\nVAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', 'nmse'))
+        if self.hparams.outer.verbose:
+            print("\VAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', 'nmse'))
+            print(self.metrics.get_all_metrics(self.global_iter, 'val'))
         
         return
 
@@ -346,7 +372,7 @@ class MetaLearner:
             cur_loader = self.test_loader
             iter_type = 'test'
 
-        for i, (x, _) in tqdm(enumerate(cur_loader)):
+        for i, (x, x_idx) in tqdm(enumerate(cur_loader)):
             x = x.to(self.hparams.device)
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
@@ -356,6 +382,11 @@ class MetaLearner:
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, iter_type)
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, iter_type)
+
+            if self.hparams.outer.plot_imgs:
+                plot_images(x, "True Images")
+                plot_images(get_measurement_images(x, self.hparams), "Measurements")
+                plot_images(x_hat, "Reconstructed")
         
         if validate:
             new_best_dict = self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=True)

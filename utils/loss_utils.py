@@ -184,7 +184,7 @@ def get_likelihood_grad(c, y, A, x, hparams, scale=1, efficient_inp=False,\
     A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)
         and log_cond_likelihood_loss with autograd. 
     """
-    if hparams.outer.auto_cond_log:
+    if hparams.outer.use_autograd:
         grad_flag_x = x.requires_grad
         x.requires_grad_()
         likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss\
@@ -219,6 +219,9 @@ def elementwise_meta_loss(x_hat, x_true, hparams):
     meta_type = hparams.outer.meta_loss_type
     ROI = hparams.outer.ROI
 
+    if meas_loss or meta_type != "l2":
+        raise NotImplementedError
+
     if ROI:
         ROI = getRectMask(hparams).to(x_hat.device)
         roi_diff = ROI * (x_hat - x_true)
@@ -249,7 +252,7 @@ def get_meta_grad(x_hat, x_true, hparams, retain_graph=False, create_graph=False
     A method for choosing between grad_meta_loss (explicitly-formed gradient)
         and meta_loss with autograd. 
     """
-    if hparams.outer.auto_cond_log:
+    if hparams.outer.use_autograd:
         grad_flag_x = x_hat.requires_grad
         x_hat.requires_grad_()
         meta_grad = torch.autograd.grad(meta_loss\
