@@ -207,12 +207,21 @@ def get_mvue(kspace, s_maps):
     '''
     return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
 
-def plot_images(images, title, figsize=(8, 8), nrow=8):
-    plt.figure(figsize=figsize)
+def plot_images(images, title, nrow=8, save=False, fname=None):
+    h, w = images.shape[2:]
+    dpi = 80
+
     grid_img = torchvision.utils.make_grid(images.cpu(), nrow=nrow)
-    plt.title(title)
-    plt.imshow(grid_img.permute(1, 2, 0))
-    plt.show()
+    fig, ax = plt.subplots(figsize=(w/float(dpi), h/float(dpi)), dpi=dpi, frameon=False)
+    ax.imshow(grid_img.permute(1, 2, 0))
+    ax.set_xticks([])  # remove xticks
+    ax.set_yticks([])  # remove yticks
+    ax.axis('off')     # hide axis
+    fig.subplots_adjust(bottom=0, top=1, left=0, right=1, wspace=0, hspace=0)  # streches the image and removes margins
+    if save:
+        fig.savefig(fname, dpi=dpi, pad_inches=0, transparent=True) # Optional: save figure
+    ax.set_title(title)
+    fig.show()
 
 def get_measurement_images(images, hparams):
     A_type = hparams.problem.measurement_type
