@@ -9,7 +9,6 @@ import time
 from datetime import datetime
 import scipy as sp
 import matplotlib.pyplot as plt
-%matplotlib inline
 import torch.nn.functional as F
 import torchvision
 from utils.loss_utils import get_inpaint_mask
