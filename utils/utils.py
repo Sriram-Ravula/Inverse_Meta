@@ -222,7 +222,7 @@ def get_measurement_images(images, hparams):
         return
 
     if A_type == 'superres':
-        images = images * get_inpaint_mask(hparams)
+        images = images * get_inpaint_mask(hparams).to(images.device)
     elif A_type == 'inpaint':
         images = F.avg_pool2d(images, hparams.problem.downsample_factor)
         images = F.interpolate(images, scale_factor=hparams.problem.downsample_factor)
