@@ -1,6 +1,6 @@
 use_gpu: true #whether to use cuda
 gpu_num: 0 #the GPU number to use. default is 0. 
-save_dir: "" #root of folder to save run information (format: save_dir/datasets, save_dir/logs, save_dir/model_weights)
+save_dir: "" #root of folder to save run information (format: save_dir/datasets, save_dir/logs, save_dir/checkpoints)
 seed: 2022
 resume: false #whether to resume from a checkpoint
 resume_dir: "" #the root of the checkpoint (log) folder to resume from
@@ -11,7 +11,7 @@ net:
  checkpoint_dir: "/content/ncsnv2/exp/logs/celeba/checkpoint_210000.pth" #Path to pretrained model
 
 data:
- data_path: "/content/ncsnv2/exp/datasets/celeba" #or 'FFHQ' (all caps)
+ data_path: "/content/ncsnv2/exp/datasets/celeba" #or 'ffhq'
  dataset: 'celeba'
  train_batch_size: 8
  val_batch_size: 16
@@ -22,7 +22,7 @@ data:
 
 outer:
  meta_type: 'mle' #implicit, maml, mle
- auto_cond_log: true #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
+ auto_cond_log: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
  save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images

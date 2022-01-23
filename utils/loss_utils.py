@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
-
 def get_A(hparams):
     A_type = hparams.problem.measurement_type
 

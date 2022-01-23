@@ -157,6 +157,8 @@ def parse_config(config_path):
 
     HPARAMS = dict2namespace(hparams)
 
+    print(yaml.dump(HPARAMS, default_flow_style=False))
+
     return HPARAMS
 
 def parse_args(docstring):
