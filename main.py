@@ -1,6 +1,6 @@
 from utils.utils import parse_args, parse_config, set_all_seeds
 import os
-from .meta_learner import MetaLearner
+import meta_learner
 import sys
 
 def main():
@@ -11,7 +11,7 @@ def main():
 
     set_all_seeds(hparams.seed)
 
-    learner = MetaLearner(hparams, args)
+    learner = meta_learner.MetaLearner(hparams, args)
     learner.run_meta_opt()
 
     return 0
