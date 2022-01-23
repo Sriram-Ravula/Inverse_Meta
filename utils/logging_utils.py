@@ -77,7 +77,7 @@ class Logger:
         self.__make_log_folder()
         self.__save_config()
 
-        self.tb_logger = tb.SummaryWriter(log_dir=log_dir)
+        self.tb_logger = tb.SummaryWriter(log_dir=self.tb_root)
 
     def __make_log_folder(self):
         if os.path.exists(self.log_dir):
