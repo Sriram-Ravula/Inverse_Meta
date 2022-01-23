@@ -8,6 +8,7 @@ import torch.utils.tensorboard as tb
 import time
 from datetime import datetime
 import scipy as sp
+from matplotlib import pyplot as plt
 
 
 def set_all_seeds(random_seed):
@@ -203,3 +204,25 @@ def get_mvue(kspace, s_maps):
             returns minimum variance estimate of the scan
     '''
     return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
+
+def plot_images(images, title, figsize=(8, 8), nrow=8):
+    plt.figure(figsize=figsize)
+    grid_img = torchvision.utils.make_grid(images, nrow=nrow)
+    plt.title(title)
+    plt.imshow(grid_img.permute(1, 2, 0))
+    plt.show()
+
+def get_measurement_images(images, hparams):
+    A_type = hparams.problem.measurement_type
+
+    if A_type not in ['superres', 'inpaint']:
+        print("Can't save given measurement type")
+        return
+
+    if A_type == 'superres':
+        images = images * get_inpaint_mask(hparams)
+    elif A_type == 'inpaint':
+        images = F.avg_pool2d(images, hparams.problem.downsample_factor)
+        images = F.interpolate(images, scale_factor=hparams.problem.downsample_factor)
+    
+    return images

@@ -9,7 +9,6 @@ import os
 import yaml
 from PIL import Image
 import torch.nn.functional as F
-from matplotlib import pyplot as plt
 import torchvision
 import pickle
 
@@ -46,29 +45,6 @@ def save_measurement_images(est_images, hparams, save_prefix):
             image = F.avg_pool2d(image, hparams.problem.downsample_factor)
             image = F.interpolate(image, scale_factor=hparams.problem.downsample_factor)
         save_image(image, os.path.join(save_prefix, str(image_num), '.png'))
-
-def plot_images(images, title, figsize=(8, 8), nrow=8):
-    plt.figure(figsize=figsize)
-    grid_img = torchvision.utils.make_grid(images, nrow=nrow)
-    plt.title(title)
-    plt.imshow(grid_img.permute(1, 2, 0))
-    plt.show()
-
-def get_measurement_images(images, hparams):
-    A_type = hparams.problem.measurement_type
-
-    if A_type not in ['superres', 'inpaint']:
-        print("Can't save given measurement type")
-        return
-
-    if A_type == 'superres':
-        images = images * get_inpaint_mask(hparams)
-    elif A_type == 'inpaint':
-        images = F.avg_pool2d(images, hparams.problem.downsample_factor)
-        images = F.interpolate(images, scale_factor=hparams.problem.downsample_factor)
-    
-    return images
-
 
 def save_to_pickle(data, pkl_filepath):
     """Save the data to a pickle file"""

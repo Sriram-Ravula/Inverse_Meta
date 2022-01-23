@@ -8,11 +8,10 @@ import yaml
 from time import time
 import os
 
-from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
+from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer, plot_images, get_measurement_images
 from utils.loss_utils import get_A, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
 from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
 from utils.metrics_utils import Metrics
-from utils.logging_utils import Logger, plot_images, get_measurement_images
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models import get_sigmas
@@ -32,6 +31,7 @@ class MetaLearner:
         self.__init_problem()
         self.metrics = Metrics()
         if not self.hparams.outer.debug:
+            from utils.logging_utils import Logger
             self.logger = Logger(self.metrics, self, hparams, os.path.join(hparams.save_dir, args.doc))
         return
     
@@ -253,7 +253,7 @@ class MetaLearner:
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, 'train')
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, 'train')
 
-            if self.hparams.outer.plot_imgs:
+            if not self.hparams.outer.debug and self.hparams.outer.plot_imgs:
                 plot_images(x, "Training Images")
                 plot_images(get_measurement_images(x, self.hparams), "Training Measurements")
                 plot_images(x_hat, "Reconstructed")
@@ -383,7 +383,7 @@ class MetaLearner:
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, iter_type)
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, iter_type)
 
-            if self.hparams.outer.plot_imgs:
+            if not self.hparams.outer.debug and self.hparams.outer.plot_imgs:
                 plot_images(x, "True Images")
                 plot_images(get_measurement_images(x, self.hparams), "Measurements")
                 plot_images(x_hat, "Reconstructed")
