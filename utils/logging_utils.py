@@ -192,9 +192,9 @@ class Logger:
         """
         assert iter_type in ['train', 'val', 'test']
 
-        raw_dict = self.metrics.__retrieve_dict(iter_type, dict_type='raw')
-        agg_dict = self.metrics.__retrieve_dict(iter_type, dict_type='aggregate')
-        best_dict = self.metrics.__retrieve_dict(iter_type, dict_type='best')
+        raw_dict = self.metrics.get_dict(iter_type, dict_type='raw')
+        agg_dict = self.metrics.get_dict(iter_type, dict_type='aggregate')
+        best_dict = self.metrics.get_dict(iter_type, dict_type='best')
 
         step = self.learner.global_iter
         iterkey ='iter_' + str(step)

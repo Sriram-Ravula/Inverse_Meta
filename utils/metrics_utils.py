@@ -177,6 +177,10 @@ class Metrics:
         
         return cur_dict
     
+    def get_dict(self, iter_type, dict_type='raw'):
+        """Public-facing getter than calls retrieve_dict"""
+        return self.__retrieve_dict(iter_type, dict_type)
+    
     def get_best(self, iter_type, metric_key):
         """
         Getter method for retrieving the best iter and value for a given metric.
