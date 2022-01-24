@@ -115,26 +115,29 @@ class MetaLearner:
             print("\nINITIALIZING INNER PROBLEM\n")
             start = time()
 
+        print("LINE -1")
         self.A = get_A(self.hparams)
+        print("LINE 0")
         #THIS IS A HACKY FIX TO MAKE A WORK WITH LARGE DATASETS
         if self.hparams.problem.measurement_type == 'inpaint':
             self.A = None
+        print("LINE 1")
         if self.A is not None:
             self.A = self.A.to(self.hparams.device)
-
+        print("LINE 2")
         self.c = init_c(self.hparams).to(self.hparams.device)
-
+        print("LINE 3")
         if self.hparams.outer.lr_decay:
             self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams)
         else:
             self.meta_opt = get_meta_optimizer(self.c, self.hparams)
-        
+        print("LINE 4")
         #values used for loss min appx
         s_idx = len(self.sigmas)-1
         self.loss_scale = 1 / (self.sigmas[s_idx]**2)
         self.labels = torch.ones(self.hparams.data.train_batch_size, device=self.hparams.device) * s_idx
         self.labels = self.labels.long()
-
+        print("LINE 5")
         if self.hparams.outer.use_autograd and self.hparams.outer.hyperparam_type == 'inpaint':
             self.efficient_inp = True
         else:
