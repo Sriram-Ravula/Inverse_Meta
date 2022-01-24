@@ -28,7 +28,7 @@ outer:
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
- hyperparam_init: 10 #the value to initialize the hyperparameter at. Default is 1
+ hyperparam_init: 20 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 20 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 1 #meta learning rate
@@ -46,7 +46,7 @@ outer:
  cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 0 means no damping
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
  finite_difference_coeff: 0.00000001 #value of r to use in finite difference. 0.00000001 is usual val
- ROI: false #[False, True, ((h_offset, w_offset),(h, w))] - whether to use an ROI
+ ROI: true #[False, True, ((h_offset, w_offset),(h, w))] - whether to use an ROI
 
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
