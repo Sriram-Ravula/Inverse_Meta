@@ -42,8 +42,8 @@ def save_measurement_images(est_images, hparams, save_prefix):
         if A_type == 'inpaint':
             image = get_measurements(None, image, hparams, True)
         elif A_type == 'superres':
-            image = get_measurements(None, image, hparams)
-            image = get_transpose_measurements(None, image, hparams)
+            image = get_measurements(None, image.unsqueeze(0), hparams)
+            image = get_transpose_measurements(None, image, hparams).squeeze(0)
         save_image(image, os.path.join(save_prefix, str(image_num) + '.png'))
 
 def save_to_pickle(data, pkl_filepath):
@@ -177,8 +177,8 @@ class Logger:
         if A_type == 'inpaint':
             images = get_measurements(None, images, self.hparams, True)
         elif A_type == 'superres':
-            images = get_measurements(None, images, self.hparams)
-            images = get_transpose_measurements(None, images, self.hparams)
+            images = get_measurements(None, images.unsqueeze(0), self.hparams)
+            images = get_transpose_measurements(None, images, self.hparams).squeeze(0)
         
         torch.save(images, save_path)
     
