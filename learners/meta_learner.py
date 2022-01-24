@@ -407,7 +407,7 @@ class MetaLearner:
             
             if not self.hparams.outer.debug and not validate:
                 self.logger.save_images(x, x_idx, "Test_true")
-                self.logger.save_image_measurements(x, x_idx, "Test_meas")
+                self.logger.save_image_measurements(x, x_idx, "Test_meas", self.noisy)
                 self.logger.save_images(x_hat, x_idx, "Test_recon")
         
         if validate:

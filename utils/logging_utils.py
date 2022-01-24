@@ -30,17 +30,17 @@ def save_images(est_images, save_prefix):
     for image_num, image in est_images.items():
         save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
 
-def save_measurement_images(est_images, hparams, save_prefix):
+def save_measurement_images(est_images, hparams, save_prefix, noisy=False):
     """Save a batch of image measurements to png files"""
     A_type = hparams.problem.measurement_type
 
-    if A_type not in ['superres', 'inpaint']:
+    if A_type not in ['superres', 'inpaint', 'identity']:
         print("Can't save given measurement type")
         return
 
     for image_num, image in est_images.items():
-        if A_type == 'inpaint':
-            image = get_measurements(None, image, hparams, True)
+        if A_type == 'inpaint' or A_type == 'identity':
+            image = get_measurements(None, image, hparams, True, noisy)
         elif A_type == 'superres':
             image = get_measurements(None, image.unsqueeze(0), hparams)
             image = get_transpose_measurements(None, image, hparams).squeeze(0)
@@ -140,7 +140,7 @@ class Logger:
 
         return out_dict
     
-    def save_image_measurements(self, images, image_nums, save_prefix):
+    def save_image_measurements(self, images, image_nums, save_prefix, noisy=False):
         save_path = os.path.join(self.image_root, save_prefix)
 
         if not os.path.exists(save_path):
@@ -151,7 +151,7 @@ class Logger:
         for i in range(images.shape[0]):
             image_dict[image_nums[i]] = images[i]
         
-        save_measurement_images(image_dict, self.hparams, save_path)
+        save_measurement_images(image_dict, self.hparams, save_path, noisy=noisy)
 
     def save_images(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
