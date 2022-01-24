@@ -133,12 +133,10 @@ class MetaLearner:
         self.labels = torch.ones(self.hparams.data.train_batch_size, device=self.hparams.device) * s_idx
         self.labels = self.labels.long()
 
-        if self.hparams.outer.use_autograd and self.hparams.outer.hyperparam_type == 'inpaint':
+        if self.hparams.outer.use_autograd and self.hparams.problem.measurement_type == 'inpaint':
             self.efficient_inp = True
         else:
             self.efficient_inp = False
-        
-        print(self.efficient_inp) #debugging
 
         self.global_iter = 0
         self.best_iter = 0
