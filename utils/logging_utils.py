@@ -182,7 +182,8 @@ class Logger:
     
     def add_tb_images(self, images, tag):
         step = self.learner.global_iter
-        self.tb_logger(tag, images, global_step=step)
+        grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
+        self.tb_logger(tag, grid_img, global_step=step)
 
     def add_metrics_to_tb(self, iter_type='train'):
         """

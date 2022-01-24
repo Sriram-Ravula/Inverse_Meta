@@ -217,7 +217,7 @@ def plot_images(images, title, nrow=8, save=False, fname=None):
         plt.savefig(fname)
     else:
         plt.title(title)
-        plt.show()
+        plt.show();
 
 def get_measurement_images(images, hparams):
     A_type = hparams.problem.measurement_type
