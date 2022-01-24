@@ -1,4 +1,3 @@
-from zmq import device
 import torch
 import torch.nn.functional as F
 import numpy as np

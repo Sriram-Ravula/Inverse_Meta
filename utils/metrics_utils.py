@@ -3,7 +3,6 @@ Class for calculating metrics for a proposed image and the original.
 NOTE: all methods return per-image metrics, i.e. the number of returned values is equal to batch dimension. 
 """
 
-from multiprocessing.sharedctypes import Value
 import torch
 import torch.nn.functional as F
 import numpy as np
