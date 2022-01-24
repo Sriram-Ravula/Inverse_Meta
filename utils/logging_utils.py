@@ -170,14 +170,14 @@ class Logger:
         A_type = self.hparams.problem.measurement_type
         save_path = os.path.join(self.image_root, save_prefix + '.pth')
 
-        if A_type not in ['superres', 'inpaint']:
+        if A_type not in ['superres', 'inpaint', 'identity']:
             print("Can't save given measurement type")
             return
 
-        if A_type == 'inpaint':
-            images = get_measurements(None, images, self.hparams, True)
+        if A_type == 'inpaint' or A_type == 'identity':
+            images = get_measurements(None, images, self.hparams, True, self.learner.noisy)
         elif A_type == 'superres':
-            images = get_measurements(None, images.unsqueeze(0), self.hparams)
+            images = get_measurements(None, images.unsqueeze(0), self.hparams, self.learner.noisy)
             images = get_transpose_measurements(None, images, self.hparams).squeeze(0)
         
         torch.save(images, save_path)
@@ -196,15 +196,16 @@ class Logger:
 
         A_type = self.hparams.problem.measurement_type
 
-        if A_type not in ['superres', 'inpaint']:
+        if A_type not in ['superres', 'inpaint', 'identity']:
             print("Can't save given measurement type")
             return
 
-        if A_type == 'inpaint':
-            images = get_measurements(None, images, self.hparams, True)
+        if A_type == 'inpaint' or A_type == 'identity':
+            images = get_measurements(None, images, self.hparams, True, self.learner.noisy)
         elif A_type == 'superres':
-            images = get_measurements(None, images, self.hparams)
+            images = get_measurements(None, images, self.hparams, self.learner.noisy)
             images = get_transpose_measurements(None, images, self.hparams)
+            
 
         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
         self.tb_logger.add_image(tag, grid_img, global_step=step)
