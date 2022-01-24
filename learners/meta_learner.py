@@ -116,6 +116,9 @@ class MetaLearner:
             start = time()
 
         self.A = get_A(self.hparams)
+        #THIS IS A HACKY FIX TO MAKE A WORK WITH LARGE DATASETS
+        if self.hparams.problem.measurement_type == 'inpaint':
+            self.A = None
         if self.A is not None:
             self.A = self.A.to(self.hparams.device)
 
