@@ -191,6 +191,24 @@ class Logger:
         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
         self.tb_logger.add_image(tag, grid_img, global_step=step)
 
+    def add_tb_measurement_images(self, images, tag):
+        step = self.learner.global_iter
+
+        A_type = self.hparams.problem.measurement_type
+
+        if A_type not in ['superres', 'inpaint']:
+            print("Can't save given measurement type")
+            return
+
+        if A_type == 'inpaint':
+            images = get_measurements(None, images, self.hparams, True)
+        elif A_type == 'superres':
+            images = get_measurements(None, images.unsqueeze(0), self.hparams)
+            images = get_transpose_measurements(None, images, self.hparams).squeeze(0)
+
+        grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
+        self.tb_logger.add_image(tag, grid_img, global_step=step)
+
     def add_metrics_to_tb(self, iter_type='train'):
         """
         Run through this Logger's metrics object and log everything there.

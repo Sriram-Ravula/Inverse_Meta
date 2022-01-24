@@ -394,7 +394,7 @@ class MetaLearner:
                 # plot_images(x_hat, "Reconstructed")
                 if self.global_iter == 0 or not validate:
                     self.logger.add_tb_images(x, iter_type + "_imgs_" + str(i))
-                    self.logger.add_tb_images(get_measurement_images(x, self.hparams), iter_type + "_meas_" + str(i))
+                    self.logger.add_tb_measurement_images(x, iter_type + "_meas_" + str(i))
                 self.logger.add_tb_images(x_hat, iter_type + "_recons_" + str(i))
             
             if not self.hparams.outer.debug and not validate:
