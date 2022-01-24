@@ -67,9 +67,9 @@ def get_measurements(A, x, hparams, efficient_inp=False, noisy=False):
     
     if noisy:
         if hparams.problem.noise_type == 'gaussian':
-            noise = torch.randn(Ax.shape, device=Ax.device) * hparams.noise_std
+            noise = torch.randn(Ax.shape, device=Ax.device) * hparams.problem.noise_std
         elif hparams.problem.noise_type == 'gaussian_nonwhite': #TODO should fix rand instead of instantiating it newly each time!
-            noise = torch.randn(Ax.shape, device=Ax.device) * torch.rand(Ax.shape, device=Ax.device) * hparams.noise_std
+            noise = torch.randn(Ax.shape, device=Ax.device) * torch.rand(Ax.shape, device=Ax.device) * hparams.problem.noise_std
         return Ax + noise
     else:
         return Ax
