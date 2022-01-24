@@ -205,7 +205,7 @@ class MetaLearner:
         self.c_list.append(self.c.detach().cpu())
 
         if self.hparams.outer.verbose:
-            print("\TRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', 'nmse'))
+            print("\nTRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', 'nmse'))
             print(self.metrics.get_all_metrics(self.global_iter, 'train'))
             print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
             print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')

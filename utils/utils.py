@@ -208,15 +208,26 @@ def get_mvue(kspace, s_maps):
     '''
     return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
 
-def plot_images(images, title, nrow=8, save=False, fname=None):
+def plot_images(images, title, save=False, fname=None):
     """Function to plot and/or save an image"""
-    plt.figure()
-    grid_img = torchvision.utils.make_grid(images.cpu(), nrow=nrow)
-    plt.imshow(grid_img.permute(1, 2, 0))    
+
+    fig = plt.figure(figsize=(1, 1))
+
+    grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2).permute(1, 2, 0) 
+
+    ax = fig.add_subplot(1, 1, 1, frameon=False)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_ticks([])
+    
+    frame = plt.gca()
+    frame.axes.get_xaxis().set_visible(False)
+    frame.axes.get_yaxis().set_visible(False)
+    frame = frame.imshow(grid_img)
+
     if save:
         plt.savefig(fname)
     else:
-        plt.title(title)
+        ax.set_title(title)
         plt.show();
 
 def get_measurement_images(images, hparams):
