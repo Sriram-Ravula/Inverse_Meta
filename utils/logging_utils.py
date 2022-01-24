@@ -40,7 +40,7 @@ def save_measurement_images(est_images, hparams, save_prefix):
 
     for image_num, image in est_images.items():
         if A_type == 'superres':
-            image = image * get_inpaint_mask(hparams)
+            image = image * get_inpaint_mask(hparams).to(image.device)
         elif A_type == 'inpaint':
             image = F.avg_pool2d(image, hparams.problem.downsample_factor)
             image = F.interpolate(image, scale_factor=hparams.problem.downsample_factor)
