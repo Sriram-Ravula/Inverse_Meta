@@ -209,6 +209,10 @@ class MetaLearner:
         self.meta_opt.step()
         self.c.requires_grad_(False)
 
+        if self.hparams.outer.lr_decay and not self.hparams.outer.use_validation:
+            self.meta_scheduler.step()
+            print("\nDECAYING LR\n")
+
         self.grads.append(meta_grad.detach().cpu())
         self.grad_norms.append(torch.norm(meta_grad.flatten()).item())
         self.c_list.append(self.c.detach().cpu())
