@@ -392,6 +392,11 @@ class MetaLearner:
                     self.logger.add_tb_images(x, iter_type + "_imgs_" + str(i))
                     self.logger.add_tb_images(get_measurement_images(x, self.hparams), iter_type + "_meas_" + str(i))
                 self.logger.add_tb_images(x_hat, iter_type + "_recons_" + str(i))
+            
+            if not self.hparams.outer.debug and not validate:
+                self.logger.save_images(x, x_idx, "Test_true")
+                self.logger.save_image_measurements(x, x_idx, "Test_meas")
+                self.logger.save_images(x_hat, x_idx, "Test_recon")
         
         if validate:
             new_best_dict = self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=True)
