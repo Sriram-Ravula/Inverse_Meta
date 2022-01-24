@@ -159,7 +159,9 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
 
     fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
     titlestr = "%10s %10s %10s %10s %10s"
-    if verbose: print(titlestr % ("Noise_Level", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
+    if verbose:
+        print('\n') 
+        print(titlestr % ("Noise_Level", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
 
     step_num = 0
 
@@ -236,7 +238,9 @@ def SGLD_inverse_eval(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=Fals
 
     fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
     titlestr = "%10s %10s %10s %10s %10s"
-    if verbose: print(titlestr % ("Noise_Level", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
+    if verbose:
+        print('\n') 
+        print(titlestr % ("Noise_Level", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
 
     step_num = 0
 
