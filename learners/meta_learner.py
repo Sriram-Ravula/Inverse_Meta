@@ -118,9 +118,6 @@ class MetaLearner:
         print("LINE -1")
         self.A = get_A(self.hparams)
         print("LINE 0")
-        #THIS IS A HACKY FIX TO MAKE A WORK WITH LARGE DATASETS
-        if self.hparams.problem.measurement_type == 'inpaint':
-            self.A = None
         print("LINE 1")
         if self.A is not None:
             self.A = self.A.to(self.hparams.device)
