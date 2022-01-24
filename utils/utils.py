@@ -19,7 +19,7 @@ def set_all_seeds(random_seed):
     Sets random seeds in numpy, torch, and random.
 
     Args:
-        random_seed: The seed to set. 
+        random_seed: The seed to set.
     """
     torch.manual_seed(random_seed)
     random.seed(random_seed)
@@ -34,7 +34,7 @@ def dict2namespace(config):
     Args:
         config: The dictionary to convert to namespace.
                 Can contain up to one level of nested dicts.
-    
+
     Returns:
         namespace: The converted namespace.
     """
@@ -93,8 +93,8 @@ def init_c(hparams):
     elif c_type == 'matrix':
         c = torch.eye(m)
     else:
-        raise NotImplementedError 
-    
+        raise NotImplementedError
+
     return c
 
 def get_meta_optimizer(opt_params, hparams):
@@ -108,7 +108,7 @@ def get_meta_optimizer(opt_params, hparams):
         meta_opt = torch.optim.SGD([{'params': opt_params}], lr=lr)
     else:
         raise NotImplementedError
-    
+
     if lr_decay:
         meta_scheduler = torch.optim.lr_scheduler.ExponentialLR(meta_opt, lr_decay)
         return (meta_opt, meta_scheduler)
@@ -129,7 +129,7 @@ def parse_config(config_path):
         raise NotImplementedError
     if hparams['outer']['meta_type'] not in ['implicit', 'maml', 'mle']:
         raise NotImplementedError
-    
+
     if hparams['data']['dataset'] == "celeba":
         hparams['data']['image_size'] = 64
     elif hparams['data']['dataset'] == "ffhq":
