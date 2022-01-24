@@ -166,7 +166,7 @@ def parse_config(config_path):
     elif hparams['problem']['measurement_type'] == 'inpaint':
         hparams['problem']['num_measurements'] = hparams['data']['n_input'] - hparams['data']['num_channels']*hparams['problem']['inpaint_size']**2
 
-    if hparams['problem']['add_noise'] or hparams['problem']['add_dependent_noise']:
+    if hparams['problem']['add_dependent_noise']:
         raise NotImplementedError
 
     HPARAMS = dict2namespace(hparams)

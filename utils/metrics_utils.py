@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import numpy as np
 from pytorch_msssim import ssim, ms_ssim
 
+from utils.loss_utils import getRectMask 
+
 
 @torch.no_grad()
 def get_msssim(x_hat, x, range=1.):
@@ -75,7 +77,7 @@ def get_mse(x_hat, x):
     return mse_val.cpu().numpy().flatten() / np.prod(x_hat.shape[1:])
 
 @torch.no_grad()
-def get_all_metrics(x_hat, x, range = 1.):
+def get_all_metrics(x_hat, x, range = 1., hparams=None):
     """
     function for getting all image reference metrics and returning in a dict
     """
@@ -88,6 +90,15 @@ def get_all_metrics(x_hat, x, range = 1.):
     metrics['sse'] = get_sse(x_hat, x)
     metrics['mse'] = get_mse(x_hat, x)
 
+    ROI = hparams.outer.ROI
+    if ROI:
+        ROI = getRectMask(hparams).to(x_hat.device)
+        x_hat_ROI, x_ROI = x_hat*ROI, x*ROI
+        metrics['roi_nmse'] = get_nmse(x_hat_ROI, x_ROI)
+        metrics['roi_psnr'] = get_psnr(x_hat_ROI, x_ROI, range=range)
+        metrics['roi_sse'] = get_sse(x_hat_ROI, x_ROI)
+        metrics['roi_mse'] = get_mse(x_hat_ROI, x_ROI)
+
     return metrics
 
 class Metrics:
@@ -95,7 +106,7 @@ class Metrics:
     A class for storing and aggregating metrics during a run.
     Metrics are stored as numpy arrays.
     """
-    def __init__(self, range=1.0):
+    def __init__(self, range=1.0, hparams=None):
         #dicts for olding raw, image-by-image stats for each iteration.
         #e.g. self.train_metrics['iter_0']['psnr'] = [0.9, 0.1, 0.3] means that at train iteration 0, the images had psnrs of 0.9, 0.1, 0.3
         self.train_metrics = {}
@@ -116,6 +127,7 @@ class Metrics:
         self.best_test_metrics = {}
 
         self.range = range
+        self.hparams = hparams
 
     def __init_iter_dict(self, cur_dict, iter_num, should_exist=False):
         """
@@ -234,7 +246,7 @@ class Metrics:
         """
         cur_dict = self.__retrieve_dict(iter_type) #validate and retrieve the right dict
 
-        iter_metrics = get_all_metrics(x_hat, x, range = self.range) #calc the metrics
+        iter_metrics = get_all_metrics(x_hat, x, range = self.range, hparams=self.hparams) #calc the metrics
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
         

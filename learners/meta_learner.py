@@ -29,7 +29,7 @@ class MetaLearner:
         self.__init_net()
         self.__init_datasets()
         self.__init_problem()
-        self.metrics = Metrics()
+        self.metrics = Metrics(hparams=hparams)
         if not self.hparams.outer.debug:
             from utils.logging_utils import Logger
             self.logger = Logger(self.metrics, self, hparams, os.path.join(hparams.save_dir, args.doc))
@@ -145,6 +145,13 @@ class MetaLearner:
         self.grads = []
         self.c_list = [self.c.detach().cpu()]
 
+        if self.hparams.outer.ROI:
+            self.val_metric = 'roi_nmse'
+        else:
+            self.val_metric = 'nmse' 
+
+        self.noisy = self.hparams.problem.add_noise
+
         if self.hparams.outer.verbose:
             end = time()
             print("\nPROBLEM TIME: ", str(end - start), "S\n")
@@ -181,7 +188,7 @@ class MetaLearner:
             self.logger.add_metrics_to_tb('test') 
 
         if self.hparams.outer.verbose:
-            print("\nTEST LOSS: ", self.metrics.get_metric(self.global_iter, 'test', 'nmse'))
+            print("\nTEST LOSS: ", self.metrics.get_metric(self.global_iter, 'test', self.val_metric))
             print(self.metrics.get_all_metrics(self.global_iter, 'test'))
         
         if not self.hparams.outer.debug:
@@ -206,7 +213,7 @@ class MetaLearner:
         self.c_list.append(self.c.detach().cpu())
 
         if self.hparams.outer.verbose:
-            print("\nTRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', 'nmse'))
+            print("\nTRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', self.val_metric))
             print(self.metrics.get_all_metrics(self.global_iter, 'train'))
             print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
             print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')
@@ -234,7 +241,7 @@ class MetaLearner:
             
             #(1) Find x(c) by running the inner optimization
             x = x.to(self.hparams.device)
-            y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
+            y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
             x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
@@ -345,8 +352,8 @@ class MetaLearner:
 
         #check if we have a new best validation loss
         #if so, update best iter
-        if new_best_dict is not None and 'nmse' in new_best_dict:
-            best_value = new_best_dict['nmse']
+        if new_best_dict is not None and self.val_metric in new_best_dict:
+            best_value = new_best_dict[self.val_metric]
             self.best_iter = self.global_iter
             if self.hparams.outer.verbose:
                 print("\nNEW BEST VAL LOSS: ", best_value, "\n")
@@ -356,7 +363,7 @@ class MetaLearner:
                 print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
 
         if self.hparams.outer.verbose:
-            print("\VAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', 'nmse'))
+            print("\VAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', self.val_metric))
             print(self.metrics.get_all_metrics(self.global_iter, 'val'))
         
         return
@@ -379,7 +386,7 @@ class MetaLearner:
         for i, (x, x_idx) in tqdm(enumerate(cur_loader)):
             x_idx = x_idx.cpu().numpy().flatten()
             x = x.to(self.hparams.device)
-            y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
+            y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
             x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
@@ -392,6 +399,7 @@ class MetaLearner:
                 # plot_images(x, "True Images")
                 # plot_images(get_measurement_images(x, self.hparams), "Measurements")
                 # plot_images(x_hat, "Reconstructed")
+                #TODO add ROI saving!
                 if self.global_iter == 0 or not validate:
                     self.logger.add_tb_images(x, iter_type + "_imgs_" + str(i))
                     self.logger.add_tb_measurement_images(x, iter_type + "_meas_" + str(i))

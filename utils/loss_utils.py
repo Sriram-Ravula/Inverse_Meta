@@ -1,3 +1,4 @@
+from zmq import device
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -42,7 +43,7 @@ def get_A_inpaint(hparams):
 
     return torch.from_numpy(A)
 
-def get_measurements(A, x, hparams, efficient_inp=False):
+def get_measurements(A, x, hparams, efficient_inp=False, noisy=False):
     """
     Efficient_inp uses a mask for element-wise inpainting instead of mm.
     But the dimensions don't play nice with our gradient functions!
@@ -64,7 +65,14 @@ def get_measurements(A, x, hparams, efficient_inp=False):
     else:
         raise NotImplementedError #TODO implement circulant!!
     
-    return Ax
+    if noisy:
+        if hparams.problem.noise_type == 'gaussian':
+            noise = torch.randn(Ax.shape, device=Ax.device) * hparams.noise_std
+        elif hparams.problem.noise_type == 'gaussian_nonwhite': #TODO should fix rand instead of instantiating it newly each time!
+            noise = torch.randn(Ax.shape, device=Ax.device) * torch.rand(Ax.shape, device=Ax.device) * hparams.noise_std
+        return Ax + noise
+    else:
+        return Ax
 
 def get_transpose_measurements(A, vec, hparams):
     A_type = hparams.problem.measurement_type

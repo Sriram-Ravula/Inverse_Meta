@@ -61,7 +61,7 @@ problem:
  downsample_factor: 8 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
  add_noise: false #whether to add noise after measuring
- noise_type: "gaussian" #[gaussian, uniform] 
+ noise_type: "gaussian" #[gaussian, gaussian_nonwhite] 
  noise_std: 1 
  add_dependent_noise: false #whether to add noise before measuring
  dependent_noise_type: "gaussian" #[gaussian, uniform]
