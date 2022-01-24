@@ -253,10 +253,11 @@ class MetaLearner:
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, 'train')
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, 'train')
 
-            if not self.hparams.outer.debug and self.hparams.outer.plot_imgs:
-                plot_images(x, "Training Images")
-                plot_images(get_measurement_images(x, self.hparams), "Training Measurements")
-                plot_images(x_hat, "Reconstructed")
+            #just plot in tensorboard for now - this isnt working
+            # if not self.hparams.outer.debug and self.hparams.outer.plot_imgs:
+            #     plot_images(x, "Training Images")
+            #     plot_images(get_measurement_images(x, self.hparams), "Training Measurements")
+            #     plot_images(x_hat, "Reconstructed")
 
             num_batches -= 1
 
@@ -384,9 +385,13 @@ class MetaLearner:
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, iter_type)
 
             if not self.hparams.outer.debug and self.hparams.outer.plot_imgs:
-                plot_images(x, "True Images")
-                plot_images(get_measurement_images(x, self.hparams), "Measurements")
-                plot_images(x_hat, "Reconstructed")
+                # plot_images(x, "True Images")
+                # plot_images(get_measurement_images(x, self.hparams), "Measurements")
+                # plot_images(x_hat, "Reconstructed")
+                if self.global_iter == 0 or not validate:
+                    self.logger.add_tb_images(x, iter_type + "_imgs_" + str(i))
+                    self.logger.add_tb_images(get_measurement_images(x, self.hparams), iter_type + "_meas_" + str(i))
+                self.logger.add_tb_images(x_hat, iter_type + "_recons_" + str(i))
         
         if validate:
             new_best_dict = self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=True)
