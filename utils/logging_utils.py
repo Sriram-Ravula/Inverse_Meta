@@ -203,8 +203,8 @@ class Logger:
         if A_type == 'inpaint':
             images = get_measurements(None, images, self.hparams, True)
         elif A_type == 'superres':
-            images = get_measurements(None, images.unsqueeze(0), self.hparams)
-            images = get_transpose_measurements(None, images, self.hparams).squeeze(0)
+            images = get_measurements(None, images, self.hparams)
+            images = get_transpose_measurements(None, images, self.hparams)
 
         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
         self.tb_logger.add_image(tag, grid_img, global_step=step)
