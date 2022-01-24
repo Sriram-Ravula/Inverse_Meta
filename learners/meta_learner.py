@@ -226,6 +226,8 @@ class MetaLearner:
 
             n_samples += x.shape[0]
 
+            x_idx = x_idx.cpu().numpy().flatten()
+
             if self.hparams.outer.meta_type == 'maml':
                 self.c.requires_grad_()
             
@@ -374,6 +376,7 @@ class MetaLearner:
             iter_type = 'test'
 
         for i, (x, x_idx) in tqdm(enumerate(cur_loader)):
+            x_idx = x_idx.cpu().numpy().flatten()
             x = x.to(self.hparams.device)
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
