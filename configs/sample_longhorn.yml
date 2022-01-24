@@ -24,11 +24,11 @@ outer:
  meta_type: 'mle' #implicit, maml, mle
  use_autograd: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
- save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
+ save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
- hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
+ hyperparam_init: 10 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 20 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 1 #meta learning rate
@@ -52,7 +52,7 @@ inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
  decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
- decimation_type: 'last' #['linear', 'log_last', 'log_first', 'last', 'first']
+ decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
