@@ -353,15 +353,16 @@ class MetaLearner:
 
         #check if we have a new best validation loss
         #if so, update best iter
-        if new_best_dict is not None and self.val_metric in new_best_dict:
-            best_value = new_best_dict[self.val_metric]
-            self.best_iter = self.global_iter
-            if self.hparams.outer.verbose:
-                print("\nNEW BEST VAL LOSS: ", best_value, "\n")
-        elif self.hparams.outer.lr_decay:
-            self.meta_scheduler.step()
-            if self.hparams.outer.verbose :
-                print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
+        if self.global_iter > 0:
+            if new_best_dict is not None and self.val_metric in new_best_dict:
+                best_value = new_best_dict[self.val_metric]
+                self.best_iter = self.global_iter
+                if self.hparams.outer.verbose:
+                    print("\nNEW BEST VAL LOSS: ", best_value, "\n")
+            elif self.hparams.outer.lr_decay:
+                self.meta_scheduler.step()
+                if self.hparams.outer.verbose :
+                    print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
 
         if self.hparams.outer.verbose:
             print("\VAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', self.val_metric))
