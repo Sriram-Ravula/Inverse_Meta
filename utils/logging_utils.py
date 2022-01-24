@@ -39,9 +39,9 @@ def save_measurement_images(est_images, hparams, save_prefix):
         return
 
     for image_num, image in est_images.items():
-        if A_type == 'superres':
+        if A_type == 'inpaint':
             image = image * get_inpaint_mask(hparams).to(image.device)
-        elif A_type == 'inpaint':
+        elif A_type == 'superres':
             image = F.avg_pool2d(image, hparams.problem.downsample_factor)
             image = F.interpolate(image, scale_factor=hparams.problem.downsample_factor)
         save_image(image, os.path.join(save_prefix, str(image_num) + '.png'))
@@ -174,9 +174,9 @@ class Logger:
             print("Can't save given measurement type")
             return
 
-        if A_type == 'superres':
+        if A_type == 'inpaint':
             images = images * get_inpaint_mask(self.hparams)
-        elif A_type == 'inpaint':
+        elif A_type == 'superres':
             images = F.avg_pool2d(images, self.hparams.problem.downsample_factor)
             images = F.interpolate(images, scale_factor=self.hparams.problem.downsample_factor)
         
