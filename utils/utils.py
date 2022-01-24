@@ -210,8 +210,14 @@ def get_mvue(kspace, s_maps):
 
 def plot_images(images, title, nrow=8, save=False, fname=None):
     """Function to plot and/or save an image"""
+    plt.figure()
     grid_img = torchvision.utils.make_grid(images.cpu(), nrow=nrow)
     plt.imshow(grid_img.permute(1, 2, 0))    
+    if save:
+        plt.savefig(fname)
+    else:
+        plt.title(title)
+        plt.show()
 
 def get_measurement_images(images, hparams):
     A_type = hparams.problem.measurement_type
