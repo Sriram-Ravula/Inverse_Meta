@@ -1,3 +1,4 @@
+from fcntl import DN_DELETE
 from sys import path
 import torch
 from torch.utils.data import DataLoader
@@ -116,6 +117,7 @@ class MetaLearner:
             start = time()
 
         self.A = get_A(self.hparams)
+        self.noisy = self.hparams.problem.add_noise
 
         if self.A is not None:
             self.A = self.A.to(self.hparams.device)
@@ -151,11 +153,41 @@ class MetaLearner:
         else:
             self.val_metric = 'nmse' 
 
-        self.noisy = self.hparams.problem.add_noise
+        self.save_inits = self.hparams.outer.save_inits
+        if self.save_inits:
+            self.x_inits = {}
 
         if self.hparams.outer.verbose:
             end = time()
             print("\nPROBLEM TIME: ", str(end - start), "S\n")
+
+        return
+
+    def __load_inits(self, indices):
+        """"Method for loading saved initializations"""
+        if self.hparams.outer.verbose:
+            print("\nLOADING SAVED INITIALIZATONS\n")
+
+        out_x = None
+
+        for i in indices:
+            if str(i) not in self.x_inits:
+                self.x_inits[str(i)] = torch.rand(self.hparams.data.image_shape)
+            
+            if out_x is None:
+                out_x = self.x_inits[str(i)].clone()
+            else:
+                out_x = torch.stack((out_x, self.x_inits[str(i)]), 0)
+        
+        return out_x.to(self.hparams.device).requires_grad_()
+    
+    def __save_inits(self, x_out, indices):
+        """Method for saving initializations at the end of a training loop"""
+        if self.hparams.outer.verbose:
+            print("\SAVING INITIALIZATONS\n")
+
+        for x_i, i in enumerate(indices):
+            self.x_inits[str(i)] = x_out[x_i].detach().cpu().clone()
 
         return
     
@@ -248,7 +280,10 @@ class MetaLearner:
             x = x.to(self.hparams.device)
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
 
-            x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
+            if self.save_inits:
+                x_mod = self.__load_inits(x_idx)
+            else:
+                x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
             x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
             
             #(2) Find meta gradient
@@ -263,6 +298,9 @@ class MetaLearner:
             
             x_hat.requires_grad_(False)
             self.c.requires_grad_(False)
+
+            if self.save_inits:
+                self.__save_inits(x_hat, x_idx)
 
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, 'train')
