@@ -1,17 +1,17 @@
 use_gpu: true #whether to use cuda
 gpu_num: 0 #the GPU number to use. default is 0. 
-save_dir: "/scratch1/04703/sravula/exp" #root of folder to save run information (might look something like save_dir/exp1, save_dir/exp2, etc.)
+save_dir: "/content/exp" #root of folder to save run information (might look something like save_dir/exp1, save_dir/exp2, etc.)
 seed: 2022
 resume: false #whether to resume from a checkpoint
 resume_dir: "" #the root of the checkpoint (log) folder to resume from
 
 net:
  model: 'ncsnv2'
- config_file: "/scratch1/04703/sravula/Inverse_Meta/ncsnv2/configs/ffhq.yml" #Path to a config file for the model (if it used configs)
- checkpoint_dir: "/scratch1/04703/sravula/meta_exp/checkpoints/ffhq/checkpoint_80000.pth" #Path to pretrained model
+ config_file: "/content/Inverse_Meta/ncsnv2/configs/ffhq.yml" #Path to a config file for the model (if it used configs)
+ checkpoint_dir: "/content/meta_exp/checkpoints/ffhq/checkpoint_80000.pth" #Path to pretrained model
 
 data:
- data_path: "/scratch1/04703/sravula/meta_exp/datasets/ffhq" 
+ data_path: "/content/meta_exp/datasets/ffhq" 
  dataset: 'ffhq'
  train_batch_size: 4
  val_batch_size: 8
