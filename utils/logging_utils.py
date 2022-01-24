@@ -143,6 +143,9 @@ class Logger:
     def save_image_measurements(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
 
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
         image_dict = {}
 
         for i in range(images.shape[0]):
@@ -152,6 +155,9 @@ class Logger:
 
     def save_images(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
         image_dict = {}
 
