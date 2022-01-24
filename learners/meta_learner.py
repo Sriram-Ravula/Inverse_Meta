@@ -145,6 +145,7 @@ class MetaLearner:
         self.grads = []
         self.c_list = [self.c.detach().cpu()]
 
+        self.ROI = self.hparams.outer.ROI 
         if self.hparams.outer.ROI:
             self.val_metric = 'roi_nmse'
         else:
@@ -399,7 +400,6 @@ class MetaLearner:
                 # plot_images(x, "True Images")
                 # plot_images(get_measurement_images(x, self.hparams), "Measurements")
                 # plot_images(x_hat, "Reconstructed")
-                #TODO add ROI saving!
                 if self.global_iter == 0 or not validate:
                     self.logger.add_tb_images(x, iter_type + "_imgs_" + str(i))
                     self.logger.add_tb_measurement_images(x, iter_type + "_meas_" + str(i))
