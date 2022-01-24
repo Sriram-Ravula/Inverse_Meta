@@ -10,7 +10,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import torchvision
-from utils.loss_utils import get_inpaint_mask
+from utils.loss_utils import get_measurements, get_transpose_measurements
 
 plt.rcParams["savefig.bbox"] = 'tight'
 
@@ -239,9 +239,9 @@ def get_measurement_images(images, hparams):
         return
 
     if A_type == 'inpaint':
-        images = images * get_inpaint_mask(hparams).to(images.device)
+        images = get_measurements(None, images, hparams, True)
     elif A_type == 'superres':
-        images = F.avg_pool2d(images, hparams.problem.downsample_factor)
-        images = F.interpolate(images, scale_factor=hparams.problem.downsample_factor)
+        images = get_measurements(None, images, hparams)
+        images = get_transpose_measurements(None, images, hparams)
     
     return images

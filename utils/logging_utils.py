@@ -14,7 +14,7 @@ import pickle
 
 from utils.metrics_utils import Metrics
 from learners.meta_learner import MetaLearner
-from utils.loss_utils import get_inpaint_mask
+from utils.loss_utils import get_measurements, get_transpose_measurements
 
 def save_image(image, path):
     """Save a pytorch image as a png file"""
@@ -40,10 +40,10 @@ def save_measurement_images(est_images, hparams, save_prefix):
 
     for image_num, image in est_images.items():
         if A_type == 'inpaint':
-            image = image * get_inpaint_mask(hparams).to(image.device)
+            image = get_measurements(None, image, hparams, True)
         elif A_type == 'superres':
-            image = F.avg_pool2d(image, hparams.problem.downsample_factor)
-            image = F.interpolate(image, scale_factor=hparams.problem.downsample_factor)
+            image = get_measurements(None, image, hparams)
+            image = get_transpose_measurements(None, image, hparams)
         save_image(image, os.path.join(save_prefix, str(image_num) + '.png'))
 
 def save_to_pickle(data, pkl_filepath):
@@ -175,10 +175,10 @@ class Logger:
             return
 
         if A_type == 'inpaint':
-            images = images * get_inpaint_mask(self.hparams)
+            images = get_measurements(None, images, self.hparams, True)
         elif A_type == 'superres':
-            images = F.avg_pool2d(images, self.hparams.problem.downsample_factor)
-            images = F.interpolate(images, scale_factor=self.hparams.problem.downsample_factor)
+            images = get_measurements(None, images, self.hparams)
+            images = get_transpose_measurements(None, images, self.hparams)
         
         torch.save(images, save_path)
     
