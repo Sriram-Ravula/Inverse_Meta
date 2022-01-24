@@ -209,6 +209,7 @@ def get_mvue(kspace, s_maps):
     return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
 
 def plot_images(images, title, save=False, fname=None):
+    #TODO THIS NEEDS FIXING!
     """Function to plot and/or save an image"""
 
     fig = plt.figure(figsize=(1, 1))
