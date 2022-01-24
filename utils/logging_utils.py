@@ -28,7 +28,7 @@ def save_image(image, path):
 def save_images(est_images, save_prefix):
     """Save a batch of images (in a dictionary) to png files"""
     for image_num, image in est_images.items():
-        save_image(image, os.path.join(save_prefix, str(image_num), '.png'))
+        save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
 
 def save_measurement_images(est_images, hparams, save_prefix):
     """Save a batch of image measurements to png files"""
@@ -44,7 +44,7 @@ def save_measurement_images(est_images, hparams, save_prefix):
         elif A_type == 'inpaint':
             image = F.avg_pool2d(image, hparams.problem.downsample_factor)
             image = F.interpolate(image, scale_factor=hparams.problem.downsample_factor)
-        save_image(image, os.path.join(save_prefix, str(image_num), '.png'))
+        save_image(image, os.path.join(save_prefix, str(image_num) + '.png'))
 
 def save_to_pickle(data, pkl_filepath):
     """Save the data to a pickle file"""
@@ -106,8 +106,8 @@ class Logger:
                 self.learner.meta_opt.state_dict()
             ]
 
-        save_to_pickle(metrics_dict, os.path.join(self.metrics_root, 'metrics'))
-        save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint'))
+        save_to_pickle(metrics_dict, os.path.join(self.metrics_root, 'metrics.pickle'))
+        save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint.pickle'))
         torch.save(states, os.path.join(self.log_dir, 'states.pth'))
 
         return
