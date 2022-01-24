@@ -159,11 +159,11 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
         x_mod.requires_grad_(False) 
         c.requires_grad_(False)    
 
-    fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
-    titlestr = "%10s %10s %10s %10s %10s"
+    fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
+    titlestr = "%10s %10s %10s %10s %10s %10s"
     if verbose:
         print('\n') 
-        print(titlestr % ("Noise_Level", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
+        print(titlestr % ("Noise_Level", "Step_LR", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
 
     step_num = 0
 
@@ -205,7 +205,7 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
                     likelihood_loss = loss_utils.simple_likelihood_loss(y, A, x_mod, hparams, efficient_inp).mean()
 
-                    print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
+                    print(fmtstr % (t, step_size, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       
             step_num += 1
     
@@ -241,11 +241,11 @@ def SGLD_inverse_eval(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=Fals
     grad_flag_c = c.requires_grad
     c.requires_grad_(False)    
 
-    fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g"
-    titlestr = "%10s %10s %10s %10s %10s"
+    fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
+    titlestr = "%10s %10s %10s %10s %10s %10s"
     if verbose:
         print('\n') 
-        print(titlestr % ("Noise_Level", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
+        print(titlestr % ("Noise_Level", "Step_LR", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
 
     step_num = 0
 
@@ -278,7 +278,7 @@ def SGLD_inverse_eval(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=Fals
                     grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
                     likelihood_loss = loss_utils.simple_likelihood_loss(y, A, x_mod, hparams, efficient_inp).mean()
 
-                    print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
+                    print(fmtstr % (t, step_size, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       
             step_num += 1
     
