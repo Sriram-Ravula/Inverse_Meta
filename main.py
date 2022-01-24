@@ -7,7 +7,7 @@ def main():
     args = parse_args(globals()['__doc__'])
     hparams = parse_config(args.config)
 
-    print("Writing to ", os.path.join(hparams.save_dir, args.doc))
+    print("\nWriting to ", os.path.join(hparams.save_dir, args.doc), '\n')
 
     set_all_seeds(hparams.seed)
 

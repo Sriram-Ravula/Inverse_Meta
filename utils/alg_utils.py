@@ -89,7 +89,9 @@ def cg_solver(f_Ax, b, hparams, x_init=None):
 
     fmtstr = "%10i %10.3g %10.3g %10.3g"
     titlestr = "%10s %10s %10s %10s"
-    if verbose: print(titlestr % ("iter", "residual norm", "soln norm", "obj fn"))
+    if verbose:
+        print('\n') 
+        print(titlestr % ("iter", "residual norm", "soln norm", "obj fn"))
 
     for i in range(cg_iters):
         if verbose and i % verbose == 0:
@@ -206,6 +208,9 @@ def SGLD_inverse(c, y, A, x_mod, model, sigmas, hparams, efficient_inp=False):
                     print(fmtstr % (t, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
       
             step_num += 1
+    
+    if verbose:
+        print('\n')
     
     x_mod = torch.clamp(x_mod, 0.0, 1.0)
   

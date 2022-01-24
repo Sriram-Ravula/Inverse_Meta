@@ -35,7 +35,7 @@ def save_measurement_images(est_images, hparams, save_prefix, noisy=False):
     A_type = hparams.problem.measurement_type
 
     if A_type not in ['superres', 'inpaint', 'identity']:
-        print("Can't save given measurement type")
+        print("\nCan't save given measurement type\n")
         return
 
     for image_num, image in est_images.items():
@@ -171,7 +171,7 @@ class Logger:
         save_path = os.path.join(self.image_root, save_prefix + '.pth')
 
         if A_type not in ['superres', 'inpaint', 'identity']:
-            print("Can't save given measurement type")
+            print("\nCan't save given measurement type\n")
             return
 
         if A_type == 'inpaint' or A_type == 'identity':
@@ -197,7 +197,7 @@ class Logger:
         A_type = self.hparams.problem.measurement_type
 
         if A_type not in ['superres', 'inpaint', 'identity']:
-            print("Can't save given measurement type")
+            print("\nCan't save given measurement type\n")
             return
 
         if A_type == 'inpaint' or A_type == 'identity':
@@ -226,7 +226,7 @@ class Logger:
         iterkey ='iter_' + str(step)
 
         if iterkey not in raw_dict:
-            print("current iteration has not yet been logged")
+            print("\ncurrent iteration has not yet been logged\n")
             return
         
         for metric_type, metric_value in raw_dict[iterkey].items():

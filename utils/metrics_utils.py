@@ -20,7 +20,7 @@ def get_msssim(x_hat, x, range=1.):
     try:
         ms_ssim_val = ms_ssim(x_hat, x, data_range=range, size_average=False)
     except Exception as e:
-        print("Current data is too small (", e.__class__, " occurred). Not using ms-ssim.")
+        print("\nCurrent data is too small (", e.__class__, " occurred). Not using ms-ssim.\n")
         ms_ssim_val = torch.zeros(x_hat.shape[0])
 
     return ms_ssim_val.cpu().numpy().flatten()

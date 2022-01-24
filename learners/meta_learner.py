@@ -189,8 +189,8 @@ class MetaLearner:
             self.logger.add_metrics_to_tb('test') 
 
         if self.hparams.outer.verbose:
-            print("\nTEST LOSS: ", self.metrics.get_metric(self.global_iter, 'test', self.val_metric))
-            print(self.metrics.get_all_metrics(self.global_iter, 'test'))
+            print("\nTEST LOSS: ", self.metrics.get_metric(self.global_iter, 'test', self.val_metric), '\n')
+            print('\n', self.metrics.get_all_metrics(self.global_iter, 'test'), '\n')
         
         if not self.hparams.outer.debug:
             self.logger.checkpoint()
@@ -218,8 +218,8 @@ class MetaLearner:
         self.c_list.append(self.c.detach().cpu())
 
         if self.hparams.outer.verbose:
-            print("\nTRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', self.val_metric))
-            print(self.metrics.get_all_metrics(self.global_iter, 'train'))
+            print("\nTRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', self.val_metric), '\n')
+            print('\n', self.metrics.get_all_metrics(self.global_iter, 'train'), '\n')
             print("\nGRADIENT NORM: ", self.grad_norms[-1], '\n')
             print("\nC MEAN: ", torch.mean(self.c_list[-1]), '\n')
             print("\nC STD: ", torch.std(self.c_list[-1]), '\n')
@@ -369,8 +369,8 @@ class MetaLearner:
                     print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
 
         if self.hparams.outer.verbose:
-            print("\VAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', self.val_metric))
-            print(self.metrics.get_all_metrics(self.global_iter, 'val'))
+            print("\nVAL LOSS: ", self.metrics.get_metric(self.global_iter, 'val', self.val_metric), '\n')
+            print('\n', self.metrics.get_all_metrics(self.global_iter, 'val'), '\n')
         
         return
 

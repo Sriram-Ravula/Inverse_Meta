@@ -235,7 +235,7 @@ def get_measurement_images(images, hparams):
     A_type = hparams.problem.measurement_type
 
     if A_type not in ['superres', 'inpaint']:
-        print("Can't save given measurement type")
+        print("\nCan't save given measurement type\n")
         return
 
     if A_type == 'inpaint':
