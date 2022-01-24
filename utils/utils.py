@@ -85,13 +85,14 @@ def split_dataset(base_dataset, hparams):
 def init_c(hparams):
     c_type = hparams.outer.hyperparam_type
     m = hparams.problem.num_measurements
+    init_val = float(hparams.outer.hyperparam_init)
 
     if c_type == 'scalar':
-        c = torch.tensor(1.)
+        c = torch.tensor(init_val)
     elif c_type == 'vector':
-        c = torch.ones(m)
+        c = torch.ones(m) * init_val
     elif c_type == 'matrix':
-        c = torch.eye(m)
+        c = torch.eye(m) * init_val
     else:
         raise NotImplementedError
 
