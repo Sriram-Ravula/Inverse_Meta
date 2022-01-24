@@ -129,6 +129,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
         raise NotImplementedError
 
     c_type = hparams.outer.hyperparam_type
+    A_type = hparams.problem.measurement_type
 
     #Gaussian or Inpaint + efficient=False - shape [N, m]
     #Inpaint with efficient=True or identity - shape [N, C, H, W]
@@ -144,7 +145,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
         loss = scale * c * 0.5 * torch.sum(resid ** 2)
 
     elif c_type == 'vector':
-        if c_type == 'inpaint' and efficient_inp:
+        if A_type == 'inpaint' and efficient_inp:
             mask = get_inpaint_mask(hparams)
             kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
             loss = scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1)[:,kept_inds])
@@ -153,7 +154,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
             loss = scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1))
 
     elif c_type == 'matrix':
-        if c_type == 'inpaint' and efficient_inp:
+        if A_type == 'inpaint' and efficient_inp:
             mask = get_inpaint_mask(hparams)
             kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
             interior = torch.mm(c, resid.flatten(start_dim=1)[:,kept_inds].T).T #[N, k]
