@@ -512,7 +512,7 @@ class MetaLearner:
         labels = torch.ones(x_hat.shape[0], device=self.hparams.device) * s_idx
         labels = labels.long()
 
-        t = 100 * torch.sqrt(self.c.numel()) / torch.norm(meta_grad)
+        t = 100 * np.sqrt(self.c.numel()) / torch.norm(meta_grad)
         alpha = 0.1
         beta = 0.1
         stop_flag = False
