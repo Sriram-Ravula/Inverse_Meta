@@ -174,9 +174,9 @@ class MetaLearner:
                 self.x_inits[str(i)] = torch.rand(self.hparams.data.image_shape)
             
             if out_x is None:
-                out_x = self.x_inits[str(i)].clone().unsqueeze(0)
+                out_x = self.x_inits[str(i)].clone()
             else:
-                out_x = torch.cat((out_x, self.x_inits[str(i)].unsqueeze(0)), 0)
+                out_x = torch.stack((out_x, self.x_inits[str(i)]), 0)
         
         if len(out_x.shape) == 3:
             out_x = out_x.unsqueeze(0)
