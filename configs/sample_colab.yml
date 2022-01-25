@@ -27,7 +27,7 @@ outer:
  save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
- hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
+ hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
  hyperparam_init: 25 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
@@ -51,9 +51,9 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 1 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 25 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
- verbose: 250 #print every n iterations. 0 means don't print
+ verbose: 25 #print every n iterations. 0 means don't print
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
