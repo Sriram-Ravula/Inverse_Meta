@@ -443,12 +443,12 @@ class MetaLearner:
                 # plot_images(get_measurement_images(x, self.hparams), "Measurements")
                 # plot_images(x_hat, "Reconstructed")
                 if self.global_iter == 0 or not validate:
-                    self.logger.add_tb_images(x, iter_type + "_imgs_" + str(i))
-                    self.logger.add_tb_measurement_images(x, iter_type + "_meas_" + str(i))
-                    self.logger.save_images(x, x_idx, iter_type + "_imgs_" + str(i))
-                    self.logger.save_image_measurements(x, x_idx, iter_type + "_imgs_meas_" + str(i))
-                self.logger.add_tb_images(x_hat, iter_type + "_recons_" + str(i))
-                self.logger.save_images(x_hat, x_idx, iter_type + "_recons_" + str(i))
+                    self.logger.add_tb_images(x, iter_type + "_imgs_" + str(self.global_iter))
+                    self.logger.add_tb_measurement_images(x, iter_type + "_meas_" + str(self.global_iter))
+                    self.logger.save_images(x, x_idx, iter_type + "_imgs_" + str(self.global_iter))
+                    self.logger.save_image_measurements(x, x_idx, iter_type + "_imgs_meas_" + str(self.global_iter))
+                self.logger.add_tb_images(x_hat, iter_type + "_recons_" + str(self.global_iter))
+                self.logger.save_images(x_hat, x_idx, iter_type + "_recons_" + str(self.global_iter))
             
             if not self.hparams.outer.debug and not validate:
                 self.logger.save_images(x, x_idx, "Test_true")
