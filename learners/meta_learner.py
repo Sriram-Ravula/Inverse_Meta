@@ -513,7 +513,7 @@ class MetaLearner:
         labels = labels.long()
 
         t = 1
-        alpha = 1e-2
+        alpha = 1e-4
         beta = 0.5
         stop_flag = False
         
@@ -546,7 +546,7 @@ class MetaLearner:
                 #check if LHS < RHS
                 if LHS_RHS_resid > 0:
                     if self.hparams.outer.verbose:
-                        print("\nRESIDUAL TOO HIGH: ", str(LHS_RHS_resid), " - DECAYING LR\n")
+                        print("\nRESIDUAL TOO HIGH: ", str(LHS_RHS_resid.item()), " - DECAYING LR\n")
                     t = beta * t
                 else:
                     if self.hparams.outer.verbose:
