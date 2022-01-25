@@ -527,8 +527,7 @@ class MetaLearner:
                 efficient_inp=self.efficient_inp, retain_graph=False, create_graph=False) 
 
             with torch.no_grad():
-                #prior_grad = self.model(x_hat, labels) 
-                prior_grad=0
+                prior_grad = self.model(x_hat, labels) 
             
                 #x_hat(c + t*delta_c) = x_hat(c) - grad_x recon_loss(x_hat(c), c + t*delta_c)
                 x_hat_new = x_hat + prior_grad - cond_log_grad
