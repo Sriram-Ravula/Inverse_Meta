@@ -512,9 +512,9 @@ class MetaLearner:
         labels = torch.ones(x_hat.shape[0], device=self.hparams.device) * s_idx
         labels = labels.long()
 
-        t = 100 * torch.sqrt(self.c.numel()) / torch.norm(meta_grad)
-        alpha = 0.1
-        beta = 0.1
+        t = 1
+        alpha = 1e-4
+        beta = 0.5
         stop_flag = False
         
         while not stop_flag:
@@ -527,7 +527,8 @@ class MetaLearner:
                 efficient_inp=self.efficient_inp, retain_graph=False, create_graph=False) 
 
             with torch.no_grad():
-                prior_grad = self.model(x_hat, labels) 
+                #prior_grad = self.model(x_hat, labels) 
+                prior_grad=0
             
                 #x_hat(c + t*delta_c) = x_hat(c) - grad_x recon_loss(x_hat(c), c + t*delta_c)
                 x_hat_new = x_hat + prior_grad - cond_log_grad
