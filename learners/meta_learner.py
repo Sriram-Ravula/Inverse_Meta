@@ -9,7 +9,7 @@ from time import time
 import os
 
 from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer, plot_images, get_measurement_images
-from utils.loss_utils import get_A, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict, meta_loss
+from utils.loss_utils import get_A, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
 from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
 from utils.metrics_utils import Metrics
 
@@ -123,7 +123,7 @@ class MetaLearner:
 
         self.c = init_c(self.hparams).to(self.hparams.device)
 
-        if self.hparams.outer.lr_decay and self.hparams.outer.optimizer != 'linesearch':
+        if self.hparams.outer.lr_decay:
             self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams)
         else:
             self.meta_opt = get_meta_optimizer(self.c, self.hparams)
@@ -232,27 +232,18 @@ class MetaLearner:
         return
     
     def run_outer_step(self):
-        if self.hparams.outer.optimizer != 'linesearch':
-            self.meta_opt.zero_grad()
+        self.meta_opt.zero_grad()
+        meta_grad = self.outer_step()
 
-        if self.hparams.outer.optimizer == 'linesearch':
-            meta_grad, x_hat_out, x_out, y_out = self.outer_step()
-        else: 
-            meta_grad = self.outer_step()
+        self.c.requires_grad_()
+        if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
+            dummy_loss = torch.sum(self.c)
+            dummy_loss.backward()
+        self.c.grad.copy_(meta_grad)
+        self.meta_opt.step()
+        self.c.requires_grad_(False)
 
-        if self.hparams.outer.optimizer != 'linesearch':
-            self.c.requires_grad_()
-            if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
-                dummy_loss = torch.sum(self.c)
-                dummy_loss.backward()
-            self.c.grad.copy_(meta_grad)
-            self.meta_opt.step()
-            self.c.requires_grad_(False)
-        else:
-            stepsize = self.line_search(meta_grad, x_hat_out, x_out, y_out)
-            self.c = self.c - stepsize * meta_grad
-
-        if self.hparams.outer.optimizer != 'linesearch' and self.hparams.outer.lr_decay and not self.hparams.outer.use_validation:
+        if self.hparams.outer.lr_decay and not self.hparams.outer.use_validation:
             self.meta_scheduler.step()
             print("\nDECAYING LR\n")
 
@@ -275,11 +266,6 @@ class MetaLearner:
         meta_grad = 0.0 
         n_samples = 0
         num_batches = self.hparams.outer.batches_per_iter
-
-        if self.hparams.outer.optimizer == 'linesearch':
-            x_hat_out = None
-            x_out = None
-            y_out = None
 
         for i, (x, x_idx) in tqdm(enumerate(self.train_loader)):
             if num_batches == 0:
@@ -318,22 +304,6 @@ class MetaLearner:
             if self.save_inits:
                 self.__save_inits(x_hat, x_idx)
 
-            if self.hparams.outer.optimizer == 'linesearch':
-                if x_hat_out is None:
-                    x_hat_out = x_hat.detach().cpu().clone()
-                else:
-                    x_hat_out = torch.cat((x_hat_out, x_hat.detach().cpu().clone()), 0)
-                
-                if x_out is None:
-                    x_out = x.detach().cpu().clone()
-                else:
-                    x_out = torch.cat((x_out, x.detach().cpu().clone()), 0)
-                
-                if y_out is None:
-                    y_out = y.detach().cpu().clone()
-                else:
-                    y_out = torch.cat((y_out, y.detach().cpu().clone()), 0)
-
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, 'train')
             self.metrics.add_external_metrics(loss_metrics, self.global_iter, 'train')
@@ -350,10 +320,7 @@ class MetaLearner:
         
         meta_grad /= n_samples
 
-        if self.hparams.outer.optimizer == 'linesearch':
-            return meta_grad, x_hat_out, x_out, y_out
-        else:
-            return meta_grad
+        return meta_grad
 
     def maml_step(self, x_hat, x):
         """
@@ -436,7 +403,7 @@ class MetaLearner:
                 self.best_iter = self.global_iter
                 if self.hparams.outer.verbose:
                     print("\nNEW BEST VAL LOSS: ", best_value, "\n")
-            elif self.hparams.outer.optimizer != 'linesearch' and self.hparams.outer.lr_decay:
+            elif self.hparams.outer.lr_decay:
                 self.meta_scheduler.step()
                 if self.hparams.outer.verbose :
                     print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
@@ -498,56 +465,4 @@ class MetaLearner:
             self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=False)
             return
 
-    def line_search(self, meta_grad, x_hat, x, y):
-        """Performs a step of line search at the end of an iteration"""
-        if self.hparams.outer.verbose:
-            print("\nPERFORMING LINE SEARCH\n")
-
-        meta_grad = meta_grad.to(self.hparams.device)
-        x_hat = x_hat.to(self.hparams.device)
-        x = x.to(self.hparams.device)
-        y = y.to(self.hparams.device)
-
-        t = 1
-        alpha = 1e-2
-        beta = 0.5
-        stop_flag = False
-        
-        while not stop_flag:
-            #(1) c + t*delta(c)
-            with torch.no_grad():
-                c_new = self.c - t * meta_grad
-
-            #(2) grad_x recon_loss(x_hat(c), c + t*delta_c)
-            cond_log_grad = get_likelihood_grad(c_new, y, self.A, x_hat, self.hparams, self.loss_scale, \
-                efficient_inp=self.efficient_inp, retain_graph=False, create_graph=False) 
-
-            with torch.no_grad():
-                prior_grad = self.model(x_hat, self.labels) 
-            
-                #x_hat(c + t*delta_c) = x_hat(c) - grad_x recon_loss(x_hat(c), c + t*delta_c)
-                x_hat_new = x_hat + prior_grad - cond_log_grad
-            
-                #F(c + t*delta_c) = meta_loss(x_hat(c + t*delta_c))
-                f_new = meta_loss(x_hat_new, x, self.hparams)
-
-                #F(c) = meta_loss(x_hat(c))
-                f_old = meta_loss(x_hat, x, self.hparams)
-
-                #grad_c F(x_hat(c))^T (- grad_c F(x_hat(c))) = ||grad_c F(x_hat(c))||^2
-                grad_dir = torch.sum(meta_grad ** 2)
-
-                LHS_RHS_resid = f_new - (f_old - alpha * t * grad_dir)
-
-                #check if LHS < RHS
-                if LHS_RHS_resid > 0:
-                    if self.hparams.outer.verbose:
-                        print("\nRESIDUAL TOO HIGH: ", str(LHS_RHS_resid), " - DECAYING LR\n")
-                    t = beta * t
-                else:
-                    if self.hparams.outer.verbose:
-                        print("\nLR FOUND: ", str(t), " - STOPPING LINESEARCH")
-                    stop_flag = True
-        
-        return t
         

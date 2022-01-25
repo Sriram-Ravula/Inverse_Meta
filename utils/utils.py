@@ -107,10 +107,10 @@ def get_meta_optimizer(opt_params, hparams):
         meta_opt = torch.optim.Adam([{'params': opt_params}], lr=lr)
     elif opt_type == 'sgd':
         meta_opt = torch.optim.SGD([{'params': opt_params}], lr=lr)
-    elif opt_type == 'linesearch':
-        meta_opt = None
+    else:
+        raise NotImplementedError
 
-    if lr_decay and opt_type != 'linesearch':
+    if lr_decay:
         meta_scheduler = torch.optim.lr_scheduler.ExponentialLR(meta_opt, lr_decay)
         return (meta_opt, meta_scheduler)
     else:
