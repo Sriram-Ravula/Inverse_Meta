@@ -57,9 +57,9 @@ inner:
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ measurement_type: 'superres' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
  num_measurements: 10000 #number of measurements for gaussian and circulant
- downsample_factor: 8 #factor to downsample each side of the image
+ downsample_factor: 4 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
  add_noise: false #whether to add noise after measuring
  noise_type: "gaussian" #[gaussian, gaussian_nonwhite] 

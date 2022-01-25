@@ -178,6 +178,9 @@ class MetaLearner:
             else:
                 out_x = torch.stack((out_x, self.x_inits[str(i)]), 0)
         
+        if len(out_x.shape) == 3:
+            out_x = out_x.unsqueeze(0)
+        
         return out_x.to(self.hparams.device).requires_grad_()
     
     def __save_inits(self, x_out, indices):
