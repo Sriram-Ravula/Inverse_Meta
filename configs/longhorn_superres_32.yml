@@ -37,6 +37,7 @@ outer:
  plot_imgs: true #whether to plot the data and reconstructions inline. set false if not in a notebook. 
  debug: false #debug mode doesn't save anything. 
  use_validation: true #if set to true, will use a validation set. 
+ decay_on_val: false
  val_iters: 3 #validate every n iterations
  checkpoint_iters: 2 #checkpoint every n iterations
  batches_per_iter: 2 #number of training batches to use per iteration. -1 means all batches 
