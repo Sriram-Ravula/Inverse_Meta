@@ -28,11 +28,11 @@ outer:
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
- hyperparam_init: 25 #the value to initialize the hyperparameter at. Default is 1
- num_iters: 25 #number of meta iterations to run
+ hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
+ num_iters: 5 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
- lr: 0.5 #meta learning rate
- lr_decay: false #exponential weight decay applied if validation loss is rising. -1 or false means no decay
+ lr: 100 #meta learning rate
+ lr_decay: 0.1 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  verbose: true #whether to print during execution. 
  plot_imgs: true #whether to plot the data and reconstructions inline. set false if not in a notebook. 
  debug: false #debug mode doesn't save anything. 
@@ -51,7 +51,7 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 25 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 10 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 25 #print every n iterations. 0 means don't print
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
