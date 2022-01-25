@@ -243,7 +243,7 @@ class MetaLearner:
         self.meta_opt.step()
         self.c.requires_grad_(False)
 
-        if self.hparams.outer.lr_decay and not self.hparams.outer.use_validation:
+        if self.hparams.outer.lr_decay and not self.hparams.outer.decay_on_val:
             self.meta_scheduler.step()
             print("\nDECAYING LR\n")
 
@@ -403,7 +403,7 @@ class MetaLearner:
                 self.best_iter = self.global_iter
                 if self.hparams.outer.verbose:
                     print("\nNEW BEST VAL LOSS: ", best_value, "\n")
-            elif self.hparams.outer.lr_decay:
+            elif self.hparams.outer.lr_decay and self.hparams.outer.decay_on_val:
                 self.meta_scheduler.step()
                 if self.hparams.outer.verbose :
                     print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
