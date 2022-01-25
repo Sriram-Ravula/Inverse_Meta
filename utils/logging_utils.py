@@ -114,7 +114,7 @@ class Logger:
     
     def get_checkpoint_dict(self):
         out_dict = {
-            'A': self.learner.A,
+            #'A': self.learner.A,
             'global_iter': self.learner.global_iter,
             'best_iter': self.learner.best_iter,
             'c_list': self.learner.c_list,
