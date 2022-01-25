@@ -405,7 +405,7 @@ class MetaLearner:
                     print("\nNEW BEST VAL LOSS: ", best_value, "\n")
             elif self.hparams.outer.lr_decay and self.hparams.outer.decay_on_val:
                 self.meta_scheduler.step()
-                if self.hparams.outer.verbose :
+                if self.hparams.outer.verbose:
                     print("\nVAL LOSS HASN'T IMPROVED; DECAYING LR\n")
 
         if self.hparams.outer.verbose:
