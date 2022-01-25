@@ -509,7 +509,7 @@ class MetaLearner:
         y = y.to(self.hparams.device)
 
         s_idx = len(self.sigmas)-1
-        labels = torch.ones(x_hat.shape, device=self.hparams.device) * s_idx
+        labels = torch.ones(x_hat.shape[0], device=self.hparams.device) * s_idx
         labels = labels.long()
 
         t = 1
