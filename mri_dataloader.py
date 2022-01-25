@@ -129,13 +129,18 @@ class MVU_Estimator_Brain(Dataset):
 
         # find mvue image
         mvue = get_mvue(gt_ksp.reshape((1,) + gt_ksp.shape),
-                        maps.reshape((1,)+maps.shape))
+                        maps.reshape((1,)+maps.shape))[0]
+
+        mvue_two_channel = np.zeros((2,) + (mvue.shape))
+        mvue_two_channel[0] = np.real(mvue)
+        mvue_two_channel[1] = np.imag(mvue)
 
         # !!! Removed ACS-based scaling if handled on the outside
         scale_factor = 1.
 
         # Scale data
-        mvue = mvue  / scale_factor
+        mvue_two_channel = mvue_two_channel / scale_factor
+        print(mvue.shape)
         gt_ksp = gt_ksp / scale_factor
 
         # Compute ACS size based on R factor and sample size
@@ -162,18 +167,17 @@ class MVU_Estimator_Brain(Dataset):
         mvue_file = os.path.join(self.input_dir,
                                  os.path.basename(self.file_list[scan_idx]))
         # Output
-        # sample = {
-        #           'mvue': mvue,
-        #           'maps': maps,
-        #           'ground_truth': gt_ksp,
-        #           'mask': mask,
-        #           'scale_factor': scale_factor,
-        #           # Just for feedback
-        #           'scan_idx': scan_idx,
-        #           'slice_idx': slice_idx,
-        #           'mvue_file': mvue_file}
-        # return sample
-        return gt_ksp, mask, mvue
+        sample = {
+                  'mvue': mvue_two_channel,
+                  'maps': maps,
+                  'masked_ksp': gt_ksp,
+                  'mask': mask,
+                  'scale_factor': scale_factor,
+                  # Just for feedback
+                  'scan_idx': scan_idx,
+                  'slice_idx': slice_idx,
+                  'mvue_file': mvue_file}
+        return sample
 
 class MVU_Estimator_Knees(Dataset):
     def __init__(self, file_list, maps_dir, input_dir,

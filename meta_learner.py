@@ -6,7 +6,7 @@ import argparse
 import yaml
 from time import time
 
-from utils import dict2namespace, split_dataset, init_c, get_meta_optimizer
+from utils import dict2namespace, split_dataset, init_c, get_meta_optimizer, MulticoilForwardMRI
 from loss_utils import get_A, meta_loss, get_measurements, gradient_log_cond_likelihood, log_cond_likelihood_loss
 from alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver
 
@@ -40,6 +40,7 @@ class MetaLearner:
 
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
+
         net_config = dict2namespace(config)
         net_config.device = self.hparams.device
 
@@ -69,6 +70,15 @@ class MetaLearner:
         self.sigmas = get_sigmas(net_config).cpu()
         self.model_config = net_config
 
+        # MRI dataloader needs some config hparams in model_config
+        if self.hparams.problem.measurement_type == 'mri':
+            R, pattern, orientation = self.hparams.problem.R, self.hparams.problem.pattern, self.hparams.problem.orientation
+            self.model_config.data.R = R
+            self.model_config.data.pattern = pattern
+            self.model_config.data.orientation = orientation
+        else:
+            pass
+
         if self.hparams.outer.verbose:
             end = time()
             print("\nNET TIME: ", str(end - start), "S\n")
@@ -86,10 +96,6 @@ class MetaLearner:
 
         _, base_dataset = get_dataset(args, self.model_config)
 
-        # self.train_loader = DataLoader(base_dataset,
-        #                                batch_size=self.hparams.data.train_batch_size,
-        #                                shuffle=False, num_workers=1,
-        #                                drop_last=True)
         train_dataset, val_dataset, test_dataset = split_dataset(base_dataset, self.hparams)
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
@@ -109,10 +115,12 @@ class MetaLearner:
         if self.hparams.outer.verbose:
             print("\nINITIALIZING INNER PROBLEM\n")
             start = time()
-
-        self.A = get_A(self.hparams)
-        if self.A is not None:
-            self.A = self.A.to(self.hparams.device)
+        # in mri the A operator changes with each sample due to
+        # sensitivity maps
+        if self.hparams.problem.measurement_type != 'mri':
+            self.A = get_A(self.hparams)
+            if self.A is not None :
+                self.A = self.A.to(self.hparams.device)
 
         self.c = init_c(self.hparams).to(self.hparams.device)
 
@@ -204,7 +212,22 @@ class MetaLearner:
         n_samples = 0
         num_batches = self.hparams.outer.batches_per_iter
 
-        for i, (x, _) in tqdm(enumerate(self.train_loader)):
+        for i, sample in tqdm(enumerate(self.train_loader)):
+            if self.hparams.data.dataset == 'mri':
+                #todo
+                x = sample['mvue'].type(torch.cuda.FloatTensor)
+                mask = sample['mask'].to(self.hparams.device)
+                maps = sample['maps'].to(self.hparams.device)
+                y = sample['masked_ksp'].to(self.hparams.device)
+                self.A = lambda x: MulticoilForwardMRI(self.hparams.problem.orientation)(
+                                                torch.complex(x[:, 0], x[:, 1]),
+                                                maps,
+                                                mask)
+
+            else:
+                x = sample[0]
+                maps = None
+
             if num_batches == 0:
                 break
             n_samples += x.shape[0]
@@ -214,10 +237,13 @@ class MetaLearner:
 
             #(1) Find x(c)
             x = x.to(self.hparams.device)
-            y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
+            if self.hparams.data.dataset == 'mri':
+                pass
+            else:
+                y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
-            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams)
+            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, maps)
 
             with torch.no_grad():
                 cur_meta_loss += meta_loss(x_hat, x, self.hparams).item()
@@ -262,7 +288,7 @@ class MetaLearner:
                     cond_log_grad = torch.autograd.grad(log_cond_likelihood_loss\
                         (self.c, y, self.A, x_hat, self.hparams, self.loss_scale, self.efficient_inp), x_hat, create_graph=True)[0]
                 else:
-                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale)
+                    cond_log_grad = gradient_log_cond_likelihood(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, maps)
 
                 meta_grad -= hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
 
@@ -305,14 +331,30 @@ class MetaLearner:
         cur_loss = 0.0
         n_samples = 0
 
-        for i, (x, _) in enumerate(cur_loader):
+        for i, sample in enumerate(cur_loader):
+            if self.hparams.data.dataset == 'mri':
+                x = sample['mvue']
+                mask = sample['mask'].to(self.hparams.device)
+                maps = sample['maps'].to(self.hparams.device)
+                y = sample['masked_ksp'].to(self.hparams.device)
+                self.A = lambda x: MulticoilForwardMRI(self.hparams.problem.orientation)(
+                                                torch.complex(x[:, 0], x[:, 1]),
+                                                maps,
+                                                mask)
+
+            else:
+                x = sample
+                maps = None
             n_samples += x.shape[0]
 
             x = x.to(self.hparams.device)
-            y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
+            if self.hparams.data.dataset == 'mri':
+                pass
+            else:
+                y = get_measurements(self.A, x, self.hparams, self.efficient_inp)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
-            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams)
+            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, maps)
 
             cur_loss += meta_loss(x_hat, x, self.hparams).item()
 

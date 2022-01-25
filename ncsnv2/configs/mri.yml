@@ -50,9 +50,6 @@ data:
   random_flip: false
   rescaled: false
   num_workers: 8
-  R: 4
-  pattern: 'equispaced'
-  orientation: 'vertical'
 
 model:
   sigma_begin: 232

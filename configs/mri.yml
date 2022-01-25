@@ -12,9 +12,9 @@ net:
 
 
 data:
- data_path: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
- input_dir: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
- maps_dir: "validation_cplx_scans/maps_768" #or 'FFHQ' (all caps)
+ data_path: "validation_cplx_scans_small/raw" #or 'FFHQ' (all caps)
+ input_dir: "validation_cplx_scans_small/raw" #or 'FFHQ' (all caps)
+ maps_dir: "validation_cplx_scans_small/maps_768" #or 'FFHQ' (all caps)
  dataset: 'mri'
  train_batch_size: 1
  val_batch_size: 1
@@ -22,11 +22,10 @@ data:
  num_train: 2
  num_val: 2
  num_test: 2
- R: 4
 
 outer:
  meta_type: 'mle' #implicit, maml, mle
- auto_cond_log: true #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
+ auto_cond_log: false #whether to use autograd for the cond-log-likelihood gradient computation w.r.t. x.
  maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all.
  save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
@@ -36,7 +35,7 @@ outer:
  optimizer: 'sgd' #meta optimizer. [adam, sgd]
  lr: 0.1 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 means no decay
- verbose: true #whether to print during execution. TODO supplant this with command line argument.
+ verbose: false #whether to print during execution. TODO supplant this with command line argument.
  debug: false #debug mode doesn't save anything
  val_iters: 1 #validate every n iterations
  checkpoint_iters: 5 #checkpoint every n iterations
@@ -52,19 +51,15 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 1000 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
  lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
- num_measurements: 5000 #number of measurements for gaussian and circulant
- downsample_factor: 8 #factor to downsample each side of the image
- inpaint_size: 20 #masked region side length for inpainting
- add_noise: false #whether to add noise after measuring
- noise_type: "gaussian" #[gaussian, uniform]
- noise_std: 1
+ measurement_type: 'mri' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ add_noise: false
  add_dependent_noise: false #whether to add noise before measuring
- dependent_noise_type: "gaussian" #[gaussian, uniform]
- dependent_noise_std: 1
+ R: 4
+ orientation: 'vertical'
+ pattern: 'equispaced'

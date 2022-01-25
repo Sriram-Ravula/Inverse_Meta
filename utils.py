@@ -1,5 +1,6 @@
 import random
 import torch
+import torch.fft as torch_fft
 import numpy as np
 import argparse
 import os
@@ -8,6 +9,7 @@ import torch.utils.tensorboard as tb
 import time
 from datetime import datetime
 import sigpy as sp
+import torch.nn as nn
 
 
 
@@ -71,16 +73,27 @@ def split_dataset(base_dataset, hparams):
 
 def init_c(hparams):
     c_type = hparams.outer.hyperparam_type
-    m = hparams.problem.num_measurements
+    if hparams.problem.measurement_type == 'mri':
+        if c_type == 'scalar':
+            c = torch.tensor(1.)
+        elif c_type == 'vector':
+            c = torch.ones(hparams.problem.measurement_shape)
+        elif c_type == 'matrix':
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
 
-    if c_type == 'scalar':
-        c = torch.tensor(1.)
-    elif c_type == 'vector':
-        c = torch.ones(m)
-    elif c_type == 'matrix':
-        c = torch.eye(m)
     else:
-        raise NotImplementedError
+        m = hparams.problem.num_measurements
+
+        if c_type == 'scalar':
+            c = torch.tensor(1.)
+        elif c_type == 'vector':
+            c = torch.ones(m)
+        elif c_type == 'matrix':
+            c = torch.eye(m)
+        else:
+            raise NotImplementedError
 
     return c
 
@@ -154,6 +167,11 @@ def parse_config(config_path):
         hparams['problem']['num_measurements'] = hparams['data']['n_input']
     elif hparams['problem']['measurement_type'] == 'inpaint':
         hparams['problem']['num_measurements'] = hparams['data']['n_input'] - hparams['data']['num_channels']*hparams['problem']['inpaint_size']**2
+    elif hparams['problem']['measurement_type'] == 'mri':
+        hparams['problem']['measurement_shape'] = (16,
+                                                   hparams['data']['image_size'],
+                                                   hparams['data']['image_size'])
+
 
     if hparams['problem']['add_noise'] or hparams['problem']['add_dependent_noise']:
         raise NotImplementedError
@@ -179,7 +197,60 @@ def get_mvue(kspace, s_maps):
     mvue : complex np.array of shape b x n x n
             returns minimum variance estimate of the scan
     '''
-    return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=1) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=1))
+    return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=-3) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
+
+# Multicoil forward operator for MRI
+class MulticoilForwardMRI(nn.Module):
+    def __init__(self, orientation):
+        self.orientation = orientation
+        super(MulticoilForwardMRI, self).__init__()
+        return
+
+    # Centered, orthogonal ifft in torch >= 1.7
+    def _ifft(self, x):
+        x = torch_fft.ifftshift(x, dim=(-2, -1))
+        x = torch_fft.ifft2(x, dim=(-2, -1), norm='ortho')
+        x = torch_fft.fftshift(x, dim=(-2, -1))
+        return x
+
+    # Centered, orthogonal fft in torch >= 1.7
+    def _fft(self, x):
+        x = torch_fft.fftshift(x, dim=(-2, -1))
+        x = torch_fft.fft2(x, dim=(-2, -1), norm='ortho')
+        x = torch_fft.ifftshift(x, dim=(-2, -1))
+        return x
+
+
+    '''
+    Inputs:
+     - image = [B, H, W] torch.complex64/128    in image domain
+     - maps  = [B, C, H, W] torch.complex64/128 in image domain
+     - mask  = [B, W] torch.complex64/128 w/    binary values
+    Outputs:
+     - ksp_coils = [B, C, H, W] torch.complex64/128 in kspace domain
+    '''
+    def forward(self, image, maps, mask):
+        # Broadcast pointwise multiply
+        coils = image[:, None] * maps
+
+        # Convert to k-space data
+        ksp_coils = self._fft(coils)
+
+        if self.orientation == 'vertical':
+            # Mask k-space phase encode lines
+            ksp_coils = ksp_coils * mask[:, None, None, :]
+        elif self.orientation == 'horizontal':
+            # Mask k-space frequency encode lines
+            ksp_coils = ksp_coils * mask[:, None, :, None]
+        else:
+            if len(mask.shape) == 3:
+                ksp_coils = ksp_coils * mask[:, None, :, :]
+            else:
+                raise NotImplementedError('mask orientation not supported')
+
+
+        # Return downsampled k-space
+        return ksp_coils
 
 def parse_args(docstring):
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
