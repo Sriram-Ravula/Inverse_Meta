@@ -101,14 +101,15 @@ class Logger:
                 self.learner.meta_opt.state_dict(),
                 self.learner.meta_scheduler.state_dict()
             ]
-        else:
+            torch.save(states, os.path.join(self.log_dir, 'states.pth'))
+        elif self.learner.meta_opt is not None:
             states = [
                 self.learner.meta_opt.state_dict()
             ]
+            torch.save(states, os.path.join(self.log_dir, 'states.pth'))
 
         save_to_pickle(metrics_dict, os.path.join(self.metrics_root, 'metrics.pickle'))
         save_to_pickle(checkpoint_dict, os.path.join(self.log_dir, 'checkpoint.pickle'))
-        torch.save(states, os.path.join(self.log_dir, 'states.pth'))
 
         return
     
