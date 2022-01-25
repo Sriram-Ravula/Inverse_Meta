@@ -13,11 +13,11 @@ net:
 data:
  data_path: "/content/meta_exp/datasets/ffhq" 
  dataset: 'ffhq'
- train_batch_size: 2
- val_batch_size: 4
+ train_batch_size: 1
+ val_batch_size: 8
  num_channels: 3
- num_train: 2
- num_val: 4
+ num_train: 4
+ num_val: 8
  num_test: 8
 
 outer:
@@ -29,15 +29,15 @@ outer:
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
  hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
- num_iters: 5 #number of meta iterations to run
+ num_iters: 20 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
- lr: 100 #meta learning rate
- lr_decay: 0.1 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
+ lr: 1 #meta learning rate
+ lr_decay: 0.9 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  verbose: true #whether to print during execution. 
  plot_imgs: true #whether to plot the data and reconstructions inline. set false if not in a notebook. 
  debug: false #debug mode doesn't save anything. 
  use_validation: true #if set to true, will use a validation set. 
- val_iters: 1 #validate every n iterations
+ val_iters: 4 #validate every n iterations
  checkpoint_iters: 1 #checkpoint every n iterations
  batches_per_iter: 1 #number of training batches to use per iteration. -1 means all batches 
  cg_iters: 25 #number of conjugate gradient iterations to run if using meta_type=implicit. 0 returns b as the solution. A usual value is 25.
@@ -51,14 +51,14 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 20 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 200 #print every n iterations. 0 means don't print
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'superres' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
- num_measurements: 500 #number of measurements for gaussian and circulant
+ measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ num_measurements: 10000 #number of measurements for gaussian and circulant
  downsample_factor: 8 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
  add_noise: false #whether to add noise after measuring
