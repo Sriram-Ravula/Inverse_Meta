@@ -470,7 +470,7 @@ class MetaLearner:
         c_losses = []
 
         for i, c_val in tqdm(enumerate(grid_vals)):
-            if self.outer.hyperparam_type == 'vector':
+            if self.hparams.outer.hyperparam_type == 'vector':
                 c_val = c_val * torch.ones(self.hparams.problem.num_measurements).to(self.hparams.device)
             print("\nTESTING C VALUE: ", c_val, '\n')
             for j, (x, _) in tqdm(enumerate(self.train_loader)):

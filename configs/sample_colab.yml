@@ -53,16 +53,16 @@ inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
  decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
- decimation_type: 'last' #['linear', 'log_last', 'log_first', 'last', 'first']
+ decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
- lr: 0.0001 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
+ lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
- num_measurements: 10000 #number of measurements for gaussian and circulant
+ measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ num_measurements: 5000 #number of measurements for gaussian and circulant
  downsample_factor: 8 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
- add_noise: true #whether to add noise after measuring
+ add_noise: false #whether to add noise after measuring
  noise_type: "gaussian" #[gaussian, gaussian_nonwhite] 
  noise_std: 0.1 
  add_dependent_noise: false #whether to add noise before measuring
