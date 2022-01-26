@@ -465,4 +465,33 @@ class MetaLearner:
             self.metrics.aggregate_iter_metrics(self.global_iter, iter_type, return_best=False)
             return
 
+    def gridsearch(self, grid_vals):
+        """Method for performing grid search. Returns the best found value of c within grid_vals"""
+        c_losses = []
+
+        for i, c_val in enumerate(grid_vals):
+            if self.outer.hyperparam_type == 'vector':
+                c_val = c_val * torch.ones(self.hparams.problem.num_measurements).to(self.hparams.device)
+            print("\nTESTING C VALUE: ", c_val, '\n')
+            for j, (x, _) in tqdm(enumerate(self.train_loader)):
+                x = x.to(self.hparams.device)
+                y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
+
+                x_mod = torch.rand(x.shape, device=self.hparams.device)
+                x_hat = SGLD_inverse_eval(c_val, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+
+                loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
+                self.metrics.calc_iter_metrics(x_hat, x, -(i+1), 'train')
+                self.metrics.add_external_metrics(loss_metrics, -(i+1), 'train')
+            
+            self.metrics.aggregate_iter_metrics(-(i+1), 'train', return_best=False)
+
+            c_losses.append(self.metrics.get_metric(-(i+1), 'train', self.val_metric))
+
+            print("NMSE FOR CURRENT C = ", c_val, ": ", c_losses[-1], '\n')
         
+        print("BEST VALUE OF C: ", grid_vals[np.argmin(c_losses)])
+
+        return grid_vals[np.argmin(c_losses)]
+
+                
