@@ -1,7 +1,9 @@
 import random
 import torch
+from torch.utils.data import Dataset
 import numpy as np
 import argparse
+from argparse import Namespace
 import os
 import yaml
 import torch.utils.tensorboard as tb
@@ -12,14 +14,14 @@ import torch.nn.functional as F
 import torchvision
 from utils.loss_utils import get_measurements, get_transpose_measurements
 
-plt.rcParams["savefig.bbox"] = 'tight'
 
-def set_all_seeds(random_seed):
+def set_all_seeds(random_seed: int):
     """
     Sets random seeds in numpy, torch, and random.
 
     Args:
         random_seed: The seed to set.
+                     Type: int.
     """
     torch.manual_seed(random_seed)
     random.seed(random_seed)
@@ -27,16 +29,17 @@ def set_all_seeds(random_seed):
 
     return
 
-def dict2namespace(config):
+def dict2namespace(config: dict):
     """
-    Converts a given dictionary to an argparse namespce object.
+    Converts a given dictionary to an argparse namespace object.
 
     Args:
         config: The dictionary to convert to namespace.
-                Can contain up to one level of nested dicts.
+                Type: dict.
 
     Returns:
         namespace: The converted namespace.
+                   Type: Namespace.
     """
     namespace = argparse.Namespace()
     for key, value in config.items():
@@ -47,9 +50,26 @@ def dict2namespace(config):
         setattr(namespace, key, new_value)
     return namespace
 
-def split_dataset(base_dataset, hparams):
+def split_dataset(base_dataset: Dataset, hparams: Namespace):
     """
-    Split a given dataset into train, val, and test.
+    Split a given dataset into train, val, and test sets.
+    If we do not want a validation set, returns None for val.
+
+    Args:
+        base_dataset: The dataset to use for splitting.
+                      Type: Dataset.
+        hparams: The experiment parameters to use for splitting.
+                 Type: Namespace.
+                 Expected to have the constituents:
+                    hparams.data.num_train - int
+                    hparams.data.num_val - int
+                    hparams.data.num_test - int
+                    hparams.outer.use_validation - bool
+                    hparams.seed - int
+    
+    Returns:
+        datasets: A dict containing the train, val, and test datasets.
+                  Type: dict.
     """
     num_train = hparams.data.num_train
     num_val = hparams.data.num_val
@@ -79,10 +99,32 @@ def split_dataset(base_dataset, hparams):
         train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
         val_dataset = None
         test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
+    
+    out_dict = {'train': train_dataset, 
+            'val': val_dataset, 
+            'test': test_dataset}
 
-    return train_dataset, val_dataset, test_dataset
+    return out_dict
 
 def init_c(hparams):
+    """
+    Initializes the hyperparameters as a scalar, vector, or matrix.
+
+    Args:
+        hparams: The experiment parameters to use for init.
+                 Type: Namespace.
+                 Expected to have the consituents:
+                    hparams.outer.hyperparam_type - str in [scalar, vector, matrix]
+                    hparams.problem.num_measurements - int
+                    hparams.outer.hyperparam_init - int or float
+    
+    Returns:
+        c: The initialized hyperparameters.
+           Type: Tensor.
+           Shape: [] for scalar hyperparam
+                  [m] for vector hyperparam
+                  [m,m] for matrix hyperparam
+    """
     c_type = hparams.outer.hyperparam_type
     m = hparams.problem.num_measurements
     init_val = float(hparams.outer.hyperparam_init)

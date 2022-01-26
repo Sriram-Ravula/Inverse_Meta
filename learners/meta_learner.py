@@ -83,6 +83,9 @@ class MetaLearner:
         return 
     
     def __init_datasets(self):
+        """
+        Helper method for initializing the train, val, and test splits for the learner.
+        """
         if self.hparams.outer.verbose:
             print("\nINITIALIZING DATA\n")
             start = time()
@@ -93,7 +96,10 @@ class MetaLearner:
 
         _, base_dataset = get_dataset(args, self.model_config)
 
-        train_dataset, val_dataset, test_dataset = split_dataset(base_dataset, self.hparams)
+        split_dict = split_dataset(base_dataset, self.hparams)
+        train_dataset = split_dict['train']
+        val_dataset = split_dict['val']
+        test_dataset = split_dict['test']
 
         if self.hparams.outer.use_validation:
             self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
@@ -455,7 +461,7 @@ class MetaLearner:
             
             if not self.hparams.outer.debug and not validate:
                 self.logger.save_images(x, x_idx, "Test_true")
-                self.logger.save_image_measurements(x, x_idx, "Test_meas", self.noisy)
+                self.logger.save_image_measurements(x, x_idx, "Test_meas")
                 self.logger.save_images(x_hat, x_idx, "Test_recon")
         
         if validate:
