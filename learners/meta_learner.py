@@ -472,7 +472,7 @@ class MetaLearner:
         for i, c_val in tqdm(enumerate(grid_vals)):
             if self.hparams.outer.hyperparam_type == 'vector':
                 c_val = c_val * torch.ones(self.hparams.problem.num_measurements).to(self.hparams.device)
-            print("\nTESTING C VALUE: ", c_val, '\n')
+            print("\nTESTING C VALUE: ", grid_vals[i], '\n')
             for j, (x, _) in tqdm(enumerate(self.train_loader)):
                 x = x.to(self.hparams.device)
                 y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
