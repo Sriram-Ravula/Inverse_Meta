@@ -31,7 +31,7 @@ outer:
  hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
- lr: 1 #meta learning rate
+ lr: 0.2 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  verbose: true #whether to print during execution. 
  plot_imgs: true #whether to plot the data and reconstructions inline. set false if not in a notebook. 
