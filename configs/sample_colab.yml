@@ -55,7 +55,7 @@ inner:
  decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'last' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
- lr: 1 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
+ lr: 0.0001 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
  measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
