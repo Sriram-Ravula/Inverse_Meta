@@ -140,7 +140,7 @@ class Logger:
 
         return out_dict
     
-    def save_image_measurements(self, images, image_nums, save_prefix, noisy=False):
+    def save_image_measurements(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
 
         if not os.path.exists(save_path):
@@ -151,7 +151,7 @@ class Logger:
         for i in range(images.shape[0]):
             image_dict[image_nums[i]] = images[i]
         
-        save_measurement_images(image_dict, self.hparams, save_path, noisy=noisy)
+        save_measurement_images(image_dict, self.hparams, save_path, noisy=self.learner.noisy)
 
     def save_images(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
