@@ -28,7 +28,7 @@ outer:
  measurement_loss: false #whether the meta-loss should be on held-out measurements instead of true images
  meta_loss_type: 'l2' #what type of meta loss to use
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
- hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
+ hyperparam_init: 1.5 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 0.1 #meta learning rate
