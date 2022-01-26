@@ -469,7 +469,7 @@ class MetaLearner:
         """Method for performing grid search. Returns the best found value of c within grid_vals"""
         c_losses = []
 
-        for i, c_val in enumerate(grid_vals):
+        for i, c_val in tqdm(enumerate(grid_vals)):
             if self.outer.hyperparam_type == 'vector':
                 c_val = c_val * torch.ones(self.hparams.problem.num_measurements).to(self.hparams.device)
             print("\nTESTING C VALUE: ", c_val, '\n')
@@ -488,7 +488,7 @@ class MetaLearner:
 
             c_losses.append(self.metrics.get_metric(-(i+1), 'train', self.val_metric))
 
-            print("NMSE FOR CURRENT C = ", c_val, ": ", c_losses[-1], '\n')
+            print("\nNMSE FOR C = ", grid_vals[i], ": ", c_losses[-1], '\n')
         
         print("BEST VALUE OF C: ", grid_vals[np.argmin(c_losses)])
 
