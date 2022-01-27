@@ -35,6 +35,7 @@ outer:
  use_autograd: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
  save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
+ exp_params: true #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]

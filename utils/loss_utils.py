@@ -88,9 +88,14 @@ def get_transpose_measurements(A, vec, hparams):
     
     return ans
 
-def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
+def gradient_log_cond_likelihood(c_orig, y, A, x, hparams, scale=1):
     c_type = hparams.outer.hyperparam_type
     A_type = hparams.problem.measurement_type
+
+    if hparams.outer.exp_params:
+        c = torch.exp(c_orig)
+    else:
+        c = c_orig
 
     #[N, m] (gaussian, inpaint, circulant)
     #[N, C, H//downsample, W//downsample] (superres)
@@ -125,7 +130,7 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1):
     
     return grad.view(x.shape)
 
-def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
+def log_cond_likelihood_loss(c_orig, y, A, x, hparams, scale=1, efficient_inp=False):
     """
     Efficient_inp uses a mask for element-wise inpainting instead of mm.
     But the dimensions don't play nice with our gradient functions!
@@ -137,6 +142,11 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
 
     c_type = hparams.outer.hyperparam_type
     A_type = hparams.problem.measurement_type
+
+    if hparams.outer.exp_params:
+        c = torch.exp(c_orig)
+    else:
+        c = c_orig
 
     #Gaussian or Inpaint + efficient=False - shape [N, m]
     #Inpaint with efficient=True or identity - shape [N, C, H, W]
@@ -189,7 +199,7 @@ def simple_likelihood_loss(y, A, x, hparams, efficient_inp=False):
     return loss
     
 
-def get_likelihood_grad(c, y, A, x, hparams, scale=1, efficient_inp=False,\
+def get_likelihood_grad(c_orig, y, A, x, hparams, scale=1, efficient_inp=False,\
     retain_graph=False, create_graph=False):
     """
     A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)
@@ -199,10 +209,10 @@ def get_likelihood_grad(c, y, A, x, hparams, scale=1, efficient_inp=False,\
         grad_flag_x = x.requires_grad
         x.requires_grad_()
         likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss\
-                    (c, y, A, x, hparams, scale, efficient_inp), x, retain_graph=retain_graph, create_graph=create_graph)[0]
+                    (c_orig, y, A, x, hparams, scale, efficient_inp), x, retain_graph=retain_graph, create_graph=create_graph)[0]
         x.requires_grad_(grad_flag_x)
     else:
-        likelihood_grad = gradient_log_cond_likelihood(c, y, A, x, hparams, scale)
+        likelihood_grad = gradient_log_cond_likelihood(c_orig, y, A, x, hparams, scale)
     
     return likelihood_grad
 

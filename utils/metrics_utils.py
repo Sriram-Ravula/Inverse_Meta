@@ -95,6 +95,7 @@ def get_all_metrics(x_hat, x, range = 1., hparams=None):
     """
     metrics = {}
 
+    metrics['lpips'] = get_lpips(x_hat, x)
     metrics['ms-ssim'] = get_msssim(x_hat, x, range=range)
     metrics['ssim'] = get_ssim(x_hat, x, range=range)
     metrics['nmse'] = get_nmse(x_hat, x)
