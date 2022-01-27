@@ -42,7 +42,7 @@ def get_A_inpaint(hparams):
 
     return torch.from_numpy(A)
 
-def get_measurements(A, x, hparams, efficient_inp=False, noisy=False):
+def get_measurements(A, x, hparams, efficient_inp=False, noisy=False, noise_vars=None):
     """
     Efficient_inp uses a mask for element-wise inpainting instead of mm.
     But the dimensions don't play nice with our gradient functions!
@@ -53,11 +53,11 @@ def get_measurements(A, x, hparams, efficient_inp=False, noisy=False):
     if A_type == 'gaussian':
         Ax = torch.mm(A, torch.flatten(x, start_dim=1).T).T #[N, m]
     elif A_type == 'inpaint' and efficient_inp:
-        Ax = get_inpaint_mask(hparams).to(x.device) * x 
+        Ax = get_inpaint_mask(hparams).to(x.device) * x #[N, C, H, W]
     elif A_type == 'inpaint' and not efficient_inp:
         Ax = torch.mm(A, torch.flatten(x, start_dim=1).T).T #[N, m]
     elif A_type == 'superres':
-        Ax = F.avg_pool2d(x, hparams.problem.downsample_factor)
+        Ax = F.avg_pool2d(x, hparams.problem.downsample_factor) #[N, C, H//downsample_factor, W//downsample_factor]
     elif A_type == 'identity':
         I = torch.nn.Identity()
         Ax = I(x)
@@ -67,8 +67,8 @@ def get_measurements(A, x, hparams, efficient_inp=False, noisy=False):
     if noisy:
         if hparams.problem.noise_type == 'gaussian':
             noise = torch.randn(Ax.shape, device=Ax.device) * hparams.problem.noise_std
-        elif hparams.problem.noise_type == 'gaussian_nonwhite': #TODO should fix rand instead of instantiating it newly each time!
-            noise = torch.randn(Ax.shape, device=Ax.device) * torch.rand(Ax.shape, device=Ax.device) * hparams.problem.noise_std
+        elif hparams.problem.noise_type == 'gaussian_nonwhite': 
+            noise = torch.randn(Ax.shape, device=Ax.device) * hparams.problem.noise_std * noise_vars
         return Ax + noise
     else:
         return Ax

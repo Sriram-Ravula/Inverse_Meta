@@ -141,6 +141,24 @@ def init_c(hparams):
     return c
 
 def get_meta_optimizer(opt_params, hparams):
+    """
+    Initializes the meta optmizer and scheduler.
+
+    Args:
+        opt_params: The parameters to optimize over.
+                    Type: Tensor.
+        hparams: The experiment parameters to use for init.
+                 Type: Namespace.
+                 Expected to have the consituents:
+                    hparams.outer.lr - float, the meta learning rate
+                    hparams.outer.lr_decay - [False, float], the exponential decay factor for the learning rate 
+                    hparams.outer.optimizer - str in [adam, sgd]
+    
+    Returns:
+        meta_opts: A dictionary containint the meta optimizer and scheduler.
+                   If lr_decay is false, the meta_scheduler key has value None.
+                   Type: dict.
+    """
     lr = hparams.outer.lr
     lr_decay = hparams.outer.lr_decay
     opt_type = hparams.outer.optimizer
@@ -154,9 +172,13 @@ def get_meta_optimizer(opt_params, hparams):
 
     if lr_decay:
         meta_scheduler = torch.optim.lr_scheduler.ExponentialLR(meta_opt, lr_decay)
-        return (meta_opt, meta_scheduler)
     else:
-        return meta_opt
+        meta_scheduler = None
+    
+    out_dict = {'meta_opt': meta_opt,
+                'meta_scheduler': meta_scheduler}
+
+    return out_dict
 
 def parse_config(config_path):
     with open(config_path, 'r') as f:

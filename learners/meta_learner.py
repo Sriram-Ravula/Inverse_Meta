@@ -103,12 +103,12 @@ class MetaLearner:
 
         if self.hparams.outer.use_validation:
             self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
-                        num_workers=2, drop_last=True)
+                        num_workers=1, drop_last=True)
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
-                                num_workers=2, drop_last=True)
+                                num_workers=1, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
-                                num_workers=2, drop_last=True)
+                                num_workers=1, drop_last=True)
 
         if self.hparams.outer.verbose:
             end = time()
@@ -121,29 +121,33 @@ class MetaLearner:
             print("\nINITIALIZING INNER PROBLEM\n")
             start = time()
 
-        self.A = get_A(self.hparams)
-        self.noisy = self.hparams.problem.add_noise
+        if self.hparams.outer.use_autograd and self.hparams.problem.measurement_type == 'inpaint':
+            self.efficient_inp = True
+            self.hparams.problem.y_shape = self.hparams.data.image_shape
+        else:
+            self.efficient_inp = False
 
+        self.A = get_A(self.hparams)
         if self.A is not None:
             self.A = self.A.to(self.hparams.device)
 
+        self.noisy = self.hparams.problem.add_noise
+        if self.noisy and self.hparams.problem.noise_type == 'gaussian_nonwhite':
+            self.noise_vars = torch.rand(self.hparams.problem.y_shape, device=self.hparams.device)
+        else:
+            self.noise_vars = None
+
         self.c = init_c(self.hparams).to(self.hparams.device)
 
-        if self.hparams.outer.lr_decay:
-            self.meta_opt, self.meta_scheduler = get_meta_optimizer(self.c, self.hparams)
-        else:
-            self.meta_opt = get_meta_optimizer(self.c, self.hparams)
+        opt_dict = get_meta_optimizer(self.c, self.hparams)
+        self.meta_opt = opt_dict['meta_opt']
+        self.meta_scheduler = opt_dict['meta_scheduler']
 
         #values used for loss min appx
         s_idx = len(self.sigmas)-1
         self.loss_scale = 1 / (self.sigmas[s_idx]**2)
         self.labels = torch.ones(self.hparams.data.train_batch_size, device=self.hparams.device) * s_idx
         self.labels = self.labels.long()
-
-        if self.hparams.outer.use_autograd and self.hparams.problem.measurement_type == 'inpaint':
-            self.efficient_inp = True
-        else:
-            self.efficient_inp = False
 
         self.global_iter = 0
         self.best_iter = 0
@@ -154,9 +158,9 @@ class MetaLearner:
 
         self.ROI = self.hparams.outer.ROI 
         if self.hparams.outer.ROI:
-            self.val_metric = 'roi_nmse'
+            self.val_metric = 'roi_psnr'
         else:
-            self.val_metric = 'nmse' 
+            self.val_metric = 'psnr' 
 
         self.save_inits = self.hparams.outer.save_inits
         if self.save_inits:
@@ -170,7 +174,7 @@ class MetaLearner:
 
     def __load_inits(self, indices):
         """"Method for loading saved initializations"""
-        if self.hparams.outer.verbose:
+        if self.hparams.outer.verbose and self.global_iter > 0:
             print("\nLOADING SAVED INITIALIZATONS\n")
 
         out_x = None
@@ -286,7 +290,7 @@ class MetaLearner:
             
             #(1) Find x(c) by running the inner optimization
             x = x.to(self.hparams.device)
-            y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
+            y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy, noise_vars=self.noise_vars)
 
             if self.save_inits:
                 x_mod = self.__load_inits(x_idx)
@@ -399,6 +403,7 @@ class MetaLearner:
         """
         if self.hparams.outer.verbose:
             print("\nBEGINNING VALIDATION\n")
+            
         new_best_dict = self.val_or_test(validate=True)
 
         #check if we have a new best validation loss
@@ -438,7 +443,7 @@ class MetaLearner:
         for i, (x, x_idx) in tqdm(enumerate(cur_loader)):
             x_idx = x_idx.cpu().numpy().flatten()
             x = x.to(self.hparams.device)
-            y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
+            y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy, noise_vars=self.noise_vars)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
             x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
@@ -481,7 +486,7 @@ class MetaLearner:
             print("\nTESTING C VALUE: ", grid_vals[i], '\n')
             for j, (x, _) in tqdm(enumerate(self.train_loader)):
                 x = x.to(self.hparams.device)
-                y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy)
+                y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy, noise_vars=self.noise_vars)
 
                 x_mod = torch.rand(x.shape, device=self.hparams.device)
                 x_hat = SGLD_inverse_eval(c_val, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
