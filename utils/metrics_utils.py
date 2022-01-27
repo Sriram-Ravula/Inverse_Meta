@@ -2,7 +2,7 @@
 Class for calculating metrics for a proposed image and the original.
 NOTE: all methods return per-image metrics, i.e. the number of returned values is equal to batch dimension. 
 """
-
+import lpips
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -10,6 +10,19 @@ from pytorch_msssim import ssim, ms_ssim
 
 from utils.loss_utils import getRectMask 
 
+@torch.no_grad()
+def get_lpips(x_hat, x):
+    """
+    Calculates LPIPS(x_hat, x).
+    Assumes given images are in range [0, 1].
+    """
+    x_hat_rescaled = (x_hat * 2.) - 1
+    x_rescaled = (x * 2.) - 1
+
+    loss_fn = lpips.LPIPS(net='alex').to(x_hat.device)
+    lpips_loss = loss_fn.forward(x_hat_rescaled,x_rescaled)
+
+    return lpips_loss.cpu().numpy().flatten()
 
 @torch.no_grad()
 def get_msssim(x_hat, x, range=1.):

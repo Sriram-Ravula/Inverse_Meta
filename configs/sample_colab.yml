@@ -44,7 +44,7 @@ outer:
  decay_on_val: false
  val_iters: 3 #validate every n iterations
  checkpoint_iters: 2 #checkpoint every n iterations
- batches_per_iter: 2 #number of training batches to use per iteration. -1 means all batches 
+ batches_per_iter: -1 #number of training batches to use per iteration. -1 means all batches 
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
  finite_difference_coeff: 0.00000001 #value of r to use in finite difference. 0.00000001 is usual val
  ROI: false #[False, True, ((h_offset, w_offset),(h, w))] - whether to use an ROI
