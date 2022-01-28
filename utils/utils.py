@@ -186,7 +186,12 @@ def parse_config(config_path):
 
     if hparams['use_gpu']:
         num = hparams['gpu_num']
-        hparams['device'] = torch.device('cuda:'+str(num)) if torch.cuda.is_available() else torch.device('cpu:0')
+        if num == -1:
+            hparams['device'] = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+            if torch.cuda.device_count() > 1:
+                print("Let's use", torch.cuda.device_count(), "GPUs!")
+        else:
+            hparams['device'] = torch.device('cuda:'+str(num)) if torch.cuda.is_available() else torch.device('cpu:0')
     else:
         hparams['device'] = torch.device('cpu:0')
 
