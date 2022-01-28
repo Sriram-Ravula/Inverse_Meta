@@ -36,10 +36,10 @@ outer:
  save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
  exp_params: true #whether to use exp(hyperparams) instead of hyperparams
- hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
+ hyperparam_init: 0 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
- lr: 0.1 #meta learning rate
+ lr: 0.5 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  use_validation: true #if set to true, will use a validation set. 
  decay_on_val: false
@@ -59,12 +59,12 @@ inner:
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'superres' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
  num_measurements: 5000 #number of measurements for gaussian and circulant
  downsample_factor: 32 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
- add_noise: false #whether to add noise after measuring
- noise_type: "gaussian" #[gaussian, gaussian_nonwhite] 
+ add_noise: true #whether to add noise after measuring
+ noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite] 
  noise_std: 0.1 
  add_dependent_noise: false #whether to add noise before measuring
  dependent_noise_type: "gaussian" #[gaussian, uniform]

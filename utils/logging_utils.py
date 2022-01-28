@@ -30,7 +30,7 @@ def save_images(est_images, save_prefix):
     for image_num, image in est_images.items():
         save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
 
-def save_measurement_images(est_images, hparams, save_prefix, noisy=False):
+def save_measurement_images(est_images, hparams, save_prefix, noisy=False, noise_vars=None):
     """Save a batch of image measurements to png files"""
     A_type = hparams.problem.measurement_type
 
@@ -40,9 +40,9 @@ def save_measurement_images(est_images, hparams, save_prefix, noisy=False):
 
     for image_num, image in est_images.items():
         if A_type == 'inpaint' or A_type == 'identity':
-            image = get_measurements(None, image, hparams, True, noisy)
+            image = get_measurements(None, image, hparams, True, noisy, noise_vars)
         elif A_type == 'superres':
-            image = get_measurements(None, image.unsqueeze(0), hparams)
+            image = get_measurements(None, image.unsqueeze(0), hparams, noisy, noise_vars)
             image = get_transpose_measurements(None, image, hparams).squeeze(0)
         save_image(image, os.path.join(save_prefix, str(image_num) + '.png'))
 
@@ -151,7 +151,7 @@ class Logger:
         for i in range(images.shape[0]):
             image_dict[image_nums[i]] = images[i]
         
-        save_measurement_images(image_dict, self.hparams, save_path, noisy=self.learner.noisy)
+        save_measurement_images(image_dict, self.hparams, save_path, noisy=self.learner.noisy, noise_vars=self.learner.noise_vars)
 
     def save_images(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix)
@@ -175,9 +175,9 @@ class Logger:
             return
 
         if A_type == 'inpaint' or A_type == 'identity':
-            images = get_measurements(None, images, self.hparams, True, self.learner.noisy)
+            images = get_measurements(None, images, self.hparams, True, self.learner.noisy, self.learner.noise_vars)
         elif A_type == 'superres':
-            images = get_measurements(None, images.unsqueeze(0), self.hparams, self.learner.noisy)
+            images = get_measurements(None, images.unsqueeze(0), self.hparams, self.learner.noisy, self.learner.noise_vars)
             images = get_transpose_measurements(None, images, self.hparams).squeeze(0)
         
         torch.save(images, save_path)
@@ -201,9 +201,9 @@ class Logger:
             return
 
         if A_type == 'inpaint' or A_type == 'identity':
-            images = get_measurements(None, images, self.hparams, True, self.learner.noisy)
+            images = get_measurements(None, images, self.hparams, True, self.learner.noisy, self.learner.noise_vars)
         elif A_type == 'superres':
-            images = get_measurements(None, images, self.hparams, self.learner.noisy)
+            images = get_measurements(None, images, self.hparams, self.learner.noisy, self.learner.noise_vars)
             images = get_transpose_measurements(None, images, self.hparams)
             
 

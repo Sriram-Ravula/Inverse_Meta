@@ -20,7 +20,7 @@ def get_lpips(x_hat, x):
     x_rescaled = (x * 2.) - 1
 
     loss_fn = lpips.LPIPS(net='alex').to(x_hat.device)
-    lpips_loss = loss_fn.forward(x_hat_rescaled,x_rescaled)
+    lpips_loss = loss_fn.forward(x_hat_rescaled, x_rescaled)
 
     return lpips_loss.cpu().numpy().flatten()
 
