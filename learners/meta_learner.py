@@ -526,8 +526,10 @@ class MetaLearner:
 
     def send_to_cpu(self, tensors):
         for t in tensors:
-            t = t.cpu()
+            if t is not None:
+                t = t.cpu()
     
     def send_to_gpu(self, tensors):
         for t in tensors:
-            t = t.to(self.hparams.device)
+            if t is not None:
+                t = t.to(self.hparams.device)
