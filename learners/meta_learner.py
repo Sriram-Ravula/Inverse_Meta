@@ -62,7 +62,7 @@ class MetaLearner:
         
         test_score = torch.nn.DataParallel(test_score)
         test_score.load_state_dict(states[0], strict=True)
-        test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
+        #test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
 
         if net_config.model.ema:
             ema_helper = EMAHelper(mu=net_config.model.ema_rate)
@@ -74,8 +74,8 @@ class MetaLearner:
         for param in test_score.parameters():
             param.requires_grad = False
 
-        self.model = test_score
-        self.sigmas = get_sigmas(net_config).cpu()
+        self.model = test_score.module.to(self.hparams.device)
+        self.sigmas = get_sigmas(net_config).to(self.hparams.device)
         self.model_config = net_config
 
         if self.hparams.outer.verbose:
@@ -292,7 +292,9 @@ class MetaLearner:
                 x_mod = self.__load_inits(x_idx)
             else:
                 x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
-            x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            #x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            sgld_runner = SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            x_hat = sgld_runner(x_mod, y)
             
             #(2) Find meta gradient
             if self.hparams.outer.meta_type == 'maml':
@@ -450,7 +452,9 @@ class MetaLearner:
             y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy, noise_vars=self.noise_vars)
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
-            x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            #x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            sgld_runner = SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            x_hat = sgld_runner(x_mod, y)
 
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, iter_type)
@@ -493,7 +497,9 @@ class MetaLearner:
                 y = get_measurements(self.A, x, self.hparams, self.efficient_inp, noisy=self.noisy, noise_vars=self.noise_vars)
 
                 x_mod = torch.rand(x.shape, device=self.hparams.device)
-                x_hat = SGLD_inverse_eval(c_val, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+                #x_hat = SGLD_inverse_eval(c_val, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+                sgld_runner = SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp)
+                x_hat = sgld_runner(x_mod, y)
 
                 loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
                 self.metrics.calc_iter_metrics(x_hat, x, -(i+1), 'train')
