@@ -293,9 +293,11 @@ class MetaLearner:
             else:
                 x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
             #x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            self.send_to_cpu([self.c, self.A, self.model, self.sigmas])
             sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
             sgld_runner = sgld_runner.to(self.hparams.device)
             x_hat = sgld_runner(x_mod, y)
+            self.send_to_gpu([self.c, self.A, self.model, self.sigmas])
             
             #(2) Find meta gradient
             if self.hparams.outer.meta_type == 'maml':
@@ -454,9 +456,11 @@ class MetaLearner:
 
             x_mod = torch.rand(x.shape, device=self.hparams.device)
             #x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+            self.send_to_cpu([self.c, self.A, self.model, self.sigmas])
             sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
             sgld_runner = sgld_runner.to(self.hparams.device)
             x_hat = sgld_runner(x_mod, y)
+            self.send_to_gpu([self.c, self.A, self.model, self.sigmas])
 
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
             self.metrics.calc_iter_metrics(x_hat, x, self.global_iter, iter_type)
@@ -500,9 +504,11 @@ class MetaLearner:
 
                 x_mod = torch.rand(x.shape, device=self.hparams.device)
                 #x_hat = SGLD_inverse_eval(c_val, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
+                self.send_to_cpu([self.c, self.A, self.model, self.sigmas])
                 sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
                 sgld_runner = sgld_runner.to(self.hparams.device)
                 x_hat = sgld_runner(x_mod, y)
+                self.send_to_gpu([self.c, self.A, self.model, self.sigmas])
 
                 loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
                 self.metrics.calc_iter_metrics(x_hat, x, -(i+1), 'train')
@@ -518,4 +524,10 @@ class MetaLearner:
 
         return grid_vals[np.argmin(c_losses)]
 
-                
+    def send_to_cpu(self, tensors):
+        for t in tensors:
+            t = t.cpu()
+    
+    def send_to_gpu(self, tensors):
+        for t in tensors:
+            t = t.to(self.hparams.device)

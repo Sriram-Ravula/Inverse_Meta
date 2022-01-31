@@ -1,3 +1,4 @@
+from importlib.metadata import requires
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
@@ -9,10 +10,10 @@ from utils import loss_utils
 class SGLD_NSCNv2(nn.Module):
     def __init__(self, c, A, model, sigmas, hparams, efficient_inp=False):
         super().__init__()
-        self.c = c
-        self.A = A
+        self.c = torch.nn.Parameter(c, requires_grad=False)
+        self.A = torch.nn.Parameter(A, requires_grad=False)
         self.model = model
-        self.sigmas = sigmas
+        self.sigmas = torch.nn.Parameter(sigmas, requires_grad=False)
         self.hparams = hparams
         self.efficient_inp = efficient_inp
 
