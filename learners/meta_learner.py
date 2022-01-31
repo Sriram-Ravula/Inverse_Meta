@@ -145,12 +145,6 @@ class MetaLearner:
         self.meta_opt = opt_dict['meta_opt']
         self.meta_scheduler = opt_dict['meta_scheduler']
 
-        #values used for loss min appx
-        s_idx = len(self.sigmas)-1
-        self.loss_scale = 1 / (self.sigmas[s_idx]**2)
-        self.labels = torch.ones(self.hparams.data.train_batch_size, device=self.hparams.device) * s_idx
-        self.labels = self.labels.long()
-
         self.global_iter = 0
         self.best_iter = 0
 
@@ -360,10 +354,16 @@ class MetaLearner:
         #(1)
         grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
 
+        #values used for loss min appx
+        s_idx = len(self.sigmas)-1
+        loss_scale = 1 / (self.sigmas[s_idx]**2)
+        labels = torch.ones(x_hat.shape[0], device=x_hat.device) * s_idx
+        labels = labels.long()
+
         #(2)
-        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, loss_scale, \
             efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
-        prior_grad = self.model(x_hat, self.labels) 
+        prior_grad = self.model(x_hat, labels) 
 
         hvp_helper = Ax(x_hat, (cond_log_grad - prior_grad), self.hparams, retain_graph=True)
 
@@ -372,7 +372,7 @@ class MetaLearner:
         #(3)
         self.c.requires_grad_()
 
-        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, loss_scale, \
             efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True)  
         
         out_grad = -hessian_vector_product(self.c, cond_log_grad, ihvp, self.hparams)
@@ -388,11 +388,13 @@ class MetaLearner:
         """
         #(1)
         grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
+
+        loss_scale = 1 #set to 1 to be independent of Langevin noise levels
         
         #(2)
         self.c.requires_grad_()
         
-        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, self.loss_scale, \
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams, loss_scale, \
             efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True) 
         
         out_grad = -hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
