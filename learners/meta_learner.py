@@ -60,8 +60,8 @@ class MetaLearner:
         elif self.hparams.data.dataset == 'celeba':
             test_score = NCSNv2(net_config).to(self.hparams.device)
         
-        test_score.load_state_dict(states[0], strict=True)
         test_score = torch.nn.DataParallel(test_score)
+        test_score.load_state_dict(states[0], strict=True)
         test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
 
         if net_config.model.ema:
