@@ -18,7 +18,6 @@ from ncsnv2.models import get_sigmas
 from ncsnv2.models.ema import EMAHelper
 from ncsnv2.datasets import get_dataset
 
-
 class MetaLearner:
     """
     Meta Learning for inverse problems
@@ -59,8 +58,8 @@ class MetaLearner:
         elif self.hparams.data.dataset == 'celeba':
             test_score = NCSNv2(net_config).to(self.hparams.device)
         
-        test_score = torch.nn.DataParallel(test_score)
         test_score.load_state_dict(states[0], strict=True)
+        test_score = torch.nn.DataParallel(test_score)
         test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
 
         if net_config.model.ema:
@@ -74,7 +73,7 @@ class MetaLearner:
             param.requires_grad = False
 
         self.model = test_score
-        self.sigmas = get_sigmas(net_config).cpu()
+        self.sigmas = get_sigmas(net_config).to(self.hparams.device)
         self.model_config = net_config
 
         if self.hparams.outer.verbose:
