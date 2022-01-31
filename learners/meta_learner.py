@@ -294,6 +294,7 @@ class MetaLearner:
                 x_mod = torch.rand(x.shape, device=self.hparams.device, requires_grad=True)
             #x_hat = SGLD_inverse(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
             sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
+            sgld_runner = sgld_runner.to(self.hparams.device)
             x_hat = sgld_runner(x_mod, y)
             
             #(2) Find meta gradient
@@ -454,6 +455,7 @@ class MetaLearner:
             x_mod = torch.rand(x.shape, device=self.hparams.device)
             #x_hat = SGLD_inverse_eval(self.c, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
             sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
+            sgld_runner = sgld_runner.to(self.hparams.device)
             x_hat = sgld_runner(x_mod, y)
 
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
@@ -499,6 +501,7 @@ class MetaLearner:
                 x_mod = torch.rand(x.shape, device=self.hparams.device)
                 #x_hat = SGLD_inverse_eval(c_val, y, self.A, x_mod, self.model, self.sigmas, self.hparams, self.efficient_inp)
                 sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
+                sgld_runner = sgld_runner.to(self.hparams.device)
                 x_hat = sgld_runner(x_mod, y)
 
                 loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
