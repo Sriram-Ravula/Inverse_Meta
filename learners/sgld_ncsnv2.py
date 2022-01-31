@@ -1,4 +1,3 @@
-from turtle import forward
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
@@ -109,4 +108,3 @@ class SGLD_NSCNv2(nn.Module):
         self.c.requires_grad_(grad_flag_c)
 
         return x_mod
-        

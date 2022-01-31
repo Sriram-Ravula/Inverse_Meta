@@ -8,6 +8,8 @@ import yaml
 from time import time
 import os
 
+from learners.sgld_ncsnv2 import SGLD_NSCNv2
+
 from utils.utils import dict2namespace, split_dataset, init_c, get_meta_optimizer, plot_images, get_measurement_images
 from utils.loss_utils import get_A, get_measurements, get_likelihood_grad, get_meta_grad, get_loss_dict
 from utils.alg_utils import SGLD_inverse, hessian_vector_product, Ax, cg_solver, SGLD_inverse_eval
@@ -73,7 +75,7 @@ class MetaLearner:
             param.requires_grad = False
 
         self.model = test_score
-        self.sigmas = get_sigmas(net_config).to(self.hparams.device)
+        self.sigmas = get_sigmas(net_config).cpu()
         self.model_config = net_config
 
         if self.hparams.outer.verbose:
