@@ -394,7 +394,8 @@ class MetaLearner:
         #(1)
         grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
 
-        loss_scale = 1 #set to 1 to be independent of Langevin noise levels
+        s_idx = len(self.sigmas)-1
+        loss_scale = 1 / (self.sigmas[s_idx]**2)
         
         #(2)
         self.c.requires_grad_()
