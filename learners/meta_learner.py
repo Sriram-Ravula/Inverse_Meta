@@ -247,7 +247,7 @@ class MetaLearner:
             dummy_loss.backward()
         self.c.grad.copy_(meta_grad)
         self.meta_opt.step()
-        self.c.requires_grad_(False)
+        self.c = self.c.detach()
 
         if self.hparams.outer.lr_decay and not self.hparams.outer.decay_on_val:
             self.meta_scheduler.step()
@@ -255,7 +255,7 @@ class MetaLearner:
 
         self.grads.append(meta_grad.detach().cpu())
         self.grad_norms.append(torch.norm(meta_grad.flatten()).item())
-        self.c_list.append(self.c.detach().cpu())
+        self.c_list.append(self.c.cpu())
 
         if self.hparams.outer.verbose:
             print("\nTRAIN LOSS: ", self.metrics.get_metric(self.global_iter, 'train', self.val_metric), '\n')
@@ -309,8 +309,8 @@ class MetaLearner:
             else: 
                 raise NotImplementedError
             
-            x_hat.requires_grad_(False)
-            self.c.requires_grad_(False)
+            x_hat = x_hat.detach()
+            self.c = self.c.detach()
 
             if self.save_inits:
                 self.__save_inits(x_hat, x_idx)
