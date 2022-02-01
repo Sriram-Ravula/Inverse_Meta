@@ -62,7 +62,7 @@ class MetaLearner:
         
         test_score = torch.nn.DataParallel(test_score)
         test_score.load_state_dict(states[0], strict=True)
-        #test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
+        test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
 
         if net_config.model.ema:
             ema_helper = EMAHelper(mu=net_config.model.ema_rate)
@@ -74,7 +74,7 @@ class MetaLearner:
         for param in test_score.parameters():
             param.requires_grad = False
 
-        self.model = test_score.module.to(self.hparams.device)
+        self.model = test_score.module
         self.sigmas = get_sigmas(net_config).to(self.hparams.device)
         self.model_config = net_config
 
@@ -296,7 +296,7 @@ class MetaLearner:
             self.send_to_cpu([self.c, self.A, self.model, self.sigmas])
             sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
             sgld_runner = sgld_runner.to(self.hparams.device)
-            x_hat = sgld_runner(x_mod, y)
+            x_hat = sgld_runner(x_mod, y, eval=False)
             self.send_to_gpu([self.c, self.A, self.model, self.sigmas])
             
             #(2) Find meta gradient
@@ -459,7 +459,7 @@ class MetaLearner:
             self.send_to_cpu([self.c, self.A, self.model, self.sigmas])
             sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
             sgld_runner = sgld_runner.to(self.hparams.device)
-            x_hat = sgld_runner(x_mod, y)
+            x_hat = sgld_runner(x_mod, y, eval=True)
             self.send_to_gpu([self.c, self.A, self.model, self.sigmas])
 
             loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)
@@ -507,7 +507,7 @@ class MetaLearner:
                 self.send_to_cpu([self.c, self.A, self.model, self.sigmas])
                 sgld_runner = torch.nn.DataParallel(SGLD_NSCNv2(self.c, self.A, self.model, self.sigmas, self.hparams, self.efficient_inp))
                 sgld_runner = sgld_runner.to(self.hparams.device)
-                x_hat = sgld_runner(x_mod, y)
+                x_hat = sgld_runner(x_mod, y, eval=True)
                 self.send_to_gpu([self.c, self.A, self.model, self.sigmas])
 
                 loss_metrics = get_loss_dict(y, self.A, x_hat, x, self.hparams, self.efficient_inp)

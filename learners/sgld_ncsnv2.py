@@ -1,3 +1,4 @@
+from pickle import FALSE
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
@@ -9,10 +10,10 @@ from utils import loss_utils
 class SGLD_NSCNv2(nn.Module):
     def __init__(self, c, A, model, sigmas, hparams, efficient_inp=False):
         super().__init__()
-        self.c = torch.nn.Parameter(c, requires_grad=False)
-        self.A = torch.nn.Parameter(A, requires_grad=False)
+        self.c = torch.nn.Parameter(c, requires_grad=c.requires_grad)
+        self.A = torch.nn.Parameter(A, requires_grad=A.requires_grad)
         self.model = model
-        self.sigmas = torch.nn.Parameter(sigmas, requires_grad=False)
+        self.sigmas = torch.nn.Parameter(sigmas, requires_grad=sigmas.requires_grad)
         self.hparams = hparams
         self.efficient_inp = efficient_inp
 
@@ -41,11 +42,11 @@ class SGLD_NSCNv2(nn.Module):
         else:
             self.create_graph = False
 
-    def forward(self, x_mod, y):
+    def forward(self, x_mod, y, eval):
         grad_flag_x = x_mod.requires_grad
         grad_flag_c = self.c.requires_grad
 
-        if not self.create_graph:
+        if eval or not self.create_graph:
             x_mod.requires_grad_(False) 
             self.c.requires_grad_(False)    
 
@@ -67,7 +68,7 @@ class SGLD_NSCNv2(nn.Module):
             step_size = self.step_lr * (sigma / self.sigmas[-1]) ** 2
 
             for s in range(self.T):
-                if not self.create_graph and self.hparams.outer.meta_type == 'maml': 
+                if not eval and (not self.create_graph and self.hparams.outer.meta_type == 'maml'): 
                     if (self.total_steps - step_num) == self.maml_use_last:
                         self.create_graph = True  
                         x_mod.requires_grad_()
@@ -78,7 +79,8 @@ class SGLD_NSCNv2(nn.Module):
                 prior_grad = self.model(x_mod, labels)
 
                 likelihood_grad = loss_utils.get_likelihood_grad(self.c, y, self.A, x_mod, self.hparams, 1/(sigma**2), self.efficient_inp,\
-                    retain_graph=self.create_graph, create_graph=self.create_graph)
+                    retain_graph = self.create_graph if not eval else False, \
+                    create_graph = self.create_graph if not eval else False)
 
                 grad = prior_grad - likelihood_grad
 
