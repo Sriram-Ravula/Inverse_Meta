@@ -47,8 +47,8 @@ class SGLD_NSCNv2(nn.Module):
         grad_flag_c = self.c.requires_grad
 
         if eval or not self.create_graph:
-            x_mod.requires_grad_(False) 
-            self.c.requires_grad_(False)    
+            x_mod = x_mod.detach() 
+            self.c = self.c.detach()    
 
         fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
         titlestr = "%10s %10s %10s %10s %10s %10s"
