@@ -11,7 +11,7 @@ class SGLD_NSCNv2(nn.Module):
     def __init__(self, c, A, model, sigmas, hparams, efficient_inp=False):
         super().__init__()
         self.c = torch.nn.Parameter(c, requires_grad=c.requires_grad)
-        self.A = torch.nn.Parameter(A, requires_grad=A.requires_grad)
+        self.A = torch.nn.Parameter(A, requires_grad=A.requires_grad if A is not None else False)
         self.model = model
         self.sigmas = torch.nn.Parameter(sigmas, requires_grad=sigmas.requires_grad)
         self.hparams = hparams
