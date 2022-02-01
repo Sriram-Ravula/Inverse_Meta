@@ -13,12 +13,12 @@ net:
 data:
  data_path: "/scratch1/04703/sravula/meta_exp/datasets/ffhq" 
  dataset: 'ffhq'
- train_batch_size: 32
- val_batch_size: 32
+ train_batch_size: 4
+ val_batch_size: 4
  num_channels: 3
- num_train: 32
- num_val: 32
- num_test: 64
+ num_train: 4
+ num_val: 4
+ num_test: 4
 
 outer:
  verbose: true #whether to print during execution. 

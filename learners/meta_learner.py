@@ -309,7 +309,7 @@ class MetaLearner:
             else: 
                 raise NotImplementedError
             
-            x_hat.requires_grad_(False)
+            x_hat = x_hat.detach()
             self.c.requires_grad_(False)
 
             if self.save_inits:
