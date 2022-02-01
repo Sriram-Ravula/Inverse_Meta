@@ -13,12 +13,12 @@ net:
 data:
  data_path: "/scratch1/04703/sravula/meta_exp/datasets/ffhq" 
  dataset: 'ffhq'
- train_batch_size: 4
- val_batch_size: 4
+ train_batch_size: 32
+ val_batch_size: 32
  num_channels: 3
- num_train: 4
- num_val: 4
- num_test: 4
+ num_train: 32
+ num_val: 64
+ num_test: 64
 
 outer:
  verbose: true #whether to print during execution. 
@@ -34,7 +34,7 @@ outer:
  cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 0 means no damping
  use_autograd: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
  save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
- hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
+ hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
  exp_params: true #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 0 #the value to initialize the hyperparameter at. Default is 1
  num_iters: 25 #number of meta iterations to run
@@ -43,7 +43,7 @@ outer:
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  use_validation: true #if set to true, will use a validation set. 
  decay_on_val: false
- val_iters: 1 #validate every n iterations
+ val_iters: 2 #validate every n iterations
  checkpoint_iters: 1 #checkpoint every n iterations
  batches_per_iter: -1 #number of training batches to use per iteration. -1 means all batches 
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
@@ -52,15 +52,15 @@ outer:
 
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
- T: 1 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 20 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
+ decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'superres' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
- num_measurements: 5000 #number of measurements for gaussian and circulant
+ measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
+ num_measurements: 2500 #number of measurements for gaussian and circulant
  downsample_factor: 16 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
  add_noise: false #whether to add noise after measuring
