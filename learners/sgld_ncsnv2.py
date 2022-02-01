@@ -48,7 +48,7 @@ class SGLD_NSCNv2(nn.Module):
 
         if eval or not self.create_graph:
             x_mod = x_mod.detach() 
-            self.c = self.c.detach()    
+            self.c = torch.nn.Parameter(self.c.detach(), requires_grad=False) 
 
         fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
         titlestr = "%10s %10s %10s %10s %10s %10s"
