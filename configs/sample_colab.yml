@@ -38,14 +38,14 @@ outer:
  exp_params: false #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 0 #the value to initialize the hyperparameter at. Default is 1
  reg_hyperparam: 'l1' #whether to use l1 regularization on c
- reg_hyperparam_scale: 1 #the hyperparameter for regularizing the hyperparameters
+ reg_hyperparam_scale: 10 #the hyperparameter for regularizing the hyperparameters
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 0.5 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  use_validation: true #if set to true, will use a validation set. 
  decay_on_val: false
- val_iters: 1 #validate every n iterations
+ val_iters: 4 #validate every n iterations
  checkpoint_iters: 1 #checkpoint every n iterations
  batches_per_iter: -1 #number of training batches to use per iteration. -1 means all batches 
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
