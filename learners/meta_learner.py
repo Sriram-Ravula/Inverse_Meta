@@ -249,7 +249,7 @@ class MetaLearner:
         self.meta_opt.step()
         self.c.requires_grad_(False)
 
-        torch.clamp(self.c, min=0.)
+        self.c.clamp_(min=0.)
         if self.hparams.outer.reg_hyperparam == 'l1':
             print("\nNUMBER OF ZERO MEASUREMENTS: ", (self.c < 1e-6).sum().item())
 
