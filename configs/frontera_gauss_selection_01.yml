@@ -38,7 +38,7 @@ outer:
  exp_params: false #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
  reg_hyperparam: 'l1' #whether to use l1 regularization on c
- reg_hyperparam_scale: 1 #the hyperparameter for regularizing the hyperparameters
+ reg_hyperparam_scale: 0.1 #the hyperparameter for regularizing the hyperparameters
  num_iters: 50 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 0.1 #meta learning rate
