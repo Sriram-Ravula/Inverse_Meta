@@ -248,6 +248,7 @@ class MetaLearner:
         self.c.grad.copy_(meta_grad)
         self.meta_opt.step()
         self.c.requires_grad_(False)
+        torch.clamp(self.c, min=0.)
 
         if self.hparams.outer.lr_decay and not self.hparams.outer.decay_on_val:
             self.meta_scheduler.step()
