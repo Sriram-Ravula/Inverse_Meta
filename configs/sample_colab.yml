@@ -62,7 +62,7 @@ inner:
 
 problem:
  measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'circulant']
- num_measurements: 1000 #number of measurements for gaussian and circulant
+ num_measurements: 12288 #number of measurements for gaussian and circulant
  downsample_factor: 16 #factor to downsample each side of the image
  inpaint_size: 20 #masked region side length for inpainting
  add_noise: false #whether to add noise after measuring
