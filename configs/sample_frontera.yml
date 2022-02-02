@@ -33,7 +33,7 @@ outer:
  cg_tol: 0.00001 #tolerance parameter for conjugate gradient residual. A usual value is 0.00001.
  cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 0 means no damping
  use_autograd: true #whether to use autograd for the cond-log-likelihood and meta gradient computation w.r.t. x.
- save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
+ save_inits: false #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
  exp_params: false #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1

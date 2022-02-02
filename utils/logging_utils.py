@@ -114,7 +114,6 @@ class Logger:
     
     def get_checkpoint_dict(self):
         out_dict = {
-            #'A': self.learner.A,
             'global_iter': self.learner.global_iter,
             'best_iter': self.learner.best_iter,
             'c_list': self.learner.c_list,
@@ -122,6 +121,9 @@ class Logger:
             'grad_norms': self.learner.grad_norms,
             'grads': self.learner.grads
         }
+        if self.learner.A is not None:
+            out_dict['A'] = self.learner.A
+            
         return out_dict
     
     def get_metrics_dict(self):
