@@ -13,11 +13,11 @@ net:
 data:
  data_path: "/scratch1/04703/sravula/meta_exp/datasets/celeba" 
  dataset: 'celeba'
- train_batch_size: 16
- val_batch_size: 8
+ train_batch_size: 64
+ val_batch_size: 32
  num_channels: 3
- num_train: 16
- num_val: 8
+ num_train: 64
+ num_val: 32
  num_test: 64
 
 outer:
@@ -36,16 +36,16 @@ outer:
  save_inits: true #whether to save the last found optimal solution for a trainig image to initialize the next inner loop.   
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
  exp_params: false #whether to use exp(hyperparams) instead of hyperparams
- hyperparam_init: 0 #the value to initialize the hyperparameter at. Default is 1
+ hyperparam_init: 1 #the value to initialize the hyperparameter at. Default is 1
  reg_hyperparam: 'l1' #whether to use l1 regularization on c
- reg_hyperparam_scale: 10 #the hyperparameter for regularizing the hyperparameters
+ reg_hyperparam_scale: 1 #the hyperparameter for regularizing the hyperparameters
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
  lr: 0.1 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  use_validation: true #if set to true, will use a validation set. 
  decay_on_val: false
- val_iters: 3 #validate every n iterations
+ val_iters: 1 #validate every n iterations
  checkpoint_iters: 1 #checkpoint every n iterations
  batches_per_iter: -1 #number of training batches to use per iteration. -1 means all batches 
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
