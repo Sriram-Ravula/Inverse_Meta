@@ -394,8 +394,7 @@ class MetaLearner:
         #(1)
         grad_x_meta_loss = get_meta_grad(x_hat, x, self.hparams)
 
-        s_idx = len(self.sigmas)-1
-        loss_scale = 1 / (self.sigmas[s_idx]**2)
+        loss_scale = 1
         
         #(2)
         self.c.requires_grad_()
@@ -404,6 +403,15 @@ class MetaLearner:
             efficient_inp=self.efficient_inp, retain_graph=True, create_graph=True) 
         
         out_grad = -hessian_vector_product(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
+
+        if self.hparams.outer.reg_hyperparam == 'l1':
+            if self.hparams.outer.verbose:
+                print("\nREGULAR GRAD NORM: ", torch.norm(out_grad))
+            l1_c = torch.norm(self.c, p=1) * self.hparams.outer.reg_hyperparam_scale
+            l1_c_grad = torch.autograd.grad(l1_c, self.c)[0]
+            if self.hparams.outer.verbose:
+                print("\nC REG GRAD NORM: ", torch.norm(l1_c_grad), "\n")
+            out_grad += l1_c_grad  
 
         return out_grad
     
