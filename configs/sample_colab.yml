@@ -13,11 +13,11 @@ net:
 data:
  data_path: "/content/meta_exp/datasets/celeba" 
  dataset: 'celeba'
- train_batch_size: 16
- val_batch_size: 16
+ train_batch_size: 1
+ val_batch_size: 1
  num_channels: 3
- num_train: 16
- num_val: 16
+ num_train: 1
+ num_val: 1
  num_test: 64
 
 outer:
@@ -41,11 +41,11 @@ outer:
  reg_hyperparam_scale: 1 #the hyperparameter for regularizing the hyperparameters
  num_iters: 25 #number of meta iterations to run
  optimizer: 'adam' #meta optimizer. [adam, sgd]
- lr: 0.1 #meta learning rate
+ lr: 0.5 #meta learning rate
  lr_decay: 0.95 #exponential weight decay applied if validation loss is rising. -1 or false means no decay
  use_validation: true #if set to true, will use a validation set. 
  decay_on_val: false
- val_iters: 4 #validate every n iterations
+ val_iters: 3 #validate every n iterations
  checkpoint_iters: 1 #checkpoint every n iterations
  batches_per_iter: -1 #number of training batches to use per iteration. -1 means all batches 
  finite_difference: false #whether to use finite difference for Hessian-vector product calculations. Automatically true if meta_type=hessian-free  
@@ -55,7 +55,7 @@ outer:
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
- decimation_factor: 5 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
+ decimation_factor: 1 #for langevin, factor to divide the number of noise levels by. 0 means don't decimate.
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
  verbose: 100 #print every n iterations. 0 means don't print
  lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
