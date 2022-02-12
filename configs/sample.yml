@@ -1,0 +1,109 @@
+use_gpu: true 
+gpu_num: -1 #-1 means use all (DDP mode)
+
+verbose: true 
+debug: false #true won't save anything
+save_imgs: true
+save_dir: "/content/exp" #root of folder to save run information
+
+seed: 2022
+
+use_autograd: true #whether to use autograd for loss calculateions (vs explicitly forming the function)
+
+#TODO implement these
+resume: false 
+resume_dir: "" #the root of the checkpoint folder to resume from
+
+net:
+ model: 'ncsnv2' 
+ config_file: "/content/Inverse_Meta/ncsnv2/configs/celeba.yml"
+ checkpoint_dir: "/content/meta_exp/checkpoints/celeba/checkpoint_210000.pth" 
+ 
+data:
+ dataset: 'celeba'
+ data_path: "/content/meta_exp/datasets/celeba" 
+
+ num_train: 16
+ num_val: 8
+ num_test: 64
+
+ train_batch_size: 16
+ val_batch_size: 8
+
+ image_size: 64
+ num_channels: 3
+
+ random_flip: true
+
+outer:
+ meta_type: 'mle' #[implicit, maml, mle]
+
+ #NOTE uncomment this for MAML
+ #maml_use_last: -1 #use only the last n iterations of inner optimization for maml. -1 means use all. 
+
+ #NOTE uncomment this for iMAML
+ #cg_iters: 25 #number of conjugate gradient iterations to run. 0 returns b as the solution in Ax=b.
+ #cg_verbose: 5 #print from conjugate gradient every n iterations. 0 means don't print. Only prints if verbose=true. 
+ #cg_tol: 0.00001 #tolerance parameter for conjugate gradient residual.
+ #cg_damping: 1 #damping parameter for conjugate gradient. Turns problem from Ax = b --> (cg_damping*I + A)x = b. Conditions Hessian. 0 means no damping
+
+ measurement_loss: false #TODO implement this!
+ meta_loss_type: 'l2'
+
+ hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
+ exp_params: false #whether to use exp(hyperparams) instead of hyperparams
+ hyperparam_init: 0
+ reg_hyperparam: false 
+ reg_hyperparam_type: 'l1'
+ reg_hyperparam_scale: 1 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
+
+ ROI_loss: false
+ ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
+ 
+ #Tricks/accelerations
+ save_inits: true
+ langevin_smart_start: false #use the saved inits to start Langevin at a later noise level. Only relevant for save_inits=True and model=ncsnv2
+ finite_difference: false #whether to use finite difference for Hvp calculations.
+ finite_difference_coeff: 0.00000001
+ bootstrap_samples: false #whether to generate samples from the model to use as the training set.
+
+opt:
+  num_iters: 25 #number of meta iterations to run
+  optimizer: 'adam' #[adam, sgd]
+  lr: 0.1 #meta learning rate
+  batches_per_iter: -1 #number of training batches to use per meta update. -1 means all batches
+
+  decay: false 
+  lr_decay: 0.95 #exponential weight decay rate. -1 or false means no decay
+  decay_on_val: false #only relevant if decay=True
+
+  val_iters: 3 #validate every n iterations
+  checkpoint_iters: 1 #checkpoint every n iterations
+
+inner:
+ alg: 'map' #type of inner algorithm. ['map', 'langevin']
+ T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
+
+ decimate: false 
+ decimation_factor: 1 #factor to divide the number of noise levels by. Only relevant if decimate=True
+ decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
+
+ verbose: 200 #print every n iterations. 0 means don't print. Only prints if verbose=true. 
+ lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
+
+problem:
+ measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
+ 
+ num_measurements: 12288 #number of measurements for gaussian and fourier, or for random inpainting
+ #downsample_factor: 16 #factor to downsample each side of the image
+ #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
+ #inpaint_random: false #whether to use random inpainting instead of a centered box. Uses num_measurements if true.  
+ #efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
+ 
+ add_noise: false #whether to add noise after measuring
+ noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite] 
+ noise_std: 0.1 
+ 
+ add_dependent_noise: false #whether to add noise before measuring
+ dependent_noise_type: "gaussian" #[gaussian, uniform]
+ dependent_noise_std: 1
