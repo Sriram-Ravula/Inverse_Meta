@@ -1,7 +1,8 @@
 import torch
 import numpy as np
+from problems.problem import ForwardOperator
 
-class InpaintingOperator(torch.nn.module):
+class InpaintingOperator(ForwardOperator):
     def __init__(self, hparams):
         super().__init__(hparams)
     
@@ -16,8 +17,8 @@ class InpaintingOperator(torch.nn.module):
         
         return Ax
 
-    def get_transpose_measurements(self, vec):
-        
+    def adjoint(self, vec):
+        ans = torch.mm(self.A_linear.T, vec.T).T
 
     def _make_inpaint_mask(self):
         """
@@ -27,6 +28,7 @@ class InpaintingOperator(torch.nn.module):
         inpaint_size = self.hparams.problem.inpaint_size
 
         margin = (image_size - inpaint_size) // 2
+
         mask = torch.ones(image_size, image_size)
         mask[margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
 
@@ -38,6 +40,7 @@ class InpaintingOperator(torch.nn.module):
         """
         mask = self.make_inpaint_mask().unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1).numpy()
         mask = mask.reshape(1, -1)
+
         A = np.eye(np.prod(mask.shape)) * np.tile(mask, [np.prod(mask.shape), 1])
         A = np.asarray([a for a in A if np.sum(a) != 0]) #keep rows with 1s in them
 
@@ -48,6 +51,7 @@ class InpaintingOperator(torch.nn.module):
             A_linear = None
         else:
             A_linear = self._make_A_inpaint()
+
         A_mask = self._make_inpaint_mask()
         A_functional = None
 

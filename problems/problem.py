@@ -7,11 +7,13 @@ class ForwardOperator(torch.nn.Module):
     def __init__(self, hparams):
         """
         A parent class that defines basic functions of a forward measurement operator.
-        Should be inherited and overrided by child classes.
+        Maintains a persistent state.
+        Register attributes as buffers for ease of serializaton for multi-GPU, state saving, etc.  
+        Should be inherited and overriden by child classes.
 
         Args:
             hparams: The hyperparameter configuration associated with the inverse problem.
-                     Argparse Namespace.
+                     Namespace.
         """
         super().__init__()
 
@@ -22,13 +24,52 @@ class ForwardOperator(torch.nn.Module):
         self.register_buffer('A_mask', A_dict['mask'])
         self.register_buffer('A_functional', A_dict['functional'])
 
-        self.noisy = self.hparams.problem.add_noise
-        if self.noisy and self.hparams.problem.noise_type == 'gaussian_nonwhite':
+        self.register_buffer('kept_inds', self._make_kept_inds())
+
+        self.register_buffer('noisy', self.hparams.problem.add_noise)
+        if self.hparams.problem.add_noise and self.hparams.problem.noise_type == 'gaussian_nonwhite':
             self.register_buffer('noise_vars', torch.rand(self.hparams.problem.y_shape))
         else:
             self.register_buffer('noise_vars', None)
     
-    def forward(self, x, add_noise=False):
+    def get_A(self):
+        return self.A_linear
+    
+    def get_mask(self):
+        return self.A_mask
+    
+    def get_functional(self):
+        return self.A_functional
+    
+    def get_kept_inds(self):
+        return self.kept_inds
+
+    def _make_A(self):
+        """
+        Constructs and returns the matrix, mask, and functional associated with forward operator A.
+        If one of those does not apply to the problem, return None.
+        Should be inherited and overrided by child classes.
+        """
+        raise NotImplementedError('subclasses must override make_A()!') 
+
+    def _make_kept_inds(self):
+        """
+        Returns the nonzero indices in A_mask, flattened. 
+        Assumes the input x will have shape [C, H, W] 
+        """
+        if self.A_mask is None:
+            return None
+
+        #if the binary mask is only two-dimensional [H, W] and the images are 3-dimensional [C, H, W]
+        #we need to properly resize the mask to give the correct indices
+        if len(self.A_mask.shape) < self.hparams.data.image_shape: 
+            kept_inds = (self.A_mask.unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1).flatten()>0).nonzero(as_tuple=False).flatten()
+        else:
+            kept_inds = (self.A_mask.flatten()>0).nonzero(as_tuple=False).flatten()
+        
+        return kept_inds
+    
+    def forward(self, x, targets=False):
         """
         Performs y = A(x) + noise.
         Should be inherited and overrided by child classes.
@@ -36,29 +77,29 @@ class ForwardOperator(torch.nn.Module):
         Args:
             x: The data to take measurements from.
                Torch tensor [N, C, H, W].
-            add_noise: Whether to add noise to the output.
-                       Bool. 
+            targets: Whether the forward process is being used to make targets for training/testing.
+                     E.G. if True, does y = Ax + noise, False does y = Ax (if noise is applicable). 
+                     Bool. 
+        Returns:
+            y: y=Ax + noise (make_targets=True), y=Ax (make_targets=False)
+               Torch tensor [N, m].
         """
         raise NotImplementedError('subclasses must override forward()!')
 
-    def get_transpose_measurements(self, vec):
+    def adjoint(self, vec):
         """
         Performs A^T (vec), or the equivalent if A is a functional. 
         Should be inherited and overrided by child classes.
 
         Args:
-            vec: The vector to take transpose measurements from. 
-                 Torch tensor [self.hparams.problem.y_shape].
+            vec: The vector to take adjoint measurements from. 
+                 Torch tensor [N, m].
+        
+        Returns:
+            y = A^T (vec).
+                Torch tensor [N, image_shape]
         """
-        raise NotImplementedError('subclasses must override get_transpose_measurements()!') 
-    
-    def _make_A(self):
-        """
-        Constructs and returns the matrix, mask, and functional associated with forwar operator A.
-        If one of those does not apply to the problem, return None.
-        Should be inherited and overrided by child classes.
-        """
-        raise NotImplementedError('subclasses must override make_A()!') 
+        raise NotImplementedError('subclasses must override get_adjoint_measurements()!') 
     
     def add_noise(self, Ax):
         """
@@ -77,7 +118,7 @@ class ForwardOperator(torch.nn.Module):
         
         return Ax + noise
 
-    def get_measurements_image(self, x, add_noise=False):
+    def get_measurements_image(self, x, targets=False):
         """
         Makes and returns an image of x under the forward operator.
         If not possible to visualise the measurements for this operator, returns None.
@@ -89,7 +130,6 @@ class ForwardOperator(torch.nn.Module):
         """
         raise NotImplementedError('subclasses must override get_measurements_image()!') 
     
-
 class InverseProblem(torch.nn.Module):
     def __init__(self, hparams):
         super().__init__()
