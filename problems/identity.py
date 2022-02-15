@@ -34,4 +34,3 @@ class IdentityOperator(ForwardOperator):
     @torch.no_grad()
     def get_measurements_image(self, x, targets=False):
         return self.forward(x, targets)
-
