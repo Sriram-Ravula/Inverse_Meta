@@ -6,19 +6,23 @@ class InpaintingOperator(ForwardOperator):
     def __init__(self, hparams):
         super().__init__(hparams)
     
-    def forward(self, x, add_noise=False):
+    def forward(self, x, targets=False):
         if self.hparams.problem.efficient_inp:
             Ax = self.A_mask * x #[N, C, H, W]
+            Ax = Ax.flatten(start_dim=1)[:, self.kept_inds] #[N, m]
         else:
             Ax = torch.mm(self.A_linear, torch.flatten(x, start_dim=1).T).T #[N, m]
         
-        if add_noise:
+        if targets:
             Ax = self.add_noise(Ax)
         
         return Ax
 
     def adjoint(self, vec):
-        ans = torch.mm(self.A_linear.T, vec.T).T
+        out_c, out_h, out_w = self.hparams.image_shape
+        ans = torch.mm(self.A_linear.T, vec.T).T #[N, n]
+
+        return ans.view(-1, out_c, out_h, out_w)
 
     def _make_inpaint_mask(self):
         """
@@ -61,4 +65,17 @@ class InpaintingOperator(ForwardOperator):
         
         return A_dict
 
-    def get_measurements_image(self, x, add_noise=False):
+    @torch.no_grad()
+    def get_measurements_image(self, x, targets=False):
+        orig_shape = x.shape
+
+        Ax = self.A_mask * x #[N, C, H, W]
+        Ax = Ax.flatten(start_dim=1) #[N, n]
+        
+        if targets:
+            Ax[:, self.kept_inds] = self.add_noise(Ax[:, self.kept_inds]) #only apply noise to relevant [N, m]
+        
+        Ax = Ax.view(orig_shape) #[N, C, H, W]
+
+        return Ax
+    
