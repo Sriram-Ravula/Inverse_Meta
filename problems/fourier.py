@@ -40,7 +40,7 @@ class FourierOperator(ForwardOperator):
     
     def _make_fft_mask(self):
         image_size = self.hparams.data.image_size
-        m = self.hparams.problem.num_measurements
+        m = self.hparams.problem.num_measurements // 3 #divide by 3 since we keep all color channels of a FFT(pixel) 
     
         if self.hparams.problem.fourier_mask_type == 'radial':
             raise NotImplementedError('Radial mask orientation not supported')
@@ -50,7 +50,7 @@ class FourierOperator(ForwardOperator):
             raise NotImplementedError('Vertical mask orientation not supported')
         elif self.hparams.problem.fourier_mask_type == 'random':
             mask = torch.zeros(image_size**2)
-            zero_idx = np.random.choice(image_size**2, m // 3, replace=False)
+            zero_idx = np.random.choice(image_size**2, m, replace=False)
             mask[zero_idx] = 1
             mask = mask.view(image_size, image_size)
         else:

@@ -1,5 +1,5 @@
 use_gpu: true 
-gpu_num: -1 #-1 means use all (DDP mode)
+gpu_num: -1 #-1 means use all (DP mode)
 
 verbose: true 
 debug: false #true won't save anything
@@ -58,7 +58,7 @@ outer:
  reg_hyperparam_scale: 1 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
 
  ROI_loss: false
- ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
+ #ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
  
  #Tricks/accelerations
  save_inits: true
@@ -108,3 +108,4 @@ problem:
  add_dependent_noise: false #whether to add noise before measuring
  dependent_noise_type: "gaussian" #[gaussian, uniform]
  dependent_noise_std: 1
+ 
