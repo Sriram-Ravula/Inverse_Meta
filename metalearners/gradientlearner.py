@@ -3,6 +3,7 @@ import numpy as np
 
 from algorithms.sgld import SGLD_NCSNv2
 from problems import get_forward_operator
+from utils.utils import get_measurement_images
 
 from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.meta_loss_utils import meta_loss, get_meta_grad
@@ -26,9 +27,10 @@ class GBML(torch.nn.Module):
 
         self.opt, self.scheduler = self._get_meta_optimizer()
     
-    def forward(self, batch, x_mod=None, eval=False):
-        x, idx = batch
-
+    def get_meas_image(self, x, targets=False):
+        return self.A.get_measurements_image(x, targets=targets)
+    
+    def forward(self, x, x_mod=None, eval=False):
         #(1) Find x(c) by running the inner optimization
         x = x.to(self.device)
         y = self.A.forward(x)
@@ -58,11 +60,10 @@ class GBML(torch.nn.Module):
         self.c.requires_grad_(False)
 
         self.c.clamp_(min=0.)
-
-        if self.scheduler is not None and not self.hparams.opt.decay_on_val:
+    
+    def sched_step(self):
+        if self.scheduler is not None:
             self.scheduler.step()
-        
-        return 
 
     def mle_step(self, x_hat, x, y):
         """

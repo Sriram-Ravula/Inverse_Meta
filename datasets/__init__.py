@@ -73,7 +73,6 @@ def split_dataset(base_dataset, hparams):
                     hparams.data.num_train - int
                     hparams.data.num_val - int
                     hparams.data.num_test - int
-                    hparams.outer.use_validation - bool
                     hparams.seed - int
     
     Returns:
