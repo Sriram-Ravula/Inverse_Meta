@@ -22,11 +22,11 @@ class ForwardOperator(torch.nn.Module):
         A_dict = self._make_A()
         self.register_buffer('A_linear', A_dict['linear'])
         self.register_buffer('A_mask', A_dict['mask'])
-        self.register_buffer('A_functional', A_dict['functional'])
+        self.A_functional = A_dict['functional']
 
         self.register_buffer('kept_inds', self._make_kept_inds())
 
-        self.register_buffer('noisy', self.hparams.problem.add_noise)
+        self.noisy = self.hparams.problem.add_noise
         if self.hparams.problem.add_noise and self.hparams.problem.noise_type == 'gaussian_nonwhite':
             self.register_buffer('noise_vars', torch.rand(self.hparams.problem.y_shape))
         else:
