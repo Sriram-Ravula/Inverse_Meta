@@ -11,6 +11,7 @@ from utils_new.inner_loss_utils import get_likelihood_grad
 
 class GBML(torch.nn.Module):
     def __init__(self, hparams, args):
+        super().__init__()
         self.hparams = hparams
         self.args = args
         self.device = self.hparams.device
