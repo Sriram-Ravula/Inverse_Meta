@@ -36,7 +36,7 @@ class GBML(torch.nn.Module):
         y = self.A.forward(x)
 
         if x_mod is None:
-            x_mod = torch.rand(x.shape, device=self.device, requires_grad=True)
+            x_mod = torch.rand(x.shape, requires_grad=True).type_as(x)
         
         x_hat = self.langevin_runner.forward(x_mod, y, eval=eval)
 
