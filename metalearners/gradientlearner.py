@@ -16,7 +16,7 @@ class GBML(torch.nn.Module):
         self.args = args
         self.device = self.hparams.device
 
-        self.register_parameter('c', self._init_c())
+        self.c = torch.nn.Parameter(self._init_c())
         
         self.A = get_forward_operator(self.hparams) #module, don't need to register
         self.A = self.A.to(self.device)
