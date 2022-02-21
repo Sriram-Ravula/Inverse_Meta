@@ -19,12 +19,11 @@ class GBML(torch.nn.Module):
         self.c = torch.nn.Parameter(self._init_c())
         
         self.A = get_forward_operator(self.hparams) #module, don't need to register
-        self.A = self.A.to(self.device)
 
         self.langevin_runner = SGLD_NCSNv2(self.hparams, self.c, self.A)
         if self.hparams.gpu_num == -1:
             self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
-            self.langevin_runner = self.langevin_runner.to(self.device)
+            self.langevin_runner = self.langevin_runner
 
         self.opt, self.scheduler = self._get_meta_optimizer()
     
@@ -33,7 +32,7 @@ class GBML(torch.nn.Module):
     
     def forward(self, x, x_mod=None, eval=False):
         #(1) Find x(c) by running the inner optimization
-        x = x.to(self.device)
+        x = x
         y = self.A.forward(x)
 
         if x_mod is None:

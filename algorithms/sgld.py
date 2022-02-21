@@ -142,7 +142,7 @@ class SGLD_NCSNv2(torch.nn.Module):
         model = test_score.module.cpu()
         sigmas = get_sigmas(net_config).cpu()
 
-        if self.hparams.outer.verbose:
+        if self.hparams.verbose:
             end = time()
             print("\nNET TIME: ", str(end - start), "S\n")
 
