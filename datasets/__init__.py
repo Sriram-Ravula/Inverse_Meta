@@ -84,30 +84,20 @@ def split_dataset(base_dataset, hparams):
     num_val = hparams.data.num_val
     num_test = hparams.data.num_test
 
-    use_validation = hparams.outer.use_validation
-
     indices = list(range(len(base_dataset)))
 
     random_state = np.random.get_state()
-    np.random.seed(hparams.seed+1)
+    np.random.seed(hparams.seed)
     np.random.shuffle(indices)
     np.random.set_state(random_state)
 
-    if use_validation:
-        train_indices = indices[:num_train]
-        val_indices = indices[num_train:num_train+num_val]
-        test_indices = indices[num_train+num_val:num_train+num_val+num_test]
+    train_indices = indices[:num_train]
+    val_indices = indices[num_train:num_train+num_val]
+    test_indices = indices[num_train+num_val:num_train+num_val+num_test]
 
-        train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
-        val_dataset = torch.utils.data.Subset(base_dataset, val_indices)
-        test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
-    else:
-        train_indices = indices[:num_train]
-        test_indices = indices[num_train:num_train+num_test]
-
-        train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
-        val_dataset = None
-        test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
+    train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
+    val_dataset = torch.utils.data.Subset(base_dataset, val_indices)
+    test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
     
     out_dict = {'train': train_dataset, 
             'val': val_dataset, 

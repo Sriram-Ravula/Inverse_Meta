@@ -58,7 +58,7 @@ outer:
  reg_hyperparam_scale: 1 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
 
  ROI_loss: false
- #ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
+ ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
  
  #Tricks/accelerations
  save_inits: true

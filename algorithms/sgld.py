@@ -19,9 +19,9 @@ class SGLD_NCSNv2(torch.nn.Module):
         #These are module so they move devices automatically
         self.A = A
         self.model, sigmas = self._init_net()
+        self.c = c
         
         #other params
-        self.register_buffer('c', c)
         self.register_buffer('sigmas', sigmas)
         self.register_buffer('T', self.hparams.inner.T)
         self.register_buffer('step_lr', self.hparams.inner.lr)
@@ -29,11 +29,11 @@ class SGLD_NCSNv2(torch.nn.Module):
             self.register_buffer('used_levels', self._get_decimated_sigmas())
             self.register_buffer('total_steps', len(self.used_levels) * self.T)
         else:
-            self.register_buffer('total_steps', len(sigmas) * self.T)
-            self.register_buffer('used_levels', np.arange(len(sigmas)))
+            self.register_buffer('total_steps', len(self.sigmas) * self.T)
+            self.register_buffer('used_levels', np.arange(len(self.sigmas)))
         self.add_noise = True if hparams.inner.alg == 'langevin' else False
 
-        self.verbose = hparams.inner.verbose if self.hparams.verbose else False
+        self.verbose = self.hparams.inner.verbose if self.hparams.verbose else False
 
         if hparams.outer.meta_type != 'mle':
             raise NotImplementedError("Meta Learner type not supported by SGLD!")

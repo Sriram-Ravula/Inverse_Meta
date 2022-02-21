@@ -1,16 +1,101 @@
-from sched import scheduler
 import torch
 import numpy as np
+
+from algorithms.sgld import SGLD_NCSNv2
+from problems import get_forward_operator
+
+from utils_new.meta_utils import hessian_vector_product as hvp
+from utils_new.meta_loss_utils import meta_loss, get_meta_grad
+from utils_new.inner_loss_utils import get_likelihood_grad
 
 class GBML(torch.nn.Module):
     def __init__(self, hparams, args):
         self.hparams = hparams
         self.args = args
+        self.device = self.hparams.device
 
         self.register_parameter('c', self._init_c())
+        
+        self.A = get_forward_operator(self.hparams) #module, don't need to register
+        self.A = self.A.to(self.device)
+
+        self.langevin_runner = SGLD_NCSNv2(self.hparams, self.c, self.A)
+        if self.hparams.gpu_num == -1:
+            self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
+            self.langevin_runner = self.langevin_runner.to(self.device)
+
         self.opt, self.scheduler = self._get_meta_optimizer()
     
-    def forward(self, )
+    def forward(self, batch, x_mod=None, eval=False):
+        x, idx = batch
+
+        #(1) Find x(c) by running the inner optimization
+        x = x.to(self.device)
+        y = self.A.forward(x)
+
+        if x_mod is None:
+            x_mod = torch.rand(x.shape, device=self.device, requires_grad=True)
+        
+        x_hat = self.langevin_runner.forward(x_mod, y, eval=eval)
+
+        if self.hparams.outer.meta_type == 'mle':
+            meta_grad += self.mle_step(x_hat, x, y)
+        else: 
+            raise NotImplementedError("Only MLE learning implemented!")
+
+        return x_hat.detach()
+    
+    def opt_step(self, meta_grad):
+        """sets c.grad to False and True"""
+        self.meta_opt.zero_grad()
+
+        self.c.requires_grad_()
+        if type(self.c.grad) == type(None): #dummy update to make sure grad is initialized
+            dummy_loss = torch.sum(self.c)
+            dummy_loss.backward()
+        self.c.grad.copy_(meta_grad)
+        self.opt.step()
+        self.c.requires_grad_(False)
+
+        self.c.clamp_(min=0.)
+
+        if self.scheduler is not None and not self.hparams.opt.decay_on_val:
+            self.scheduler.step()
+        
+        return 
+
+    def mle_step(self, x_hat, x, y):
+        """
+        Calculates the meta-gradient for an MLE step.
+        grad_c(meta_loss) = - grad_x_c[recon_loss] * (meta_loss)
+        (1) Find meta loss
+        (2) HVP of grad_x_c(recon_loss) * grad_x(meta_loss)
+        """
+        #(1)
+        grad_x_meta_loss, grad_c_meta_loss = get_meta_grad(x_hat=x_hat,
+                                                            x_true=x,
+                                                            c = self.c,
+                                                            measurement_loss=self.hparams.outer.measurement_loss,
+                                                            meta_loss_type=self.hparams.outer.meta_loss_type,
+                                                            reg_hyperparam=self.hparams.outer.reg_hyperparam,
+                                                            reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
+                                                            reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale,
+                                                            ROI_loss=self.hparams.outer.ROI_loss,
+                                                            ROI=self.hparams.outer.ROI,
+                                                            use_autograd=self.hparams.use_autograd)
+        
+        #(2)
+        self.c.requires_grad_()
+        
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd, 
+                                            exp_params=self.hparams.outer.exp_params, retain_graph=True, 
+                                            create_graph=True)
+        
+        out_grad = 0.0
+        out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss, self.hparams)
+        out_grad += grad_c_meta_loss
+
+        return out_grad
 
     def _init_c(self):
         """
@@ -81,4 +166,3 @@ class GBML(torch.nn.Module):
             meta_scheduler = None
 
         return meta_opt, meta_scheduler
-
