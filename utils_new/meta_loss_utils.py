@@ -16,7 +16,7 @@ def meta_loss(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=False, \
 
     if measurement_loss:
         raise NotImplementedError("Meta measurement loss not supported!")
-    if ROI_loss or ROI is not None:
+    if ROI_loss:
         raise NotImplementedError("Meta ROI loss not supported!")
     
     if meta_loss_type == 'l2':
