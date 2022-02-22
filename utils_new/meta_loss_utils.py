@@ -7,7 +7,7 @@ def l2_loss(x_hat, x_true, reduce_dims=None):
     
     return 0.5 * torch.sum((x_hat - x_true)**2, reduce_dims)
 
-def l1_loss(c, scale=1):
+def l1_loss(c, scale=1.):
     return scale * torch.norm(c, p=1)
 
 def meta_loss(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=False, \
@@ -30,7 +30,7 @@ def meta_loss(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=False, \
         else:
             raise NotImplementedError("Meta regularization type not supported!")
     else:
-        loss_2 = 0
+        loss_2 = torch.tensor(0)
     
     return [loss_1, loss_2, loss_1+loss_2] #1st term is fidelity, 2nd is regularization, last is total
 
@@ -56,6 +56,6 @@ def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=Fals
                                         c, retain_graph=retain_graph, create_graph=create_graph)[0]
         c.requires_grad_(grad_flag_c)
     else:
-        meta_grad_c = 0
+        meta_grad_c = torch.tensor(0)
 
     return [meta_grad_x, meta_grad_c]
