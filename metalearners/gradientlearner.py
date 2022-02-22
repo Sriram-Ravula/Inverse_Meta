@@ -32,7 +32,6 @@ class GBML(torch.nn.Module):
     
     def forward(self, x, x_mod=None, eval=False):
         #(1) Find x(c) by running the inner optimization
-        x = x
         y = self.A.forward(x)
 
         if x_mod is None:
@@ -40,12 +39,15 @@ class GBML(torch.nn.Module):
         
         x_hat = self.langevin_runner.forward(x_mod, y, eval=eval)
 
-        if self.hparams.outer.meta_type == 'mle':
-            meta_grad += self.mle_step(x_hat, x, y)
-        else: 
-            raise NotImplementedError("Only MLE learning implemented!")
+        if not eval:
+            if self.hparams.outer.meta_type == 'mle':
+                meta_grad = self.mle_step(x_hat, x, y)
+            else: 
+                raise NotImplementedError("Only MLE learning implemented!")
+        else:
+            meta_grad = None
 
-        return x_hat.detach()
+        return x_hat.detach(), meta_grad
     
     def opt_step(self, meta_grad):
         """sets c.grad to False and True"""

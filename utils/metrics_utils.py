@@ -339,3 +339,33 @@ class Metrics:
         else:
             return
     
+    def add_metrics_to_tb(self, tb_logger, step, iter_type='train'):
+        """
+        Run through metrics and log everything there.
+        For each type of metric, we want to log the train, val, and test metrics on the same plot.
+        Intended to be called at the end of each type of iteration (train, test, val)
+        """
+        assert iter_type in ['train', 'val', 'test']
+
+        raw_dict = self.__retrieve_dict(iter_type, dict_type='raw')
+        agg_dict = self.__retrieve_dict(iter_type, dict_type='aggregate')
+        best_dict = self.__retrieve_dict(iter_type, dict_type='best')
+
+        iterkey ='iter_' + str(step)
+
+        if iterkey not in raw_dict:
+            print("\ncurrent iteration has not yet been logged\n")
+            return
+        
+        for metric_type, metric_value in raw_dict[iterkey].items():
+            for i, val in enumerate(metric_value):
+                tb_logger.add_scalars("raw " + metric_type, {iter_type: val}, i)
+        
+        for metric_type, metric_value in agg_dict[iterkey].items():
+            tb_logger.add_scalars(metric_type, {iter_type: metric_value}, step)
+        
+        for metric_type, metric_value in best_dict.items():
+            tb_logger.add_scalars("best " + metric_type + " iter", {iter_type: metric_value[0]}, step)
+            tb_logger.add_scalars("best " + metric_type + " value", {iter_type: metric_value[1]}, step)
+        
+        return

@@ -4,6 +4,22 @@ import numpy as np
 import argparse
 import yaml
 from datetime import datetime
+from PIL import Image
+import os
+
+def save_image(image, path):
+    """Save a pytorch image as a png file"""
+    image = image.detach().cpu().numpy() #image comes in as an [C, H, W] torch tensor
+    x_png = np.uint8(np.clip(image*256,0,255))
+    x_png = x_png.transpose(1,2,0)
+    if x_png.shape[-1] == 1:
+        x_png = x_png[:,:,0]
+    x_png = Image.fromarray(x_png).save(path)
+
+def save_images(images, labels, save_prefix):
+    """Save a batch of images (in a dictionary) to png files"""
+    for image_num, image in zip(labels, images):
+        save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
 
 def set_all_seeds(random_seed: int):
     """

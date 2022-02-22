@@ -44,7 +44,7 @@ class SGLD_NCSNv2(torch.nn.Module):
 
         if eval:
             x_mod = x_mod.detach() 
-            self.c = self.c.detach() 
+            self.c = torch.nn.Parameter(self.c.detach()) 
         
         fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
         titlestr = "%10s %10s %10s %10s %10s %10s"

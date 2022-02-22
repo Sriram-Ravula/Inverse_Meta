@@ -23,11 +23,11 @@ data:
  dataset: 'celeba'
  data_path: "/content/meta_exp/datasets/celeba" 
 
- num_train: 16
+ num_train: 8
  num_val: 8
- num_test: 64
+ num_test: 8
 
- train_batch_size: 16
+ train_batch_size: 8
  val_batch_size: 8
 
  image_size: 64
@@ -61,42 +61,42 @@ outer:
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
  
  #Tricks/accelerations
- save_inits: true
+ save_inits: false
  langevin_smart_start: false #use the saved inits to start Langevin at a later noise level. Only relevant for save_inits=True and model=ncsnv2
  finite_difference: false #whether to use finite difference for Hvp calculations.
  finite_difference_coeff: 0.00000001
  bootstrap_samples: false #whether to generate samples from the model to use as the training set.
 
 opt:
-  num_iters: 25 #number of meta iterations to run
+  num_iters: 1 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.1 #meta learning rate
   batches_per_iter: -1 #number of training batches to use per meta update. -1 means all batches
 
-  decay: false 
+  decay: true 
   lr_decay: 0.95 #exponential weight decay rate. -1 or false means no decay
   decay_on_val: false #only relevant if decay=True
 
-  val_iters: 3 #validate every n iterations
+  val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
- decimate: false 
- decimation_factor: 1 #factor to divide the number of noise levels by. Only relevant if decimate=True
+ decimate: true 
+ decimation_factor: 5 #factor to divide the number of noise levels by. Only relevant if decimate=True
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
 
  verbose: 200 #print every n iterations. 0 means don't print. Only prints if verbose=true. 
  lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
+ measurement_type: 'superes' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
  
  num_measurements: 12288 #number of measurements for gaussian and fourier, or for random inpainting
  #fourier_mask_type: 'radial' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
- #downsample_factor: 16 #factor to downsample each side of the image
+ downsample_factor: 4 #factor to downsample each side of the image
  #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
  #inpaint_random: false #whether to use random inpainting instead of a centered box. Uses num_measurements if true.  
  #efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
