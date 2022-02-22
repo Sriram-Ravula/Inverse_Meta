@@ -82,7 +82,7 @@ class SGLD_NCSNv2(torch.nn.Module):
                         prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
                         likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                         grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
-                        likelihood_loss = log_cond_likelihood_loss(1, y, self.A, x_mod, reduce_dims=(1)).mean()
+                        likelihood_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_mod, reduce_dims=(1)).mean()
 
                         print(fmtstr % (t, step_size, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
         

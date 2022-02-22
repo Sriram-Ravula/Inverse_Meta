@@ -19,7 +19,7 @@ def save_image(image, path):
 def save_images(images, labels, save_prefix):
     """Save a batch of images (in a dictionary) to png files"""
     for image_num, image in zip(labels, images):
-        save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
+        save_image(image, os.path.join(save_prefix, str(image_num.item())+'.png'))
 
 def set_all_seeds(random_seed: int):
     """
