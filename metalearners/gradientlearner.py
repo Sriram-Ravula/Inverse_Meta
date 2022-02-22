@@ -3,7 +3,6 @@ import numpy as np
 
 from algorithms.sgld import SGLD_NCSNv2
 from problems import get_forward_operator
-from utils.utils import get_measurement_images
 
 from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.meta_loss_utils import meta_loss, get_meta_grad
@@ -39,6 +38,20 @@ class GBML(torch.nn.Module):
         
         x_hat = self.langevin_runner.forward(x_mod, y, eval=eval)
 
+        #loss is not reduced over the samples
+        with torch.no_grad():
+            losses = meta_loss(x_hat=x_hat,
+                            x_true=x,
+                            reduce_dims=(1,2,3),
+                            c = self.c,
+                            measurement_loss=self.hparams.outer.measurement_loss,
+                            meta_loss_type=self.hparams.outer.meta_loss_type,
+                            reg_hyperparam=self.hparams.outer.reg_hyperparam,
+                            reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
+                            reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale,
+                            ROI_loss=self.hparams.outer.ROI_loss,
+                            ROI=self.hparams.outer.ROI)
+
         if not eval:
             if self.hparams.outer.meta_type == 'mle':
                 meta_grad = self.mle_step(x_hat, x, y)
@@ -47,7 +60,7 @@ class GBML(torch.nn.Module):
         else:
             meta_grad = None
 
-        return x_hat.detach(), meta_grad
+        return x_hat.detach(), losses, meta_grad
     
     def opt_step(self, meta_grad):
         """sets c.grad to False and True"""
