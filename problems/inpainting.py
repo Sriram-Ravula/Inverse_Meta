@@ -67,15 +67,13 @@ class InpaintingOperator(ForwardOperator):
 
     @torch.no_grad()
     def get_measurements_image(self, x, targets=False):
-        orig_shape = x.shape
-
         Ax = self.A_mask * x #[N, C, H, W]
-        Ax = Ax.flatten(start_dim=1) #[N, n]
         
         if targets:
+            orig_shape = x.shape
+            Ax = Ax.flatten(start_dim=1) #[N, n] - flatten to add noise
             Ax[:, self.kept_inds] = self.add_noise(Ax[:, self.kept_inds]) #only apply noise to relevant [N, m]
-        
-        Ax = Ax.view(orig_shape) #[N, C, H, W]
+            Ax = Ax.view(orig_shape) #[N, C, H, W]
 
         return Ax
     

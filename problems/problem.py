@@ -60,9 +60,9 @@ class ForwardOperator(torch.nn.Module):
         if self.A_mask is None:
             return None
 
-        #if the binary mask is only two-dimensional [H, W] and the images are 3-dimensional [C, H, W]
+        #if the binary mask is only two-dimensional [H, W] and the images are 3-dimensional [C, H, W],
         #we need to properly resize the mask to give the correct indices
-        if len(self.A_mask.shape) < self.hparams.data.image_shape: 
+        if len(self.A_mask.shape) < len(self.hparams.data.image_shape): 
             kept_inds = (self.A_mask.unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1).flatten()>0).nonzero(as_tuple=False).flatten()
         else:
             kept_inds = (self.A_mask.flatten()>0).nonzero(as_tuple=False).flatten()
@@ -81,7 +81,7 @@ class ForwardOperator(torch.nn.Module):
                      E.G. if True, does y = Ax + noise, False does y = Ax (if noise is applicable). 
                      Bool. 
         Returns:
-            y: y=Ax + noise (make_targets=True), y=Ax (make_targets=False)
+            y: y=Ax + noise (targets=True), y=Ax (targets=False)
                Torch tensor [N, m].
         """
         raise NotImplementedError('subclasses must override forward()!')
@@ -107,7 +107,7 @@ class ForwardOperator(torch.nn.Module):
 
         Args:
             Ax: The measurements to add noise to.
-                Torch tensor [self.hparams.problem.y_shape].
+                Torch tensor [N, self.hparams.problem.y_shape].
         """
         if self.noisy:
             if self.hparams.problem.noise_type == 'gaussian':

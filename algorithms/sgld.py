@@ -13,16 +13,20 @@ from problems import get_forward_operator
 
 class SGLD_NCSNv2(torch.nn.Module):
     def __init__(self, hparams, c, A):
+        """
+        Making this a module so we can parallelize operations for the 
+            - score network (prior) 
+            - forward operator (likelihood)
+            - meta parameter (c)
+        If each component listed were to be parallelized separately (i.e. as part of different forward() calls), 
+            PyTorch would use more memory transfers between CPU and GPU.    
+        """
         super().__init__()
         self.hparams = hparams
 
-        #These are module so they move devices automatically
         self.A = A
-        self.model, sigmas = self._init_net()
-        self.c = c
-        
-        #other params
-        self.register_buffer('sigmas', sigmas)
+        self._init_net()
+        self.register_buffer('c', c.detach().clone()) #TODO remove detach() for e.g.MAML
         self.T = self.hparams.inner.T
         self.step_lr = self.hparams.inner.lr
         if self.hparams.inner.decimate:
@@ -38,14 +42,7 @@ class SGLD_NCSNv2(torch.nn.Module):
         if hparams.outer.meta_type != 'mle':
             raise NotImplementedError("Meta Learner type not supported by SGLD!")
     
-    def forward(self, x_mod, y, eval=False):
-        grad_flag_x = x_mod.requires_grad
-        grad_flag_c = self.c.requires_grad
-
-        if eval:
-            x_mod = x_mod.detach() 
-            self.c = torch.nn.Parameter(self.c.detach()) 
-        
+    def forward(self, x_mod, y):
         fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
         titlestr = "%10s %10s %10s %10s %10s %10s"
         if self.verbose:
@@ -92,14 +89,12 @@ class SGLD_NCSNv2(torch.nn.Module):
             print('\n')
         
         x_mod = torch.clamp(x_mod, 0.0, 1.0)
-    
-        x_mod.requires_grad_(grad_flag_x)
-        self.c.requires_grad_(grad_flag_c)
 
         return x_mod
         
     def set_c(self, c):
-        self.c = c
+        #self.c = c #changing this from parameter to buffer
+        self.c = c.detach().clone().type_as(self.c).to(self.c.device) #TODO remove detach() for e.g.MAML
 
     def _init_net(self):
         """Initializes score net and related attributes"""
@@ -127,7 +122,6 @@ class SGLD_NCSNv2(torch.nn.Module):
         
         test_score = torch.nn.DataParallel(test_score)
         test_score.load_state_dict(states[0], strict=True)
-        test_score.to(self.hparams.device) #second .to() to make sure we are utilising all GPUs
 
         if net_config.model.ema:
             ema_helper = EMAHelper(mu=net_config.model.ema_rate)
@@ -135,18 +129,19 @@ class SGLD_NCSNv2(torch.nn.Module):
             ema_helper.load_state_dict(states[-1])
             ema_helper.ema(test_score)
 
-        test_score.eval()
-        for param in test_score.parameters():
-            param.requires_grad = False
+        model = test_score.module.to(self.hparams.device)
+        sigmas = get_sigmas(net_config).to(self.hparams.device)
 
-        model = test_score.module.cpu()
-        sigmas = get_sigmas(net_config).cpu()
+        model.eval()
+        for param in model.parameters():
+            param.requires_grad = False
 
         if self.hparams.verbose:
             end = time()
             print("\nNET TIME: ", str(end - start), "S\n")
 
-        return model, sigmas
+        self.model = model
+        self.register_buffer('sigmas', sigmas)
 
     def _get_decimated_sigmas(self):
         decimate = self.hparams.inner.decimation_factor
@@ -163,10 +158,10 @@ class SGLD_NCSNv2(torch.nn.Module):
             used_levels = (np.geomspace(start=1, stop=L, num=num_used_levels)-1).astype(np.long)
         #grab just the last few noise levels
         elif decimate_type == 'last':
-            used_levels = np.arange(L)[-num_used_levels:]
+            used_levels = np.arange(L)[-num_used_levels:].astype(np.long)
         #grab just the first few noise levels
         elif decimate_type == 'first':
-            used_levels = np.arange(L)[:num_used_levels]
+            used_levels = np.arange(L)[:num_used_levels].astype(np.long)
         #grab equally-spaced levels
         elif decimate_type == 'linear':
             used_levels = np.ceil(np.linspace(start=0, stop=L-1, num=num_used_levels)).astype(np.long)

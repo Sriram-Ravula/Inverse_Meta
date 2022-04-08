@@ -1,19 +1,21 @@
 import numpy as np
 import torch
 
-def gradient_log_cond_likelihood(c, y, A, x, scale=1, exp_params=False):
+def gradient_log_cond_likelihood(c_orig, y, A, x, scale=1., exp_params=False):
     """
     Explicit gradient for l2 (log conditional likelihood) loss.
 
     Args:
         c: 
     """
-    c_type = len(c.shape)
+    c_type = len(c_orig.shape)
 
     if exp_params:
-        c = torch.exp(c)
+        c = torch.exp(c_orig)
+    else:
+        c = c_orig
     
-    Ax = A.forward(x) #don't add noise since we are making a sample
+    Ax = A.forward(x, targets=False) #don't add noise since we are making a sample
     resid = Ax - y #[N, m]
 
     if c_type == 0:
@@ -27,16 +29,18 @@ def gradient_log_cond_likelihood(c, y, A, x, scale=1, exp_params=False):
     
     return grad #the adjoint takes care of reshaping properly
 
-def log_cond_likelihood_loss(c, y, A, x, scale=1, exp_params=False, reduce_dims=None):
-    c_type = len(c.shape)
+def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False, reduce_dims=None):
+    c_type = len(c_orig.shape)
 
     if exp_params:
-        c = torch.exp(c)
+        c = torch.exp(c_orig)
+    else:
+        c = c_orig
     
     if reduce_dims is None:
         reduce_dims = (0, 1)
     
-    Ax = A.forward(x) #don't add noise since we are making a sample
+    Ax = A.forward(x, targets=False) #don't add noise since we are making a sample
     resid = Ax - y #[N, m]
 
     if c_type == 0:
@@ -51,7 +55,7 @@ def log_cond_likelihood_loss(c, y, A, x, scale=1, exp_params=False, reduce_dims=
 
     return loss
 
-def get_likelihood_grad(c, y, A, x, use_autograd, scale=1, exp_params=False, reduce_dims=None,\
+def get_likelihood_grad(c, y, A, x, use_autograd, scale=1., exp_params=False, reduce_dims=None,\
     retain_graph=False, create_graph=False):
     """
     A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)

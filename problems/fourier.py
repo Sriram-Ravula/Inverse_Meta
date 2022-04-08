@@ -15,9 +15,10 @@ class FourierOperator(ForwardOperator):
         if self.A_mask is None:
             return None
 
-        #if the binary mask is only two-dimensional [H, W] and the images are 3-dimensional [C, H, W]
-        #we need to properly resize the mask to give the correct indices
-        if len(self.A_mask.shape) < self.hparams.data.image_shape: 
+        #if the binary mask is only 2-dimensional [H, W] and the images are 3-dimensional [C, H, W]
+        #   we need to properly resize the mask to give the correct indices
+        #note that we expand the last dimension by two to account for real and imaginary channels
+        if len(self.A_mask.shape) < len(self.hparams.data.image_shape): 
             kept_inds = (self.A_mask.unsqueeze(0).unsqueeze(-1).repeat(self.hparams.data.num_channels, 1, 1, 2).flatten()>0).nonzero(as_tuple=False).flatten()
         else:
             kept_inds = (self.A_mask.flatten()>0).nonzero(as_tuple=False).flatten()
@@ -50,8 +51,8 @@ class FourierOperator(ForwardOperator):
             raise NotImplementedError('Vertical mask orientation not supported')
         elif self.hparams.problem.fourier_mask_type == 'random':
             mask = torch.zeros(image_size**2)
-            zero_idx = np.random.choice(image_size**2, m, replace=False)
-            mask[zero_idx] = 1
+            nonzero_idx = np.random.choice(image_size**2, m, replace=False)
+            mask[nonzero_idx] = 1
             mask = mask.view(image_size, image_size)
         else:
             raise NotImplementedError('Fourier mask orientation not supported')
@@ -74,7 +75,7 @@ class FourierOperator(ForwardOperator):
         return A_dict
 
     def forward(self, x, targets=False):
-        Ax = self.A_mask * self.fft(x) #[N, C, H, W]
+        Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
         Ax = torch.view_as_real(Ax).flatten(start_dim=1)[:, self.kept_inds] #[N, m] NOTE 2 channels split from view_as_real 
 
         if targets:
@@ -92,11 +93,11 @@ class FourierOperator(ForwardOperator):
     @torch.no_grad()
     def get_measurements_image(self, x, targets=False):
         """Returns the magnitude and phase fft image as well as reconstruction from subsampled fft coeffs"""
-        orig_shape = x.shape
+        orig_shape = x.shape #[N, C, H, W]
         orig_shape = list(orig_shape).append(2) #to account for complex operations
 
         Ax = self.A_mask * self.fft(x) #[N, C, H, W]
-        Ax = torch.view_as_real(Ax).flatten(start_dim=1) #[N, 2n]
+        Ax = torch.view_as_real(Ax).flatten(start_dim=1) #[N, 2CHW]
 
         if targets:
             Ax[:, self.kept_inds] = self.add_noise(Ax[:, self.kept_inds]) #only apply noise to relevant [N, m]

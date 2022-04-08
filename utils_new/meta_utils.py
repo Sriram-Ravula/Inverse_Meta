@@ -24,7 +24,7 @@ def hessian_vector_product(x, jacobian, vec, hparams, retain_graph=False):
     finite_difference = hparams.outer.finite_difference
     net = hparams.net.model
 
-    if finite_difference or net != "ncsnv2":
+    if finite_difference:
         raise NotImplementedError #TODO implement finite difference and other models!
 
     h_func = torch.sum(jacobian * vec) #v.T (dL/dx)

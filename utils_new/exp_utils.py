@@ -6,6 +6,7 @@ import yaml
 from datetime import datetime
 from PIL import Image
 import os
+import pickle
 
 def save_image(image, path):
     """Save a pytorch image as a png file"""
@@ -20,6 +21,20 @@ def save_images(images, labels, save_prefix):
     """Save a batch of images (in a dictionary) to png files"""
     for image_num, image in zip(labels, images):
         save_image(image, os.path.join(save_prefix, str(image_num.item())+'.png'))
+
+def save_to_pickle(data, pkl_filepath):
+    """Save the data to a pickle file"""
+    with open(pkl_filepath, 'wb') as pkl_file:
+        pickle.dump(data, pkl_file)
+
+def load_if_pickled(pkl_filepath):
+    """Load if the pickle file exists. Else return empty dict"""
+    if os.path.isfile(pkl_filepath):
+        with open(pkl_filepath, 'rb') as pkl_file:
+            data = pickle.load(pkl_file)
+    else:
+        data = {}
+    return data
 
 def set_all_seeds(random_seed: int):
     """
@@ -112,6 +127,8 @@ def parse_config(config_path):
             hparams['outer']['ROI'] = ((27, 15),(35, 35))
         elif hparams['data']['dataset'] == "ffhq":
             hparams['outer']['ROI'] = ((90, 50),(60, 156))
+        else:
+            raise NotImplementedError("You must provide an ROI for this dataset")
     
     #set reg hyperparam stuff
     if not hparams['outer']['reg_hyperparam']:

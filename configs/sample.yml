@@ -29,6 +29,7 @@ data:
 
  train_batch_size: 8
  val_batch_size: 8
+ test_batch_size: 8
 
  image_size: 64
  num_channels: 3
@@ -74,7 +75,7 @@ opt:
   batches_per_iter: -1 #number of training batches to use per meta update. -1 means all batches
 
   decay: true 
-  lr_decay: 0.95 #exponential weight decay rate. -1 or false means no decay
+  lr_decay: 0.95 #exponential weight decay rate.
   decay_on_val: false #only relevant if decay=True
 
   val_iters: 1 #validate every n iterations
