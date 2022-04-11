@@ -220,4 +220,3 @@ def parse_args(docstring="", manual=False, config=None, doc=None):
         args = parser.parse_args()
 
     return args
-

@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from time import time
 import yaml
+import copy
 
 from ncsnv2.models.ncsnv2 import NCSNv2, NCSNv2Deepest
 from ncsnv2.models.ema import EMAHelper
@@ -24,7 +25,7 @@ class SGLD_NCSNv2(torch.nn.Module):
         super().__init__()
         self.hparams = hparams
 
-        self.A = A
+        self.A = copy.deepcopy(A) #TODO validate this works - quick fix for GPU issues
         self._init_net()
         self.register_buffer('c', c.detach().clone()) #TODO remove detach() for e.g.MAML
         self.T = self.hparams.inner.T
