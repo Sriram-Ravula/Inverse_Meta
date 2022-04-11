@@ -395,7 +395,7 @@ class GBML(torch.nn.Module):
                 yaml.dump(self.hparams, f, default_flow_style=False)
 
     def _add_tb_images(self, images, tag):
-        if not self.hparams.debug:
+        if not self.hparams.debug and self.hparams.save_imgs:
             grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
             self.tb_logger.add_image(tag, grid_img, global_step=self.global_epoch)
     
@@ -404,7 +404,7 @@ class GBML(torch.nn.Module):
             self.metrics.add_metrics_to_tb(self.tb_logger, self.global_epoch, iter_type)
 
     def _save_images(self, images, img_indices, save_path):
-        if not self.hparams.debug:
+        if not self.hparams.debug and self.hparams.save_imgs:
             save_images(images, img_indices, save_path)
 
     def _print_if_verbose(self, text):

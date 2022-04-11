@@ -205,7 +205,7 @@ def parse_config(config_path):
 
     return HPARAMS
 
-def parse_args(docstring, manual=False, config=None, doc=None):
+def parse_args(docstring="", manual=False, config=None, doc=None):
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
     parser = argparse.ArgumentParser(description=docstring)

@@ -109,4 +109,3 @@ problem:
  add_dependent_noise: false #whether to add noise before measuring
  dependent_noise_type: "gaussian" #[gaussian, uniform]
  dependent_noise_std: 1
- 
