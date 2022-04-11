@@ -25,7 +25,6 @@ from utils_new.metric_utils import Metrics
 
 class GBML:
     def __init__(self, hparams, args):
-        super().__init__()
         self.hparams = hparams
         self.args = args
         self.device = self.hparams.device
