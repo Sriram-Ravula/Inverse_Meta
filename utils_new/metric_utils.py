@@ -295,7 +295,7 @@ class Metrics:
                 _, best_value = best
                 best_flag = False
 
-                if metric_key in ['psnr', 'ssim', 'ms-ssim']:
+                if metric_key in ['psnr', 'ssim']:
                     if best_value < value:
                         best_dict[metric_key] = (iter_num, value)
                         best_flag = True
