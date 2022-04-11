@@ -174,7 +174,8 @@ class GBML:
         """
         #Find x(c) by running the inner algorithm
         x = x.to(self.hparams.device)
-        y = self.A(x, targets=True)
+        with torch.no_grad():
+            y = self.A(x, targets=True)
 
         x_mod = torch.rand_like(x)
 
