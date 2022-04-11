@@ -15,7 +15,7 @@ def gradient_log_cond_likelihood(c_orig, y, A, x, scale=1., exp_params=False):
     else:
         c = c_orig
     
-    Ax = A.forward(x, targets=False) #don't add noise since we are making a sample
+    Ax = A(x, targets=False) #don't add noise since we are making a sample
     resid = Ax - y #[N, m]
 
     if c_type == 0:
@@ -40,7 +40,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False, reduce
     if reduce_dims is None:
         reduce_dims = (0, 1)
     
-    Ax = A.forward(x, targets=False) #don't add noise since we are making a sample
+    Ax = A(x, targets=False) #don't add noise since we are making a sample
     resid = Ax - y #[N, m]
 
     if c_type == 0:

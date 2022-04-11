@@ -174,11 +174,11 @@ class GBML(torch.nn.Module):
         """
         #Find x(c) by running the inner algorithm
         x = x.to(self.hparams.device)
-        y = self.A.forward(x, targets=True)
+        y = self.A(x, targets=True)
 
         x_mod = torch.rand_like(x)
 
-        x_hat = self.langevin_runner.forward(x_mod, y)
+        x_hat = self.langevin_runner(x_mod, y)
 
         #logging
         self._add_batch_metrics(x_hat, x, y, iter_type)

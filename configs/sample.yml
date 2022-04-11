@@ -51,8 +51,8 @@ outer:
  measurement_loss: false #TODO implement this!
  meta_loss_type: 'l2'
 
- hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
- exp_params: false #whether to use exp(hyperparams) instead of hyperparams
+ hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
+ exp_params: true #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 0
  reg_hyperparam: false 
  reg_hyperparam_type: 'l1'
