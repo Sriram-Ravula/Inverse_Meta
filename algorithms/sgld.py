@@ -25,7 +25,7 @@ class SGLD_NCSNv2(torch.nn.Module):
         super().__init__()
         self.hparams = hparams
 
-        self.A = copy.deepcopy(A) #TODO validate this works - quick fix for GPU issues
+        self.A = A
         self._init_net()
         self.register_buffer('c', c.detach().clone()) #TODO remove detach() for e.g.MAML
         self.T = self.hparams.inner.T
