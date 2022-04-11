@@ -23,7 +23,7 @@ from utils_new.metric_utils import Metrics
 #TODO then fancy stuff like saving initialisations, different meta losses, different inner algo
 #       then ROI etc.
 
-class GBML(torch.nn.Module):
+class GBML:
     def __init__(self, hparams, args):
         super().__init__()
         self.hparams = hparams
