@@ -190,7 +190,7 @@ class GBML:
         """
         Adds metrics for a single batch to the metrics object.
         """
-        real_meas_loss = log_cond_likelihood_loss(1.0, y, self.A, x_hat, reduce_dims=(1)) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
+        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, reduce_dims=(1)) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
         weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, reduce_dims=(1)) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
         all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c, 
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
