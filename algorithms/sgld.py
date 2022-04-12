@@ -101,10 +101,6 @@ class SGLD_NCSNv2(torch.nn.Module):
         """Initializes score net and related attributes"""
         if self.hparams.net.model != "ncsnv2":
             raise NotImplementedError("This model is unsupported!") 
-        
-        if self.hparams.verbose:
-            print("\nINITIALIZING NETWORK\n")
-            start = time()
 
         ckpt_path = self.hparams.net.checkpoint_dir
         config_path = self.hparams.net.config_file
@@ -136,10 +132,6 @@ class SGLD_NCSNv2(torch.nn.Module):
         model.eval()
         for param in model.parameters():
             param.requires_grad = False
-
-        if self.hparams.verbose:
-            end = time()
-            print("\nNET TIME: ", str(end - start), "S\n")
 
         self.model = model
         self.register_buffer('sigmas', sigmas)
