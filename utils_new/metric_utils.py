@@ -221,7 +221,6 @@ class Metrics:
         
         return out_dict
 
-        
     def calc_iter_metrics(self, x_hat, x, iter_num, iter_type='train'):
         """
         Function for calculating and adding metrics from one iteration to the master.

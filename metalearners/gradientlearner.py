@@ -211,6 +211,9 @@ class GBML:
         """
         Given true, measurement, and recovered images, save to tensorboard and png.
         """
+        if self.hparams.debug or (not self.hparams.save_imgs):
+            return
+
         meas_images = self.A.get_measurements_image(x, targets=True)
 
         true_path = os.path.join(self.image_root, iter_type)
@@ -221,14 +224,17 @@ class GBML:
             recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
         
         self._add_tb_images(x_hat, "recovered " + iter_type + " images")
+        os.makedirs(recovered_path)
         self._save_images(x_hat, x_idx, recovered_path)
 
         if iter_type == "test" or self.global_epoch == 0:
             self._add_tb_images(x, iter_type + " images")
+            os.makedirs(true_path)
             self._save_images(x, x_idx, true_path)
 
             if meas_images is not None:
                 self._add_tb_images(meas_images, iter_type + " measurements")
+                os.makedirs(meas_path)
                 self._save_images(meas_images, x_idx, meas_path)
     
     def _opt_step(self, meta_grad):
