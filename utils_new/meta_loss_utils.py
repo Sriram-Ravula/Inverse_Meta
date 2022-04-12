@@ -56,6 +56,6 @@ def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=Fals
                                         c, retain_graph=retain_graph, create_graph=create_graph)[0]
         c.requires_grad_(grad_flag_c)
     else:
-        meta_grad_c = torch.zeros_like(meta_grad_x)
+        meta_grad_c = torch.zeros_like(c)
 
     return [meta_grad_x, meta_grad_c]

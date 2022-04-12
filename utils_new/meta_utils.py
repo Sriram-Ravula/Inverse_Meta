@@ -1,8 +1,9 @@
 import torch
 
-def hessian_vector_product(x, jacobian, vec, hparams, retain_graph=False):
+def hessian_vector_product(x, jacobian, vec, retain_graph=False):
     """
     Calculates a Hessian-vector product with the given first derivative (Jacobian).
+    Sets and resets the requires_grad flag of x.
 
     Args:
         x: Hessian is taken w.r.t. this variable. Jacobian must be a function of x.  
@@ -12,7 +13,6 @@ def hessian_vector_product(x, jacobian, vec, hparams, retain_graph=False):
                   Torch tensor with dimension [N, C, H, W].
         vec: The vector in the Hessian-vector product. 
              Torch tensor with dimension that can broadcast with jacobian dimension.
-        hparams: Experimental parameters. 
         retain_graph: Whether to keep the computation graphs of x, jacobian, and vec intact.
                       Useful when e.g. we need to re-use the same Jacobian multiple times
                         like in conjugate gradient during implicit meta methods.
@@ -21,15 +21,14 @@ def hessian_vector_product(x, jacobian, vec, hparams, retain_graph=False):
         hvp: Hessian of the loss function w.r.t. x, right-multiplied with vec. 
              Torch Tensor with same shape as x.
     """
-    finite_difference = hparams.outer.finite_difference
-    net = hparams.net.model
-
-    if finite_difference:
-        raise NotImplementedError #TODO implement finite difference and other models!
+    grad_flag_x = x.requires_grad
+    x.requires_grad_()
 
     h_func = torch.sum(jacobian * vec) #v.T (dL/dx)
 
     hvp = torch.autograd.grad(h_func, x, retain_graph=retain_graph)[0]
+
+    x.requires_grad_(grad_flag_x)
 
     return hvp
 
