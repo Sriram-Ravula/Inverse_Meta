@@ -234,7 +234,7 @@ class Metrics:
         """
         cur_dict = self.__retrieve_dict(iter_type) #validate and retrieve the right dict
 
-        iter_metrics = get_all_metrics(x_hat, x, range = self.range, hparams=self.hparams) #calc the metrics
+        iter_metrics = get_all_metrics(x_hat, x, range = self.range) #calc the metrics
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
         
