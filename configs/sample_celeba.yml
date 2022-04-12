@@ -86,7 +86,7 @@ inner:
  T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
  decimate: true 
- decimation_factor: 5 #factor to divide the number of noise levels by. Only relevant if decimate=True
+ decimation_factor: 3 #factor to divide the number of noise levels by. Only relevant if decimate=True
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
 
  verbose: 200 #print every n iterations. 0 means don't print. Only prints if verbose=true. 
@@ -97,7 +97,7 @@ problem:
  
  num_measurements: 12288 #number of measurements for gaussian and fourier, or for random inpainting
  #fourier_mask_type: 'radial' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
- downsample_factor: 2 #factor to downsample each side of the image
+ downsample_factor: 4 #factor to downsample each side of the image
  #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
  #inpaint_random: false #whether to use random inpainting instead of a centered box. Uses num_measurements if true.  
  #efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
