@@ -198,11 +198,11 @@ class GBML:
                                     reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
                                     reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
 
-        extra_metrics_dict = {"real_meas_loss": real_meas_loss.numpy().cpu().flatten(),
-                                "weighted_meas_loss": weighted_meas_loss.numpy().cpu().flatten(),
-                                "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].numpy().cpu().flatten(),
-                                "meta_loss_reg": all_meta_losses[1].numpy().cpu().flatten(),
-                                "meta_loss_total": all_meta_losses[2].numpy().cpu().flatten()}
+        extra_metrics_dict = {"real_meas_loss": real_meas_loss.cpu().numpy().flatten(),
+                                "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
+                                "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
+                                "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
+                                "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
