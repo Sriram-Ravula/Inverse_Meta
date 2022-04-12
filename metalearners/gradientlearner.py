@@ -37,6 +37,7 @@ class GBML:
 
         self.global_epoch = 0
         self.best_c = None
+        self.c_list = [self.c.detach().clone().cpu()]
         self.test_metric = 'psnr'
 
         #Langevin algorithm
@@ -154,6 +155,8 @@ class GBML:
                 self.scheduler.step()
                 LR_NEW = self.opt.param_groups[0]['lr']
                 self._print_if_verbose("\nVAL LOSS HASN'T IMPORVED; DECAYING LR: ", LR_OLD, " --> ", LR_NEW)
+        else:
+            self.best_c = self.c.detach().clone()
     
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
@@ -257,8 +260,9 @@ class GBML:
         self.c.requires_grad_(False)
 
         self.c.clamp_(min=0.)
+        self.c_list.append(self.c.detach().clone().cpu())
     
-        if self.scheduler is not None and not self.hparams.outer.decay_on_val:
+        if (self.scheduler is not None) and (not self.hparams.opt.decay_on_val):
             LR_OLD = self.opt.param_groups[0]['lr']
             self.scheduler.step()
             LR_NEW = self.opt.param_groups[0]['lr']
