@@ -147,7 +147,7 @@ class GBML:
         #if we do, set the new best c. If we don't, decay lr (if applicable)
         if self.global_epoch > 0:
             if new_best_dict is not None and self.test_metric in new_best_dict:
-                self._print_if_verbose("\nNEW BEST VAL " + self.test_metric, new_best_dict[self.test_metric], "\n")
+                self._print_if_verbose("\nNEW BEST VAL " + self.test_metric + ": ", new_best_dict[self.test_metric], "\n")
                 self.best_c = self.c.detach().clone()
             elif self.scheduler is not None and self.hparams.outer.decay_on_val:
                 LR_OLD = self.opt.param_groups[0]['lr']
@@ -413,6 +413,6 @@ class GBML:
         if not self.hparams.debug and self.hparams.save_imgs:
             save_images(images, img_indices, save_path)
 
-    def _print_if_verbose(self, text):
+    def _print_if_verbose(self, *text):
         if self.hparams.verbose:
-            print(text)
+            print("".join(str(t) for t in text))
