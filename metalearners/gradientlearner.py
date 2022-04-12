@@ -270,6 +270,8 @@ class GBML:
         grad_c(meta_loss) = - grad_x_c[recon_loss] * (meta_loss)
         (1) Find meta loss
         (2) Get the HVP grad_x_c(recon_loss) * grad_x(meta_loss)
+
+        Sets c.grad to True then False.
         """
         #(1) Get gradients of Meta loss w.r.t. image and hyperparams
         grad_x_meta_loss, grad_c_meta_loss = get_meta_grad(x_hat=x_hat,
@@ -285,6 +287,8 @@ class GBML:
                                                             use_autograd=self.hparams.use_autograd)
         
         #(2)
+        self.c.requires_grad_()
+        
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd, 
                                             exp_params=self.hparams.outer.exp_params, retain_graph=True, 
                                             create_graph=True) #gradient of likelihood loss (with hyperparam) w.r.t image
@@ -292,6 +296,8 @@ class GBML:
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
         out_grad += grad_c_meta_loss
+
+        self.c.requires_grad_(False)
 
         return out_grad
     
