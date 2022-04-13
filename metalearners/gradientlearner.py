@@ -150,7 +150,7 @@ class GBML:
             if new_best_dict is not None and self.test_metric in new_best_dict:
                 self._print_if_verbose("\nNEW BEST VAL " + self.test_metric + ": ", new_best_dict[self.test_metric], "\n")
                 self.best_c = self.c.detach().clone()
-            elif self.scheduler is not None and self.hparams.outer.decay_on_val:
+            elif self.scheduler is not None and self.hparams.opt.decay_on_val:
                 LR_OLD = self.opt.param_groups[0]['lr']
                 self.scheduler.step()
                 LR_NEW = self.opt.param_groups[0]['lr']
@@ -257,7 +257,8 @@ class GBML:
 
         self.c.requires_grad_(False)
 
-        self.c.clamp_(min=0.)
+        if not self.hparams.outer.exp_params:
+            self.c.clamp_(min=0.)
         self.c_list.append(self.c.detach().clone().cpu())
     
         if (self.scheduler is not None) and (not self.hparams.opt.decay_on_val):

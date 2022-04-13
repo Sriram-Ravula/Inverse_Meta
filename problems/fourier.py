@@ -93,8 +93,8 @@ class FourierOperator(ForwardOperator):
     @torch.no_grad()
     def get_measurements_image(self, x, targets=False):
         """Returns the magnitude and phase fft image as well as reconstruction from subsampled fft coeffs"""
-        orig_shape = x.shape #[N, C, H, W]
-        orig_shape = list(orig_shape).append(2) #to account for complex operations
+        orig_shape = list(x.shape) #[N, C, H, W]
+        orig_shape.append(2) #to account for complex operations
 
         Ax = self.A_mask * self.fft(x) #[N, C, H, W]
         Ax = torch.view_as_real(Ax).flatten(start_dim=1) #[N, 2CHW]
@@ -107,6 +107,6 @@ class FourierOperator(ForwardOperator):
         
         #mag_img = torch.abs(Ax)
         #phase_img = torch.angle(Ax)
-        inverted_img = self.ifft(Ax)
+        inverted_img = torch.abs(self.ifft(Ax))
         
         return inverted_img #mag_img, phase_img, inverted_img
