@@ -41,7 +41,7 @@ class FourierOperator(ForwardOperator):
     
     def _make_fft_mask(self):
         image_size = self.hparams.data.image_size
-        m = self.hparams.problem.num_measurements // 3 #divide by 3 since we keep all color channels of a FFT(pixel) 
+        m = self.hparams.problem.num_measurements // 3 #divide by 3 since we multiply by 3 when reading config
     
         if self.hparams.problem.fourier_mask_type == 'radial':
             raise NotImplementedError('Radial mask orientation not supported')
@@ -105,8 +105,8 @@ class FourierOperator(ForwardOperator):
         Ax = Ax.view(orig_shape) #[N, C, H, W, 2]
         Ax = torch.view_as_complex(Ax) #[N, C, H, W]
         
-        mag_img = torch.abs(Ax)
-        phase_img = torch.angle(Ax)
+        #mag_img = torch.abs(Ax)
+        #phase_img = torch.angle(Ax)
         inverted_img = self.ifft(Ax)
         
-        return mag_img, phase_img, inverted_img
+        return inverted_img #mag_img, phase_img, inverted_img
