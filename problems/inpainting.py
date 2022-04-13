@@ -1,3 +1,4 @@
+from dataclasses import replace
 import torch
 import numpy as np
 from problems.problem import ForwardOperator
@@ -29,18 +30,27 @@ class InpaintingOperator(ForwardOperator):
         Returns a [H, W] binary mask (torch tensor) with square 0 region in center for inpainting.
         """
         image_size = self.hparams.data.image_size
-        inpaint_size = self.hparams.problem.inpaint_size
+        
+        if not self.hparams.problem.inpaint_random:
+            inpaint_size = self.hparams.problem.inpaint_size
 
-        margin = (image_size - inpaint_size) // 2
+            margin = (image_size - inpaint_size) // 2
 
-        mask = torch.ones(image_size, image_size)
-        mask[margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
+            mask = torch.ones(image_size, image_size)
+            mask[margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
+        else:
+            zero_inds = np.random.choice(image_size**2, size=self.hparams.problem.num_measurements, replace=False)
+
+            mask = torch.ones(image_size**2)
+            mask[zero_inds] = 0
+            mask = mask.view(image_size, image_size)
 
         return mask
     
     def _make_A_inpaint(self):
         """
         Returns an [m, n=C*H*W] forward matrix (torch tensor) for inpainting.   
+        #TODO this doesn't support (efficient_inp==False and inpaint_random==True)  
         """
         mask = self.make_inpaint_mask().unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1).numpy()
         mask = mask.reshape(1, -1)

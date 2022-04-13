@@ -172,10 +172,7 @@ def parse_config(config_path):
         hparams['problem']['num_measurements'] = hparams['data']['num_channels'] * (hparams['data']['image_size']//hparams['problem']['downsample_factor'])**2
 
     elif hparams['problem']['measurement_type'] == 'inpaint':
-        if hparams['problem']['inpaint_random']:
-            raise NotImplementedError("Random inpainting not apploed yet!")
-            #hparams['problem']['inpaint_size'] = None
-        else:
+        if not hparams['problem']['inpaint_random']:
             hparams['problem']['num_measurements'] = hparams['data']['n_input'] - hparams['data']['num_channels'] * hparams['problem']['inpaint_size']**2
 
     elif hparams['problem']['measurement_type'] == 'identity':

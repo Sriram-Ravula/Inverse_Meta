@@ -36,7 +36,7 @@ class GBML:
         self.A = get_forward_operator(self.hparams).to(self.device)
 
         self.global_epoch = 0
-        self.best_c = None
+        self.best_c = self.c.detach().clone()
         self.c_list = [self.c.detach().clone().cpu()]
         self.test_metric = 'psnr'
 
@@ -155,8 +155,6 @@ class GBML:
                 self.scheduler.step()
                 LR_NEW = self.opt.param_groups[0]['lr']
                 self._print_if_verbose("\nVAL LOSS HASN'T IMPORVED; DECAYING LR: ", LR_OLD, " --> ", LR_NEW)
-        else:
-            self.best_c = self.c.detach().clone()
     
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
