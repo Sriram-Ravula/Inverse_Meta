@@ -77,7 +77,7 @@ class FourierOperator(ForwardOperator):
     def forward(self, x, targets=False):
         Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
         Ax = torch.view_as_real(Ax) #[N, C, H, W, 2] torch float32
-        Ax = Ax.flatten(start_dim=1)[:, self.kept_inds] #[N, 2CHW] --> [N, ]
+        Ax = Ax.flatten(start_dim=1)[:, self.kept_inds] #[N, 2CHW] --> [N, 2m]
 
         if targets:
             Ax = self.add_noise(Ax)
@@ -97,8 +97,9 @@ class FourierOperator(ForwardOperator):
         orig_shape = list(x.shape) #[N, C, H, W]
         orig_shape.append(2) #to account for complex operations
 
-        Ax = self.A_mask * self.fft(x) #[N, C, H, W]
-        Ax = torch.view_as_real(Ax).flatten(start_dim=1) #[N, 2CHW]
+        Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
+        Ax = torch.view_as_real(Ax) #[N, C, H, W, 2] torch float32
+        Ax = Ax.flatten(start_dim=1) #[N, 2CHW]
 
         if targets:
             Ax[:, self.kept_inds] = self.add_noise(Ax[:, self.kept_inds]) #only apply noise to relevant [N, m]
