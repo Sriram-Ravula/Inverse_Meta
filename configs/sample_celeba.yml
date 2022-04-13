@@ -23,13 +23,13 @@ data:
  dataset: 'celeba'
  data_path: "/content/meta_exp/datasets/celeba" 
 
- num_train: 16
- num_val: 16
- num_test: 16
+ num_train: 8
+ num_val: 4
+ num_test: 4
 
- train_batch_size: 8
- val_batch_size: 16
- test_batch_size: 16
+ train_batch_size: 2
+ val_batch_size: 4
+ test_batch_size: 4
 
  image_size: 64
  num_channels: 3
@@ -51,7 +51,7 @@ outer:
  measurement_loss: false #TODO implement this!
  meta_loss_type: 'l2'
 
- hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector, matrix] 
+ hyperparam_type: 'scalar' #type of hyperparam c to use. [scalar, vector, matrix] 
  exp_params: true #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 0
  reg_hyperparam: false 
@@ -86,21 +86,21 @@ inner:
  T: 5 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
  decimate: true 
- decimation_factor: 3 #factor to divide the number of noise levels by. Only relevant if decimate=True
+ decimation_factor: 2 #factor to divide the number of noise levels by. Only relevant if decimate=True
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
 
  verbose: 200 #print every n iterations. 0 means don't print. Only prints if verbose=true. 
  lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'gaussian' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
+ measurement_type: 'inpaint' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
  
  num_measurements: 1000 #number of measurements for gaussian and fourier, or for random inpainting
  #fourier_mask_type: 'radial' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
  #downsample_factor: 4 #factor to downsample each side of the image
- #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
- #inpaint_random: false #whether to use random inpainting instead of a centered box. Uses num_measurements if true.  
- #efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
+ inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
+ inpaint_random: true #whether to use random inpainting instead of a centered box. Uses num_measurements if true.  
+ efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
  
  add_noise: false #whether to add noise after measuring
  noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite] 

@@ -39,10 +39,10 @@ class InpaintingOperator(ForwardOperator):
             mask = torch.ones(image_size, image_size)
             mask[margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
         else:
-            zero_inds = np.random.choice(image_size**2, size=self.hparams.problem.num_measurements, replace=False)
+            one_inds = np.random.choice(image_size**2, size=self.hparams.problem.num_measurements, replace=False)
 
-            mask = torch.ones(image_size**2)
-            mask[zero_inds] = 0
+            mask = torch.zeros(image_size**2)
+            mask[one_inds] = 1
             mask = mask.view(image_size, image_size)
 
         return mask
