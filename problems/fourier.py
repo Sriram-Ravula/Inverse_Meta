@@ -76,7 +76,8 @@ class FourierOperator(ForwardOperator):
 
     def forward(self, x, targets=False):
         Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
-        Ax = torch.view_as_real(Ax).flatten(start_dim=1)[:, self.kept_inds] #[N, m] NOTE 2 channels split from view_as_real 
+        Ax = torch.view_as_real(Ax) #[N, C, H, W, 2] torch float32
+        Ax = Ax.flatten(start_dim=1)[:, self.kept_inds] #[N, 2CHW] --> [N, ]
 
         if targets:
             Ax = self.add_noise(Ax)
