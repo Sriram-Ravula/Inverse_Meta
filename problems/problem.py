@@ -111,9 +111,9 @@ class ForwardOperator(torch.nn.Module):
         """
         if self.noisy:
             if self.hparams.problem.noise_type == 'gaussian':
-                noise = torch.randn(Ax.shape).type_as(Ax) * self.hparams.problem.noise_std
+                noise = torch.randn(self.hparams.problem.y_shape).type_as(Ax) * self.hparams.problem.noise_std
             elif self.hparams.problem.noise_type == 'gaussian_nonwhite': 
-                noise = torch.randn(Ax.shape).type_as(Ax) * self.hparams.problem.noise_std * self.noise_vars.type_as(Ax)
+                noise = torch.randn(self.hparams.problem.y_shape).type_as(Ax) * self.hparams.problem.noise_std * self.noise_vars.type_as(Ax)
             else:
                 raise NotImplementedError('unsupported type of additive noise')
         

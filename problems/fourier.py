@@ -6,24 +6,6 @@ from problems.problem import ForwardOperator
 class FourierOperator(ForwardOperator):
     def __init__(self, hparams):
         super().__init__(hparams)
-
-    def _make_kept_inds(self):
-        """
-        Returns the nonzero indices in A_mask, flattened. 
-        Assumes the input x will have shape [C, H, W, 2] 
-        """
-        if self.A_mask is None:
-            return None
-
-        #if the binary mask is only 2-dimensional [H, W] and the images are 3-dimensional [C, H, W]
-        #   we need to properly resize the mask to give the correct indices
-        #note that we expand the last dimension by two to account for real and imaginary channels
-        if len(self.A_mask.shape) < len(self.hparams.data.image_shape): 
-            kept_inds = (self.A_mask.unsqueeze(0).unsqueeze(-1).repeat(self.hparams.data.num_channels, 1, 1, 2).flatten()>0).nonzero(as_tuple=False).flatten()
-        else:
-            kept_inds = (self.A_mask.flatten()>0).nonzero(as_tuple=False).flatten()
-        
-        return kept_inds
     
     def fft(self, x):
         """Performs a centered and orthogonal fft in torch >= 1.7"""
@@ -64,6 +46,7 @@ class FourierOperator(ForwardOperator):
         A_mask = self._make_fft_mask()
         
         def A_functional(x):
+            #TODO update this
             out = self.A_mask * self.fft(x) #[N, C, H, W]
 
             return out.flatten(start_dim=1)[:, self.kept_inds] #[N, m]
@@ -77,10 +60,14 @@ class FourierOperator(ForwardOperator):
     def forward(self, x, targets=False):
         Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
         Ax = torch.view_as_real(Ax) #[N, C, H, W, 2] torch float32
-        Ax = Ax.flatten(start_dim=1)[:, self.kept_inds] #[N, 2CHW] --> [N, 2m]
+        Ax = Ax.flatten(start_dim=1, end_dim=-2) #[N, CHW, 2]
+        Ax = Ax[:, self.kept_inds, :] #[N, m, 2] 
 
+        #Apply noise first if applicable, since we want both real and imaginary channels to have same noise
         if targets:
             Ax = self.add_noise(Ax)
+
+        Ax = Ax.flatten(start_dim=1) #[N, 2m]
         
         return Ax
 
@@ -99,10 +86,10 @@ class FourierOperator(ForwardOperator):
 
         Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
         Ax = torch.view_as_real(Ax) #[N, C, H, W, 2] torch float32
-        Ax = Ax.flatten(start_dim=1) #[N, 2CHW]
+        Ax = Ax.flatten(start_dim=1, end_dim=-2) #[N, CHW, 2]
 
         if targets:
-            Ax[:, self.kept_inds] = self.add_noise(Ax[:, self.kept_inds]) #only apply noise to relevant [N, m]
+            Ax[:, self.kept_inds, :] = self.add_noise(Ax[:, self.kept_inds, :])
         
         Ax = Ax.view(orig_shape) #[N, C, H, W, 2]
         Ax = torch.view_as_complex(Ax) #[N, C, H, W]
