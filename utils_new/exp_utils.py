@@ -111,7 +111,7 @@ def parse_config(config_path):
 
     #make some more input dimension metadata
     hparams['data']['image_shape'] = (hparams['data']['num_channels'], hparams['data']['image_size'], hparams['data']['image_size'])
-    hparams['data']['n_input'] = np.prod(hparams['data']['image_shape'])
+    hparams['data']['n_input'] = int(np.prod(hparams['data']['image_shape']))
 
     #OUTER
     #check meta learning type

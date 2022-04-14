@@ -349,7 +349,7 @@ class GBML:
         #see if we would like to couple pixels during training
         #NOTE: have not tried this with matrix yet!
         if self.hparams.outer.couple_pixels:
-            m /= self.hparams.data.num_channels
+            m = m // self.hparams.data.num_channels
         #In Fourier, the real and imaginary values can get separate hyperparams
         elif self.hparams.problem.measurement_type == "fourier":
             m *= 2

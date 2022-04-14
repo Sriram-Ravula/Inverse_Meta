@@ -50,8 +50,16 @@ def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False,
     if couple_pixels:
         if problem_type in ["identity", "superres", "inpaint"]:
             resid = resid.view(N, C, -1) #c will have same size as the last dimension
+            if reduce_dims == (0, 1):
+                reduce_dims = (0, 1, 2)
+            elif reduce_dims == (1):
+                reduce_dims = (1, 2)
         elif problem_type == "fourier":
             resid = resid.view(N, C, -1, 2) #split last dim into 2 for real and imaginary
+            if reduce_dims == (0, 1):
+                reduce_dims = (0, 1, 2, 3)
+            elif reduce_dims == (1):
+                reduce_dims = (1, 2, 3)
         else:
             raise NotImplementedError("Problem type not supported with pixel coupling")
 
