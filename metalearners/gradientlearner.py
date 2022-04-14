@@ -192,7 +192,11 @@ class GBML:
         Adds metrics for a single batch to the metrics object.
         """
         real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, reduce_dims=(1)) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
-        weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, reduce_dims=(1)) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
+        weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 
+                                                      exp_params=self.hparams.outer.exp_params, 
+                                                      reduce_dims=(1), 
+                                                      couple_pixels=self.hparams.outer.couple_pixels,
+                                                      problem_type=self.hparams.problem.measurement_type) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
         all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c, 
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
@@ -294,7 +298,8 @@ class GBML:
         
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd, 
                                             exp_params=self.hparams.outer.exp_params, retain_graph=True, 
-                                            create_graph=True) #gradient of likelihood loss (with hyperparam) w.r.t image
+                                            create_graph=True, couple_pixels=self.hparams.outer.couple_pixels,
+                                            problem_type=self.hparams.problem.measurement_type) #gradient of likelihood loss (with hyperparam) w.r.t image
         
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)

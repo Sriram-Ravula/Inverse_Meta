@@ -10,7 +10,7 @@ from ncsnv2.models import get_sigmas
 
 from utils_new.exp_utils import dict2namespace
 from utils_new.inner_loss_utils import log_cond_likelihood_loss, get_likelihood_grad
-from problems import get_forward_operator
+from problems import get_forward_operator, problem
 
 class SGLD_NCSNv2(torch.nn.Module):
     def __init__(self, hparams, c, A):
@@ -65,7 +65,8 @@ class SGLD_NCSNv2(torch.nn.Module):
                 prior_grad = self.model(x_mod, labels)
 
                 likelihood_grad = get_likelihood_grad(self.c, y, self.A, x_mod, self.hparams.use_autograd,\
-                                    1/(sigma**2), self.hparams.outer.exp_params)
+                                    1/(sigma**2), self.hparams.outer.exp_params, couple_pixels=self.hparams.outer.couple_pixels,
+                                    problem_type=self.hparams.problem.measurement_type)
 
                 grad = prior_grad - likelihood_grad
 

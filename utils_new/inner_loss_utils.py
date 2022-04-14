@@ -8,6 +8,7 @@ def gradient_log_cond_likelihood(c_orig, y, A, x, scale=1., exp_params=False):
     Args:
         c: 
     """
+    #TODO: add support for pixel coupling!
     c_type = len(c_orig.shape)
 
     if exp_params:
@@ -29,8 +30,10 @@ def gradient_log_cond_likelihood(c_orig, y, A, x, scale=1., exp_params=False):
     
     return grad #the adjoint takes care of reshaping properly
 
-def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False, reduce_dims=None):
+def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False, 
+                             reduce_dims=None, couple_pixels=False, problem_type=None):
     c_type = len(c_orig.shape)
+    N, C, H, W = x.shape
 
     if exp_params:
         c = torch.exp(c_orig)
@@ -42,6 +45,15 @@ def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False, reduce
     
     Ax = A(x, targets=False) #don't add noise since we are making a sample
     resid = Ax - y #[N, m]
+
+    #If we are coupling pixels, then we need to do some specific reshaping
+    if couple_pixels:
+        if problem_type in ["identity", "superres", "inpaint"]:
+            resid = resid.view(N, C, -1) #c will have same size as the last dimension
+        elif problem_type == "fourier":
+            resid = resid.view(N, C, -1, 2) #split last dim into 2 for real and imaginary
+        else:
+            raise NotImplementedError("Problem type not supported with pixel coupling")
 
     if c_type == 0:
         loss = scale * c * 0.5 * torch.sum(resid ** 2, reduce_dims) #(c/2) ||Ax - y||^2
@@ -56,7 +68,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x, scale=1., exp_params=False, reduce
     return loss
 
 def get_likelihood_grad(c, y, A, x, use_autograd, scale=1., exp_params=False, reduce_dims=None,\
-    retain_graph=False, create_graph=False):
+    couple_pixels=False, problem_type=None, retain_graph=False, create_graph=False):
     """
     A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)
         and log_cond_likelihood_loss with autograd. 
@@ -64,7 +76,7 @@ def get_likelihood_grad(c, y, A, x, use_autograd, scale=1., exp_params=False, re
     if use_autograd:
         grad_flag_x = x.requires_grad
         x.requires_grad_()
-        likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss(c, y, A, x, scale, exp_params, reduce_dims), 
+        likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss(c, y, A, x, scale, exp_params, reduce_dims, couple_pixels, problem_type), 
                             x, retain_graph=retain_graph, create_graph=create_graph)[0]
         x.requires_grad_(grad_flag_x)
     else:
