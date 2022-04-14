@@ -23,7 +23,7 @@ class FourierOperator(ForwardOperator):
     
     def _make_fft_mask(self):
         image_size = self.hparams.data.image_size
-        m = self.hparams.problem.num_measurements // 3 #divide by 3 since we multiply by 3 when reading config
+        m = self.hparams.problem.num_measurements // self.hparams.data.num_channels #divide by 3 since we multiply by 3 when reading config
     
         if self.hparams.problem.fourier_mask_type == 'radial':
             raise NotImplementedError('Radial mask orientation not supported')

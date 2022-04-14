@@ -39,7 +39,7 @@ class InpaintingOperator(ForwardOperator):
             mask = torch.ones(image_size, image_size)
             mask[margin:margin+inpaint_size, margin:margin+inpaint_size] = 0
         else:
-            m = self.hparams.problem.num_measurements // 3 #divide by 3 since we multiply by 3 when reading config
+            m = self.hparams.problem.num_measurements // self.hparams.data.num_channels #divide by 3 since we multiply by 3 when reading config
             one_inds = np.random.choice(image_size**2, size=m, replace=False)
 
             mask = torch.zeros(image_size**2)

@@ -175,7 +175,7 @@ def parse_config(config_path):
         if not hparams['problem']['inpaint_random']:
             hparams['problem']['num_measurements'] = hparams['data']['n_input'] - hparams['data']['num_channels'] * hparams['problem']['inpaint_size']**2
         else:
-            hparams['problem']['num_measurements'] = hparams['problem']['num_measurements'] * 3 #specified in number of pixels, but here we multiply by 3 since all color channels are kept
+            hparams['problem']['num_measurements'] = hparams['problem']['num_measurements'] * hparams['data']['num_channels'] #specified in number of pixels, but here we multiply by 3 since all color channels are kept
 
     elif hparams['problem']['measurement_type'] == 'identity':
         hparams['problem']['num_measurements'] = hparams['data']['n_input']
@@ -184,7 +184,7 @@ def parse_config(config_path):
         if hparams['problem']['fourier_mask_type'] != 'random':
             raise NotImplementedError("This Fourier mask type is not implemented yet!")
         else:
-            hparams['problem']['num_measurements'] = hparams['problem']['num_measurements'] * 3 #specified in number of pixels, but here we multiply by 3 since all color channels are kept
+            hparams['problem']['num_measurements'] = hparams['problem']['num_measurements'] * hparams['data']['num_channels'] #specified in number of pixels, but here we multiply by 3 since all color channels are kept
 
     hparams['problem']['y_shape'] = (hparams['problem']['num_measurements'])
 

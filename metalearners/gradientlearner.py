@@ -61,7 +61,7 @@ class GBML:
             #TODO checkpointing
 
             #validate
-            if iter % self.hparams.opt.val_iters == 0:
+            if (iter + 1) % self.hparams.opt.val_iters == 0:
                 self._run_validation()
                 self._add_metrics_to_tb("val")
             
@@ -71,11 +71,11 @@ class GBML:
 
             self.global_epoch += 1
 
-        #use the best c we discovered 
-        if self.hparams.gpu_num != -1:
-            self.langevin_runner.set_c(self.best_c)
-        else:
-            self.langevin_runner.module.set_c(self.best_c)
+        if not self.hparams.outer.reg_hyperparam:
+            if self.hparams.gpu_num != -1:
+                self.langevin_runner.set_c(self.best_c)
+            else:
+                self.langevin_runner.module.set_c(self.best_c)
 
         #test
         self._run_test()
@@ -340,6 +340,14 @@ class GBML:
         c_type = self.hparams.outer.hyperparam_type
         m = self.hparams.problem.num_measurements
         init_val = float(self.hparams.outer.hyperparam_init)
+
+        #see if we would like to couple pixels during training
+        #NOTE: have not tried this with matrix yet!
+        if self.hparams.outer.couple_pixels:
+            m /= self.hparams.data.num_channels
+        #In Fourier, the real and imaginary values can get separate hyperparams
+        elif self.hparams.problem.measurement_type == "fourier":
+            m *= 2
 
         if c_type == 'scalar':
             c = torch.tensor(init_val)
