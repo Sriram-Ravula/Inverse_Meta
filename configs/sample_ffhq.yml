@@ -96,7 +96,8 @@ inner:
 
 problem:
  measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
- 
+ learn_samples: false #whether the problem is one of learning samples; not usable for gaussian or inpaint
+
  num_measurements: 5000 #number of measurements for gaussian and fourier, or for random inpainting
  #fourier_mask_type: 'radial' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
  #downsample_factor: 16 #factor to downsample each side of the image
