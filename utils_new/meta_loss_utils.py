@@ -3,7 +3,7 @@ import torch
 
 def l2_loss(x_hat, x_true, reduce_dims=None):
     if reduce_dims is None:
-        reduce_dims = x_hat.shape
+        reduce_dims = tuple(np.arange(len(x_hat.shape)))
     
     return 0.5 * torch.sum((x_hat - x_true)**2, reduce_dims)
 
