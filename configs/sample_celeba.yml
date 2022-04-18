@@ -77,11 +77,11 @@ inner:
  lr: 0.0000033 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'identity' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
- learn_samples: false #whether the problem is one of learning samples; not usable for gaussian or identity
+ measurement_type: 'fourier' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
+ learn_samples: true #whether the problem is one of learning samples; not usable for gaussian or identity
  sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random] 
  
- num_measurements: 1000 #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
+ num_measurements: 4096 #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
  #fourier_mask_type: 'radial' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
  #downsample_factor: 4 #factor to downsample each side of the image
  #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
