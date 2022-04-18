@@ -71,7 +71,7 @@ class GBML:
 
             self.global_epoch += 1
 
-        if not self.hparams.outer.reg_hyperparam:
+        if not (self.hparams.outer.reg_hyperparam or self.hparams.problem.learn_samples):
             if self.hparams.gpu_num != -1:
                 self.langevin_runner.set_c(self.best_c)
             else:
