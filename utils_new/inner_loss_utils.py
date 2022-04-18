@@ -61,7 +61,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
             c = c.unsqueeze(0).repeat(resid.shape[2], 1)
     
     #if there is a trailing 2 (Fourier) then match the dimensions to broadcast
-    if resid.shape[-1] != c.shape[-1]:
+    if c_type > 0 and resid.shape[-1] != c.shape[-1]:
         c = c.unsqueeze(-1)
 
     if c_type == 0:
