@@ -44,7 +44,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
         c = c_orig
     
     if reduce_dims is None:
-        reduce_dims = y.shape
+        reduce_dims = tuple(np.arange(len(y.shape)))
     
     #[N, m] or [N, 2m] (fourier)
     #learn_samples: [N, C, H//D, W//D] (superres), [N, C, H, W] (inpaint), [N, C, H, W, 2] (fourier)
@@ -62,7 +62,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
     
     #if there is a trailing 2 (Fourier) then match the dimensions to broadcast
     if resid.shape[-1] != c.shape[-1]:
-        c.unsqueeze(-1)
+        c = c.unsqueeze(-1)
 
     if c_type == 0:
         loss = scale * c * 0.5 * torch.sum(resid ** 2, reduce_dims) #(c/2) ||Ax - y||^2
