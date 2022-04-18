@@ -10,7 +10,9 @@ class InpaintingOperator(ForwardOperator):
     def forward(self, x, targets=False):
         if self.hparams.problem.efficient_inp:
             Ax = self.A_mask * x #[N, C, H, W]
-            Ax = Ax.flatten(start_dim=1)[:, self.kept_inds] #[N, m]
+            if not self.hparams.problem.learn_samples:
+                Ax = Ax.flatten(start_dim=2)[:, :, self.kept_inds] #[N, C, m // C]
+                Ax = Ax.flatten(start_dim=1) #[N, m]
         else:
             Ax = torch.mm(self.A_linear, torch.flatten(x, start_dim=1).T).T #[N, m]
         
@@ -82,8 +84,8 @@ class InpaintingOperator(ForwardOperator):
         
         if targets:
             orig_shape = x.shape
-            Ax = Ax.flatten(start_dim=1) #[N, n] - flatten to add noise
-            Ax[:, self.kept_inds] = self.add_noise(Ax[:, self.kept_inds]) #only apply noise to relevant [N, m]
+            Ax = Ax.flatten(start_dim=2)
+            Ax[:, :, self.kept_inds] = self.add_noise(Ax[:, :, self.kept_inds]) #only apply noise to relevant [N, m]
             Ax = Ax.view(orig_shape) #[N, C, H, W]
 
         return Ax

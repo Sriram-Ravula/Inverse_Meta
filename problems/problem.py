@@ -27,10 +27,7 @@ class ForwardOperator(torch.nn.Module):
         self.register_buffer('kept_inds', self._make_kept_inds())
 
         self.noisy = self.hparams.problem.add_noise
-        if self.hparams.problem.add_noise and self.hparams.problem.noise_type == 'gaussian_nonwhite':
-            self.register_buffer('noise_vars', torch.rand(self.hparams.problem.y_shape))
-        else:
-            self.register_buffer('noise_vars', None)
+        self.register_buffer('noise_vars', self._make_noise())
     
     def get_A(self):
         return self.A_linear
@@ -43,6 +40,14 @@ class ForwardOperator(torch.nn.Module):
     
     def get_kept_inds(self):
         return self.kept_inds
+    
+    def _make_noise(self):
+        if self.hparams.problem.add_noise and self.hparams.problem.noise_type == 'gaussian_nonwhite':
+            noise_vars = torch.rand(self.hparams.problem.num_measurements)
+        else:
+            noise_vars = None
+        
+        return noise_vars
 
     def _make_A(self):
         """
@@ -55,17 +60,12 @@ class ForwardOperator(torch.nn.Module):
     def _make_kept_inds(self):
         """
         Returns the nonzero indices in A_mask, flattened. 
-        Assumes the input x will have shape [C, H, W] 
+        Assumes the mask is 2D. 
         """
         if self.A_mask is None:
             return None
 
-        #if the binary mask is only two-dimensional [H, W] and the images are 3-dimensional [C, H, W],
-        #we need to properly resize the mask to give the correct indices
-        if len(self.A_mask.shape) < len(self.hparams.data.image_shape): 
-            kept_inds = (self.A_mask.unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1).flatten()>0).nonzero(as_tuple=False).flatten()
-        else:
-            kept_inds = (self.A_mask.flatten()>0).nonzero(as_tuple=False).flatten()
+        kept_inds = (self.A_mask.flatten()>0).nonzero(as_tuple=False).flatten()
         
         return kept_inds
     
@@ -111,13 +111,13 @@ class ForwardOperator(torch.nn.Module):
         """
         if self.noisy:
             if self.hparams.problem.noise_type == 'gaussian':
-                noise = torch.randn(self.hparams.problem.y_shape).type_as(Ax) * self.hparams.problem.noise_std
+                noise = torch.randn(self.hparams.problem.num_measurements).type_as(Ax) * self.hparams.problem.noise_std
             elif self.hparams.problem.noise_type == 'gaussian_nonwhite': 
-                noise = torch.randn(self.hparams.problem.y_shape).type_as(Ax) * self.hparams.problem.noise_std * self.noise_vars.type_as(Ax)
+                noise = torch.randn(self.hparams.problem.num_measurements).type_as(Ax) * self.hparams.problem.noise_std * self.noise_vars.type_as(Ax)
             else:
                 raise NotImplementedError('unsupported type of additive noise')
         
-            return Ax + noise
+            return Ax + noise.view(Ax.shape[1:])
         else:
             return Ax
 

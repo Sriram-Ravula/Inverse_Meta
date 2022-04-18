@@ -115,21 +115,12 @@ def parse_config(config_path):
 
     #OUTER
     #check meta learning type
-    if hparams['outer']['meta_type'] not in ['implicit', 'maml', 'mle']:
+    if hparams['outer']['meta_type'] != 'mle':
         raise NotImplementedError("This Meta Learning Algorithm has not been implemented yet!")
     
-    if hparams['outer']['meta_loss_type'] != 'l2' or hparams['outer']['measurement_loss']:
+    if hparams['outer']['meta_loss_type'] != 'l2':
         raise NotImplementedError("This Meta Loss has not been implemented yet!")
 
-    #automatically set ROI to a region if not specified
-    if hparams['outer']['ROI_loss'] and not isinstance(hparams['outer']['ROI'], tuple):
-        if hparams['data']['dataset'] == "celeba":
-            hparams['outer']['ROI'] = ((27, 15),(35, 35))
-        elif hparams['data']['dataset'] == "ffhq":
-            hparams['outer']['ROI'] = ((90, 50),(60, 156))
-        else:
-            raise NotImplementedError("You must provide an ROI for this dataset")
-    
     #set reg hyperparam stuff
     if not hparams['outer']['reg_hyperparam']:
         hparams['outer']['reg_hyperparam_type'] = None
@@ -137,10 +128,16 @@ def parse_config(config_path):
     else:
         if hparams['outer']['reg_hyperparam_type'] != 'l1':
             raise NotImplementedError("This Meta Regularization term has not been implemented yet!")
-    
-    #set finite difference stuff
-    if not hparams['outer']['finite_difference']:
-        hparams['outer']['finite_difference_coeff'] = None
+
+    #automatically set ROI to a region if not specified
+    #TODO implement ROI!
+    if hparams['outer']['ROI_loss'] and not isinstance(hparams['outer']['ROI'], tuple):
+        if hparams['data']['dataset'] == "celeba":
+            hparams['outer']['ROI'] = ((27, 15),(35, 35))
+        elif hparams['data']['dataset'] == "ffhq":
+            hparams['outer']['ROI'] = ((90, 50),(60, 156))
+        else:
+            raise NotImplementedError("You must provide an ROI for this dataset")
 
     #OPT
     #check if opt supported
@@ -168,8 +165,14 @@ def parse_config(config_path):
         raise NotImplementedError("This forward operator has not been implemented")
 
     #do problem-specific stuff
+    #num measurements will refer to the number of total measurements (i.e. including each channel as a separate meas)
+    #y_shape will refer to the shape of the measurements during training time
     if hparams['problem']['measurement_type'] == 'superres':
-        hparams['problem']['num_measurements'] = hparams['data']['num_channels'] * (hparams['data']['image_size']//hparams['problem']['downsample_factor'])**2
+        new_size = hparams['data']['image_size'] // hparams['problem']['downsample_factor']
+        hparams['problem']['num_measurements'] = hparams['data']['num_channels'] * (new_size**2)
+
+    elif hparams['problem']['measurement_type'] == 'identity':
+        hparams['problem']['num_measurements'] = hparams['data']['n_input']
 
     elif hparams['problem']['measurement_type'] == 'inpaint':
         if not hparams['problem']['inpaint_random']:
@@ -177,16 +180,37 @@ def parse_config(config_path):
         else:
             hparams['problem']['num_measurements'] = hparams['problem']['num_measurements'] * hparams['data']['num_channels'] #specified in number of pixels, but here we multiply by 3 since all color channels are kept
 
-    elif hparams['problem']['measurement_type'] == 'identity':
-        hparams['problem']['num_measurements'] = hparams['data']['n_input']
-
     elif hparams['problem']['measurement_type'] == 'fourier':
         if hparams['problem']['fourier_mask_type'] != 'random':
             raise NotImplementedError("This Fourier mask type is not implemented yet!")
         else:
             hparams['problem']['num_measurements'] = hparams['problem']['num_measurements'] * hparams['data']['num_channels'] #specified in number of pixels, but here we multiply by 3 since all color channels are kept
 
-    hparams['problem']['y_shape'] = (hparams['problem']['num_measurements'])
+    #make y shape (Gaussian is well-behaved and needs no specifics)
+    if hparams['problem']['measurement_type'] != 'fourier':
+        hparams['problem']['y_shape'] = (hparams['problem']['num_measurements'])
+    else:
+        hparams['problem']['y_shape'] = (hparams['problem']['num_measurements'] * 2)
+    
+    #deal with sampling and coupling of pixels
+    if hparams['problem']['learn_samples']:
+        if hparams['problem']['measurement_type'] not in ['superres', 'inpaint', 'fourier']:
+            raise NotImplementedError("Sample selection not supported for chosen measurement type!")
+        elif hparams['outer']['hyperparam_type'] != "vector":
+            raise NotImplementedError("Sample selection must use a vector hyperparam")
+
+        if hparams['problem']['measurement_type'] in ['inpaint', 'fourier']:
+            hparams['problem']['num_measurements'] = hparams['data']['n_input']
+        
+        if hparams['problem']['measurement_type'] == 'superres':
+            hparams['problem']['y_shape'] = (hparams['data']['num_channels'], new_size, new_size)
+        elif hparams['problem']['measurement_type'] == 'inpaint':
+            hparams['problem']['y_shape'] = hparams['data']['image_shape']
+        elif hparams['problem']['measurement_type'] == 'fourier':
+            hparams['problem']['y_shape'] = hparams['data']['image_shape'] + (2,) #2 at the end for real/im
+        
+        if hparams['problem']['sample_pattern'] not in ['horizontal', 'vertical', 'random']:
+            raise NotImplementedError("Given sample pattern not implemented!")
 
     #deal with noise params
     if not hparams['problem']['add_noise']:
@@ -198,7 +222,6 @@ def parse_config(config_path):
     hparams['problem']['add_dependent_noise'] = False
     hparams['problem']['dependent_noise_type'] = None
     hparams['problem']['dependent_noise_std'] = None
-
 
     #create namespace, print, and wrap up
     HPARAMS = dict2namespace(hparams)

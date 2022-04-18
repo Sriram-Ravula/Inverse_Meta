@@ -191,12 +191,12 @@ class GBML:
         """
         Adds metrics for a single batch to the metrics object.
         """
-        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, reduce_dims=(1)) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
-        weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 
+        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=y.shape[1:]) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
+        weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 2.,
                                                       exp_params=self.hparams.outer.exp_params, 
-                                                      reduce_dims=(1), 
-                                                      couple_pixels=self.hparams.outer.couple_pixels,
-                                                      problem_type=self.hparams.problem.measurement_type) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
+                                                      reduce_dims=y.shape[1:], 
+                                                      learn_samples=self.hparams.problem.learn_samples,
+                                                      sample_pattern=self.hparams.problem.sample_pattern) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
         all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c, 
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
@@ -284,7 +284,6 @@ class GBML:
         grad_x_meta_loss, grad_c_meta_loss = get_meta_grad(x_hat=x_hat,
                                                             x_true=x,
                                                             c = self.c,
-                                                            measurement_loss=self.hparams.outer.measurement_loss,
                                                             meta_loss_type=self.hparams.outer.meta_loss_type,
                                                             reg_hyperparam=self.hparams.outer.reg_hyperparam,
                                                             reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
@@ -297,9 +296,9 @@ class GBML:
         self.c.requires_grad_()
         
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd, 
-                                            exp_params=self.hparams.outer.exp_params, retain_graph=True, 
-                                            create_graph=True, couple_pixels=self.hparams.outer.couple_pixels,
-                                            problem_type=self.hparams.problem.measurement_type) #gradient of likelihood loss (with hyperparam) w.r.t image
+                                            exp_params=self.hparams.outer.exp_params, 
+                                            retain_graph=True, 
+                                            create_graph=True)
         
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
@@ -325,13 +324,13 @@ class GBML:
 
     def _init_c(self):
         """
-        Initializes the hyperparameters as a scalar, vector, or matrix.
+        Initializes the hyperparameters as a scalar or vector.
 
         Args:
             hparams: The experiment parameters to use for init.
                     Type: Namespace.
                     Expected to have the consituents:
-                        hparams.outer.hyperparam_type - str in [scalar, vector, matrix]
+                        hparams.outer.hyperparam_type - str in [scalar, vector]
                         hparams.problem.num_measurements - int
                         hparams.outer.hyperparam_init - int or float
         
@@ -340,26 +339,23 @@ class GBML:
             Type: Tensor.
             Shape: [] for scalar hyperparam
                     [m] for vector hyperparam
-                    [m,m] for matrix hyperparam
         """
         c_type = self.hparams.outer.hyperparam_type
         m = self.hparams.problem.num_measurements
         init_val = float(self.hparams.outer.hyperparam_init)
 
-        #see if we would like to couple pixels during training
-        #NOTE: have not tried this with matrix yet!
-        if self.hparams.outer.couple_pixels:
-            m = m // self.hparams.data.num_channels
-        #In Fourier, the real and imaginary values can get separate hyperparams
+        #see if we would like to learn a sampling pattern during training
+        if self.hparams.problem.learn_samples:
+            m = m // self.hparams.data.num_channels 
+            if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                m = int(np.sqrt(m)) #sqrt instead of dividing by image size to account for superres
         elif self.hparams.problem.measurement_type == "fourier":
-            m *= 2
+            m = m * 2 #for real and imaginary
 
         if c_type == 'scalar':
             c = torch.tensor(init_val)
         elif c_type == 'vector':
             c = torch.ones(m) * init_val
-        elif c_type == 'matrix':
-            c = torch.eye(m) * init_val
         else:
             raise NotImplementedError("Hyperparameter type not supported")
 

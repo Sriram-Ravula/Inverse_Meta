@@ -10,7 +10,6 @@ from ncsnv2.models import get_sigmas
 
 from utils_new.exp_utils import dict2namespace
 from utils_new.inner_loss_utils import log_cond_likelihood_loss, get_likelihood_grad
-from problems import get_forward_operator, problem
 
 class SGLD_NCSNv2(torch.nn.Module):
     def __init__(self, hparams, c, A):
@@ -65,8 +64,8 @@ class SGLD_NCSNv2(torch.nn.Module):
                 prior_grad = self.model(x_mod, labels)
 
                 likelihood_grad = get_likelihood_grad(self.c, y, self.A, x_mod, self.hparams.use_autograd,\
-                                    1/(sigma**2), self.hparams.outer.exp_params, couple_pixels=self.hparams.outer.couple_pixels,
-                                    problem_type=self.hparams.problem.measurement_type)
+                                    1/(sigma**2), self.hparams.outer.exp_params, learn_samples=self.hparams.problem.learn_samples,
+                                    sample_pattern=self.hparams.problem.sample_pattern)
 
                 grad = prior_grad - likelihood_grad
 
@@ -81,7 +80,8 @@ class SGLD_NCSNv2(torch.nn.Module):
                         prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
                         likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                         grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
-                        likelihood_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_mod, reduce_dims=(1)).mean()
+                        likelihood_loss = log_cond_likelihood_loss(self.c, y, self.A, x_mod, 2., self.hparams.outer.exp_params, 
+                                            y.shape[1:], self.hparams.problem.learn_samples, self.hparams.problem.sample_pattern).mean().item()
 
                         print(fmtstr % (t, step_size, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
         

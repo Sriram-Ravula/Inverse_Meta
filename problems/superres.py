@@ -23,7 +23,11 @@ class SuperresOperator(ForwardOperator):
     
     def forward(self, x, targets=False):
         Ax = F.avg_pool2d(x, self.hparams.problem.downsample_factor) #[N, C, H//downsample, W//downsample]
-        Ax = Ax.flatten(start_dim=1) #[N, m]
+
+        #If we are learning samples, want to return [N, C, new_H, new_W]
+        #Else, flatten
+        if not self.hparams.problem.learn_samples:
+            Ax = Ax.flatten(start_dim=1) #[N, m]
 
         if targets:
             Ax = self.add_noise(Ax)
@@ -40,6 +44,6 @@ class SuperresOperator(ForwardOperator):
     
     @torch.no_grad()
     def get_measurements_image(self, x, targets=False):
-        Ax = self.forward(x, targets) #[N, m]
+        Ax = self.forward(x, targets)
 
         return self.adjoint(Ax) #[N, C, H, W]

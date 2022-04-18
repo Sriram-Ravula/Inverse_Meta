@@ -3,19 +3,17 @@ import torch
 
 def l2_loss(x_hat, x_true, reduce_dims=None):
     if reduce_dims is None:
-        reduce_dims = (0, 1, 2, 3)
+        reduce_dims = x_hat.shape
     
     return 0.5 * torch.sum((x_hat - x_true)**2, reduce_dims)
 
 def l1_loss(c, scale=1.):
     return scale * torch.norm(c, p=1)
 
-def meta_loss(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=False, \
+def meta_loss(x_hat, x_true, reduce_dims=None, c=None,
     meta_loss_type='l2', reg_hyperparam=False, reg_hyperparam_type='l1', reg_hyperparam_scale=1,
     ROI_loss=False, ROI=None):
 
-    if measurement_loss:
-        raise NotImplementedError("Meta measurement loss not supported!")
     if ROI_loss:
         raise NotImplementedError("Meta ROI loss not supported!")
     
@@ -34,7 +32,7 @@ def meta_loss(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=False, \
     
     return [loss_1, loss_2, loss_1+loss_2] #1st term is fidelity, 2nd is regularization, last is total
 
-def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=False, \
+def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, \
     meta_loss_type='l2', reg_hyperparam=False, reg_hyperparam_type='l1', reg_hyperparam_scale=1,
     ROI_loss=False, ROI=None, use_autograd=True, retain_graph=False, create_graph=False):
     
@@ -43,7 +41,7 @@ def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=Fals
     
     grad_flag_x = x_hat.requires_grad
     x_hat.requires_grad_()
-    meta_grad_x = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, measurement_loss, meta_loss_type,\
+    meta_grad_x = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, meta_loss_type,\
                                              reg_hyperparam, reg_hyperparam_type, reg_hyperparam_scale, ROI_loss, ROI)[-1], 
                                     x_hat, retain_graph=retain_graph, create_graph=create_graph)[0]
     x_hat.requires_grad_(grad_flag_x)
@@ -51,7 +49,7 @@ def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, measurement_loss=Fals
     if reg_hyperparam:
         grad_flag_c = c.requires_grad
         c.requires_grad_()
-        meta_grad_c = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, measurement_loss, meta_loss_type,\
+        meta_grad_c = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, meta_loss_type,\
                                                 reg_hyperparam, reg_hyperparam_type, reg_hyperparam_scale, ROI_loss, ROI)[-1], 
                                         c, retain_graph=retain_graph, create_graph=create_graph)[0]
         c.requires_grad_(grad_flag_c)
