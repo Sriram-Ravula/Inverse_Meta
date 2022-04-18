@@ -298,7 +298,9 @@ class GBML:
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd, 
                                             exp_params=self.hparams.outer.exp_params, 
                                             retain_graph=True, 
-                                            create_graph=True)
+                                            create_graph=True,
+                                            learn_samples=self.hparams.problem.learn_samples,
+                                            sample_pattern=self.hparams.problem.sample_pattern)
         
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
