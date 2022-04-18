@@ -51,6 +51,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
     Ax = A(x, targets=False)
     resid = Ax - y
 
+    #we need to reshape the hyperparameters to be [H, W] (or [H//D, W//D] for superres)
     if learn_samples:
         if sample_pattern == 'random':
             c = c.view(resid.shape[2:4])
@@ -58,6 +59,10 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
             c = c.unsqueeze(1).repeat(1, resid.shape[3])
         elif sample_pattern == 'vertical':
             c = c.unsqueeze(0).repeat(resid.shape[2], 1)
+    
+    #if there is a trailing 2 (Fourier) then match the dimensions to broadcast
+    if resid.shape[-1] != c.shape[-1]:
+        c.unsqueeze(-1)
 
     if c_type == 0:
         loss = scale * c * 0.5 * torch.sum(resid ** 2, reduce_dims) #(c/2) ||Ax - y||^2
