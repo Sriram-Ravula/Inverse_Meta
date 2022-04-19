@@ -219,7 +219,7 @@ class GBML:
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
 
-        if self.hparams.problem.learn_samples:
+        if self.hparams.problem.learn_samples and iter_type == "train":
             if self.hparams.problem.sample_pattern == 'random':
                 c = self.c.view(y.shape[2:4])
             elif self.hparams.problem.sample_pattern == 'horizontal':
@@ -237,7 +237,7 @@ class GBML:
             self._add_tb_images(c_out, "Learned Mask")
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
-            self._save_images(c_out, torch.tensor([0, 1]), c_path)
+            self._save_images(c_out, torch.tensor([self.global_epoch*2, self.global_epoch*2 + 1]), c_path)
 
         meas_images = self.A.get_measurements_image(x, targets=True)
 
@@ -424,6 +424,10 @@ class GBML:
 
         self.opt =  meta_opt
         self.scheduler = meta_scheduler
+    
+    def _checkpoint(self):
+
+        return
 
     def _make_log_folder(self):
         if not self.hparams.debug:
