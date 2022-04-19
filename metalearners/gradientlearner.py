@@ -14,7 +14,7 @@ from algorithms.sgld import SGLD_NCSNv2
 from problems import get_forward_operator
 from datasets import get_dataset, split_dataset
 
-from utils_new.exp_utils import save_images
+from utils_new.exp_utils import save_images, save_to_pickle
 from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.meta_loss_utils import meta_loss, get_meta_grad
 from utils_new.inner_loss_utils import get_likelihood_grad, log_cond_likelihood_loss
@@ -58,7 +58,9 @@ class GBML:
 
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.opt.num_iters)):
-            #TODO checkpointing
+            #checkpoint
+            if (iter + 1) % self.hparams.opt.checkpoint_iters == 0:
+                self._checkpoint()
 
             #validate
             if (iter + 1) % self.hparams.opt.val_iters == 0:
@@ -81,7 +83,9 @@ class GBML:
         self._run_test()
         self._add_metrics_to_tb("test")
 
-        #TODO checkpointing
+        #checkpoint
+        if (iter + 1) % self.hparams.opt.checkpoint_iters == 0:
+            self._checkpoint()
 
     def _run_outer_step(self):
         """
@@ -426,6 +430,29 @@ class GBML:
         self.scheduler = meta_scheduler
     
     def _checkpoint(self):
+        save_dict = {
+            "c": self.c,
+            "c_list": self.c_list,
+            "best_c": self.best_c,
+            "global_epoch": self.global_epoch,
+            "opt_state": self.meta_opt.state_dict(),
+            "scheduler_state": self.meta_scheduler.state_dict() if self.meta_scheduler is not None else None
+        }
+
+        metrics_dict = {
+            'train_metrics': self.metrics.train_metrics,
+            'val_metrics': self.metrics.val_metrics,
+            'test_metrics': self.metrics.test_metrics,
+            'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
+            'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
+            'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
+            'best_train_metrics': self.metrics.best_train_metrics,
+            'best_val_metrics': self.metrics.best_val_metrics,
+            'best_test_metrics': self.metrics.best_test_metrics
+        }
+
+        save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
+        save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
 
         return
 
