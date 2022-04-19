@@ -47,13 +47,13 @@ outer:
 
  reg_hyperparam: true 
  reg_hyperparam_type: 'l1'
- reg_hyperparam_scale: 0.01 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
+ reg_hyperparam_scale: 1 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
 
  ROI_loss: false
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
 
 opt:
-  num_iters: 10 #number of meta iterations to run
+  num_iters: 50 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.1 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
@@ -62,7 +62,7 @@ opt:
   lr_decay: 0.95 #exponential weight decay rate.
   decay_on_val: true #only relevant if decay=True
 
-  val_iters: 2 #validate every n iterations
+  val_iters: 10 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
 inner:
