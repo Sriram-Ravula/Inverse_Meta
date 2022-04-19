@@ -435,8 +435,8 @@ class GBML:
             "c_list": self.c_list,
             "best_c": self.best_c,
             "global_epoch": self.global_epoch,
-            "opt_state": self.meta_opt.state_dict(),
-            "scheduler_state": self.meta_scheduler.state_dict() if self.meta_scheduler is not None else None
+            "opt_state": self.opt.state_dict(),
+            "scheduler_state": self.scheduler.state_dict() if self.meta_scheduler is not None else None
         }
 
         metrics_dict = {
