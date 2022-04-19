@@ -219,6 +219,26 @@ class GBML:
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
 
+        if self.hparams.problem.learn_samples:
+            if self.hparams.problem.sample_pattern == 'random':
+                c = self.c.view(y.shape[2:4])
+            elif self.hparams.problem.sample_pattern == 'horizontal':
+                c = self.c.unsqueeze(1).repeat(1, y.shape[3])
+            elif self.hparams.problem.sample_pattern == 'vertical':
+                c = self.c.unsqueeze(0).repeat(y.shape[2], 1)
+
+            c = c.unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1)
+            c_vis = torch.zeros_like(c)
+            c_vis[c > 0] = 1
+            c_out = torch.stack([c, c_vis])
+
+            c_path = os.path.join(self.image_root, "learned_masks")
+
+            self._add_tb_images(c_out, "Learned Mask")
+            if not os.path.exists(c_path):
+                os.makedirs(c_path)
+            self._save_images(c_out, torch.tensor([0, 1]), c_path)
+
         meas_images = self.A.get_measurements_image(x, targets=True)
 
         true_path = os.path.join(self.image_root, iter_type)
@@ -229,17 +249,20 @@ class GBML:
             recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
         
         self._add_tb_images(x_hat, "recovered " + iter_type + " images")
-        os.makedirs(recovered_path)
+        if not os.path.exists(recovered_path):
+            os.makedirs(recovered_path)
         self._save_images(x_hat, x_idx, recovered_path)
 
         if iter_type == "test" or self.global_epoch == 0:
             self._add_tb_images(x, iter_type + " images")
-            os.makedirs(true_path)
+            if not os.path.exists(true_path):
+                os.makedirs(true_path)
             self._save_images(x, x_idx, true_path)
 
             if meas_images is not None:
                 self._add_tb_images(meas_images, iter_type + " measurements")
-                os.makedirs(meas_path)
+                if not os.path.exists(meas_path):
+                    os.makedirs(meas_path)
                 self._save_images(meas_images, x_idx, meas_path)
     
     def _opt_step(self, meta_grad):
@@ -263,6 +286,8 @@ class GBML:
 
         if not self.hparams.outer.exp_params:
             self.c.clamp_(min=0.)
+        if self.hparams.problem.learn_samples:
+            self.c.clamp_(max=1.)
         self.c_list.append(self.c.detach().clone().cpu())
     
         if (self.scheduler is not None) and (not self.hparams.opt.decay_on_val):
