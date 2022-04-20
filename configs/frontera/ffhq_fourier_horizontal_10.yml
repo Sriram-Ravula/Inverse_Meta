@@ -4,7 +4,7 @@ gpu_num: -1 #-1 means use all (DP mode)
 verbose: true 
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "/scratch1/04703/sravula/exp" #root of folder to save run information
+save_dir: "/scratch1/04703/sravula/meta_outs" #root of folder to save run information
 
 seed: 2022
 
