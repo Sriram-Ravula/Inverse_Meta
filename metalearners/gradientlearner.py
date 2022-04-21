@@ -265,10 +265,15 @@ class GBML:
             self._save_images(x, x_idx, true_path)
 
             if meas_images is not None:
-                self._add_tb_images(meas_images, iter_type + " measurements")
-                if not os.path.exists(meas_path):
-                    os.makedirs(meas_path)
-                self._save_images(meas_images, x_idx, meas_path)
+                if isinstance(meas_images, dict):
+                    for key, val in meas_images.items():
+                        self._add_tb_images(val, iter_type + key)
+                        self._save_images(val, [str(idx.item())+key for idx in x_idx], meas_path)
+                else:
+                    self._add_tb_images(meas_images, iter_type + " measurements")
+                    if not os.path.exists(meas_path):
+                        os.makedirs(meas_path)
+                    self._save_images(meas_images, x_idx, meas_path)
 
         elif self.hparams.problem.learn_samples and self.hparams.problem.measurement_type == "fourier":
             self._add_tb_images(x, iter_type + " images")

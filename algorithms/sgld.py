@@ -71,6 +71,7 @@ class SGLD_NCSNv2(torch.nn.Module):
                                     1/(sigma**2), self.hparams.outer.exp_params, learn_samples=self.hparams.problem.learn_samples,
                                     sample_pattern=self.hparams.problem.sample_pattern)
                 
+                #TODO rescale this to go sample-by-sample instead of just overall!
                 if self.renormalize:
                     likelihood_grad /= torch.norm( likelihood_grad )
                     likelihood_grad *= torch.norm( prior_grad )
