@@ -37,6 +37,10 @@ class SGLD_NCSNv2(torch.nn.Module):
             self.register_buffer('used_levels', torch.from_numpy(np.arange(len(self.sigmas))))
         self.add_noise = True if hparams.inner.alg == 'langevin' else False
 
+        self.renormalize = hparams.inner.renormalize #whether to re-scale the log likelihood gradient
+        if self.renormalize:
+            self.rescale_factor = hparams.inner.rescale_factor
+
         self.verbose = self.hparams.inner.verbose if self.hparams.verbose else False
 
         if hparams.outer.meta_type != 'mle':
@@ -66,6 +70,11 @@ class SGLD_NCSNv2(torch.nn.Module):
                 likelihood_grad = get_likelihood_grad(self.c, y, self.A, x_mod, self.hparams.use_autograd,\
                                     1/(sigma**2), self.hparams.outer.exp_params, learn_samples=self.hparams.problem.learn_samples,
                                     sample_pattern=self.hparams.problem.sample_pattern)
+                
+                if self.renormalize:
+                    likelihood_grad /= torch.norm( likelihood_grad )
+                    likelihood_grad *= torch.norm( prior_grad )
+                    likelihood_grad *= self.rescale_factor
 
                 grad = prior_grad - likelihood_grad
 

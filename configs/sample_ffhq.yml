@@ -69,6 +69,9 @@ inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
+ renormalize: True #whether to re-normalize the likelihood grad
+ rescale_factor: 5
+
  decimate: false 
  decimation_factor: 1 #factor to divide the number of noise levels by. Only relevant if decimate=True
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
