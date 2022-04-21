@@ -23,13 +23,13 @@ data:
  dataset: 'ffhq'
  data_path: "/scratch1/04703/sravula/meta_exp/datasets/ffhq" 
 
- num_train: 4
- num_val: 2
- num_test: 8
+ num_train: 8
+ num_val: 4
+ num_test: 16
 
- train_batch_size: 4
- val_batch_size: 2
- test_batch_size: 8
+ train_batch_size: 8
+ val_batch_size: 4
+ test_batch_size: 16
 
  image_size: 256
  num_channels: 3
@@ -47,7 +47,7 @@ outer:
 
  reg_hyperparam: true 
  reg_hyperparam_type: 'l1'
- reg_hyperparam_scale: 10 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
+ reg_hyperparam_scale: 1 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
 
  ROI_loss: false
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
@@ -62,12 +62,15 @@ opt:
   lr_decay: 0.95 #exponential weight decay rate.
   decay_on_val: true #only relevant if decay=True
 
-  val_iters: 10 #validate every n iterations
+  val_iters: 5 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
 inner:
  alg: 'map' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
+
+ renormalize: True #whether to re-normalize the likelihood grad
+ rescale_factor: 5
 
  decimate: false 
  decimation_factor: 1 #factor to divide the number of noise levels by. Only relevant if decimate=True
@@ -79,7 +82,7 @@ inner:
 problem:
  measurement_type: 'fourier' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
  learn_samples: true #whether the problem is one of learning samples; not usable for gaussian or identity
- sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
 
  num_measurements: 65536 #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
  fourier_mask_type: 'random' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
