@@ -1,3 +1,4 @@
+from cmath import phase
 import torch
 import torch.fft
 import numpy as np
@@ -109,12 +110,15 @@ class FourierOperator(ForwardOperator):
         return ans.view(-1, out_c, out_h, out_w) #[N, C, H, W]
 
     @torch.no_grad()
-    def get_measurements_image(self, x, targets=False):
+    def get_measurements_image(self, x, targets=False, c=None):
         """Returns the magnitude and phase fft image as well as reconstruction from subsampled fft coeffs"""
         orig_shape = list(x.shape) #[N, C, H, W]
         orig_shape.append(2) #to account for complex operations
 
-        Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
+        if c is None:
+            Ax = self.A_mask * self.fft(x) #[N, C, H, W] torch.complex64
+        else:
+            Ax = c * self.fft(x) #[N, C, H, W] torch.complex64
         Ax = torch.view_as_real(Ax) #[N, C, H, W, 2] torch float32
         Ax = Ax.flatten(start_dim=2, end_dim=-2) #[N, C, HW, 2]
 
@@ -124,8 +128,12 @@ class FourierOperator(ForwardOperator):
         Ax = Ax.view(orig_shape) #[N, C, H, W, 2]
         Ax = torch.view_as_complex(Ax) #[N, C, H, W]
         
-        #mag_img = torch.abs(Ax)
-        #phase_img = torch.angle(Ax)
+        mag_img = torch.abs(Ax)
+        phase_img = torch.angle(Ax)
         inverted_img = torch.abs(self.ifft(Ax))
+
+        out_dict = {"Mag": mag_img,
+                    "Phase": phase_img,
+                    "Inverted": inverted_img}
         
-        return inverted_img #mag_img, phase_img, inverted_img
+        return out_dict
