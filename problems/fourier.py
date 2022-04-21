@@ -128,11 +128,11 @@ class FourierOperator(ForwardOperator):
         Ax = torch.view_as_complex(Ax) #[N, C, H, W]
         
         mag_img = torch.abs(Ax)
-        phase_img = torch.angle(Ax)
+        #phase_img = torch.angle(Ax)
         inverted_img = torch.abs(self.ifft(Ax))
 
         out_dict = {"Mag": mag_img,
-                    "Phase": phase_img,
+                    #"Phase": phase_img,
                     "Inverted": inverted_img}
         
         return out_dict

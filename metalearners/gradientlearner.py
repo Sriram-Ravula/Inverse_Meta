@@ -59,11 +59,11 @@ class GBML:
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.opt.num_iters)):
             #checkpoint
-            if (iter + 1) % self.hparams.opt.checkpoint_iters == 0:
+            if iter % self.hparams.opt.checkpoint_iters == 0:
                 self._checkpoint()
 
             #validate
-            if (iter + 1) % self.hparams.opt.val_iters == 0:
+            if iter % self.hparams.opt.val_iters == 0:
                 self._run_validation()
                 self._add_metrics_to_tb("val")
             
@@ -247,7 +247,7 @@ class GBML:
         meas_images = self.A.get_measurements_image(x, targets=True)
 
         true_path = os.path.join(self.image_root, iter_type)
-        meas_path = os.path.join(self.image_root, iter_type + "_meas")
+        meas_path = os.path.join(self.image_root, iter_type + "_meas", "epoch_"+str(self.global_epoch))
         if iter_type == "test":
             recovered_path = os.path.join(self.image_root, iter_type + "_recon")
         else:
@@ -267,7 +267,7 @@ class GBML:
             if meas_images is not None:
                 if not os.path.exists(meas_path):
                     os.makedirs(meas_path)
-                    
+
                 if isinstance(meas_images, dict):
                     for key, val in meas_images.items():
                         self._add_tb_images(val, iter_type + key)
@@ -277,11 +277,6 @@ class GBML:
                     self._save_images(meas_images, x_idx, meas_path)
 
         elif self.hparams.problem.learn_samples and self.hparams.problem.measurement_type == "fourier":
-            self._add_tb_images(x, iter_type + " images")
-            if not os.path.exists(true_path):
-                os.makedirs(true_path)
-            self._save_images(x, x_idx, true_path)
-
             #Now we want all the images from the sampling
             if not os.path.exists(meas_path):
                 os.makedirs(meas_path)
