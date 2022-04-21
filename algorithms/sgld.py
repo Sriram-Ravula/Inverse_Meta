@@ -73,7 +73,7 @@ class SGLD_NCSNv2(torch.nn.Module):
                 
                 #TODO rescale this to go sample-by-sample instead of just overall!
                 if self.renormalize:
-                    likelihood_grad /= torch.norm( likelihood_grad )
+                    likelihood_grad /= (torch.norm( likelihood_grad ) + 1e-6) #small epsilon to prevent div by 0
                     likelihood_grad *= torch.norm( prior_grad )
                     likelihood_grad *= self.rescale_factor
 
