@@ -223,7 +223,7 @@ class GBML:
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
 
-        if self.hparams.problem.learn_samples and iter_type == "train":
+        if self.hparams.problem.learn_samples:
             if self.hparams.problem.sample_pattern == 'random':
                 c = self.c.view(y.shape[2:4])
             elif self.hparams.problem.sample_pattern == 'horizontal':
@@ -233,15 +233,16 @@ class GBML:
 
             c = c.unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1)
             c_vis = torch.zeros_like(c)
-            c_vis[c > 0] = 1
+            c_vis[c > 0] = 1.0
             c_out = torch.stack([c, c_vis])
 
-            c_path = os.path.join(self.image_root, "learned_masks")
+            if iter_type == "train":
+                c_path = os.path.join(self.image_root, "learned_masks")
 
-            self._add_tb_images(c_out, "Learned Mask")
-            if not os.path.exists(c_path):
-                os.makedirs(c_path)
-            self._save_images(c_out, torch.tensor([self.global_epoch*2, self.global_epoch*2 + 1]), c_path)
+                self._add_tb_images(c_out, "Learned Mask")
+                if not os.path.exists(c_path):
+                    os.makedirs(c_path)
+                self._save_images(c_out, ["Actual_" + str(self.global_epoch), "Thresh_" + str(self.global_epoch)], c_path)
 
         meas_images = self.A.get_measurements_image(x, targets=True)
 
@@ -268,6 +269,27 @@ class GBML:
                 if not os.path.exists(meas_path):
                     os.makedirs(meas_path)
                 self._save_images(meas_images, x_idx, meas_path)
+
+        elif self.hparams.problem.learn_samples and self.hparams.problem.measurement_type == "fourier":
+            self._add_tb_images(x, iter_type + " images")
+            if not os.path.exists(true_path):
+                os.makedirs(true_path)
+            self._save_images(x, x_idx, true_path)
+
+            #Now we want all the images from the sampling
+            meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_vis)
+
+            for key, val in meas_images.items():
+                self._add_tb_images(val, iter_type + key)
+                if not os.path.exists(meas_path):
+                    os.makedirs(meas_path)
+                self._save_images(meas_images, [str(idx.item())+key for idx in x_idx], meas_path)
+
+            for key, val in meas_images_masked.items():
+                self._add_tb_images(val, iter_type + key + "_mask")
+                if not os.path.exists(meas_path):
+                    os.makedirs(meas_path)
+                self._save_images(meas_images, [str(idx.item())+key+"_mask" for idx in x_idx], meas_path)
     
     def _opt_step(self, meta_grad):
         """

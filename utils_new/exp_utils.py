@@ -20,7 +20,14 @@ def save_image(image, path):
 def save_images(images, labels, save_prefix):
     """Save a batch of images (in a dictionary) to png files"""
     for image_num, image in zip(labels, images):
-        save_image(image, os.path.join(save_prefix, str(image_num.item())+'.png'))
+        if isinstance(image_num, torch.Tensor):
+            save_image(image, os.path.join(save_prefix, str(image_num.item())+'.png'))
+        elif isinstance(image_num, int):
+            save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
+        elif isinstance(image_num, str):
+            save_image(image, os.path.join(save_prefix, image_num+'.png'))
+        else:
+            raise NotImplementedError("Bad type given to save_images for labels.")
 
 def save_to_pickle(data, pkl_filepath):
     """Save the data to a pickle file"""
