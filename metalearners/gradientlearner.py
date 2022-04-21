@@ -277,19 +277,18 @@ class GBML:
             self._save_images(x, x_idx, true_path)
 
             #Now we want all the images from the sampling
+            if not os.path.exists(meas_path):
+                os.makedirs(meas_path)
+
             meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_vis)
 
             for key, val in meas_images.items():
                 self._add_tb_images(val, iter_type + key)
-                if not os.path.exists(meas_path):
-                    os.makedirs(meas_path)
-                self._save_images(meas_images, [str(idx.item())+key for idx in x_idx], meas_path)
+                self._save_images(val, [str(idx.item())+key for idx in x_idx], meas_path)
 
             for key, val in meas_images_masked.items():
                 self._add_tb_images(val, iter_type + key + "_mask")
-                if not os.path.exists(meas_path):
-                    os.makedirs(meas_path)
-                self._save_images(meas_images, [str(idx.item())+key+"_mask" for idx in x_idx], meas_path)
+                self._save_images(val, [str(idx.item())+key+"_mask" for idx in x_idx], meas_path)
     
     def _opt_step(self, meta_grad):
         """
