@@ -158,7 +158,7 @@ class GBML:
                 LR_OLD = self.opt.param_groups[0]['lr']
                 self.scheduler.step()
                 LR_NEW = self.opt.param_groups[0]['lr']
-                self._print_if_verbose("\nVAL LOSS HASN'T IMPORVED; DECAYING LR: ", LR_OLD, " --> ", LR_NEW)
+                self._print_if_verbose("\nVAL LOSS HASN'T IMPROVED; DECAYING LR: ", LR_OLD, " --> ", LR_NEW)
     
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
@@ -208,10 +208,20 @@ class GBML:
                                     reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
 
         extra_metrics_dict = {"real_meas_loss": real_meas_loss.cpu().numpy().flatten(),
-                                "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
-                                "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
-                                "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
-                                "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
+                              "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
+                              "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
+                              "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
+                              "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
+
+        if self.hparams.outer.reg_hyperparam:
+            sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
+            extra_metrics_dict["sparsity_level"] = np.array(sparsity_level.item())
+            extra_metrics_dict["c_min"] = np.array(torch.min(self.c).item())
+            extra_metrics_dict["c_max"] = np.array(torch.max(self.c).item())
+            extra_metrics_dict["c_mean"] = np.array(torch.mean(self.c).item())
+            extra_metrics_dict["c_std"] = np.array(torch.std(self.c).item())
+
+            self._add_histogram_to_tb(self.c, "C values")
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
@@ -223,6 +233,7 @@ class GBML:
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
 
+        #make and save visualisations of sampling masks
         if self.hparams.problem.learn_samples:
             if self.hparams.problem.sample_pattern == 'random':
                 c = self.c.view(y.shape[2:4])
@@ -230,22 +241,38 @@ class GBML:
                 c = self.c.unsqueeze(1).repeat(1, y.shape[3])
             elif self.hparams.problem.sample_pattern == 'vertical':
                 c = self.c.unsqueeze(0).repeat(y.shape[2], 1)
+            
+            #image where more red = higher, more blue = lower 
+            c_min = torch.min(c)
+            c_max = torch.max(c)
+            c_scaled = (c - c_min) / (c_max - c_min)
+            c_pos_neg = torch.zeros(3, c.shape[0], c.shape[1])
+            c_pos_neg[0, :, :] = c_scaled
+            c_pos_neg[2, :, :] = 1 - c_scaled
 
-            c = c.unsqueeze(0).repeat(self.hparams.data.num_channels, 1, 1)
-            c_vis = torch.zeros_like(c)
-            c_vis[c > 0] = 1.0
-            c_out = torch.stack([c, c_vis])
+            #image where more red = higher magnitude, more blue = lower magnitude
+            c_abs_max = torch.max(torch.abs(c))
+            c_abs_scaled = torch.abs(c) / c_abs_max
+            c_mag = torch.zeros(3, c.shape[0], c.shape[1])
+            c_mag[0, :, :] = c_abs_scaled
+            c_mag[2, :, :] = 1 - c_abs_scaled
+
+            #image where black = 0, white = nonzero
+            c_binary = torch.zeros_like(c)
+            c_binary[c != 0] = 1.0
+            c_binary = c_binary.unsqueeze(0).repeat(3, 1, 1)
 
             if iter_type == "train":
                 c_path = os.path.join(self.image_root, "learned_masks")
 
+                c_out = torch.stack([c_pos_neg, c_mag, c_binary])
                 self._add_tb_images(c_out, "Learned Mask")
                 if not os.path.exists(c_path):
                     os.makedirs(c_path)
-                self._save_images(c_out, ["Actual_" + str(self.global_epoch), "Thresh_" + str(self.global_epoch)], c_path)
-
-        meas_images = self.A.get_measurements_image(x, targets=True)
-
+                self._save_images(c_out, ["PosNeg_" + str(self.global_epoch), 
+                                          "Mag_" + str(self.global_epoch),
+                                          "Binary_" + str(self.global_epoch)], c_path)
+        #make paths
         true_path = os.path.join(self.image_root, iter_type)
         meas_path = os.path.join(self.image_root, iter_type + "_meas", "epoch_"+str(self.global_epoch))
         if iter_type == "test":
@@ -253,17 +280,21 @@ class GBML:
         else:
             recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
         
+        #save reconstruictions at every iteration
         self._add_tb_images(x_hat, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat, x_idx, recovered_path)
 
+        #we want to save ground truth images and corresponding measurements 
+        # just once each for train, val, and test
         if iter_type == "test" or self.global_epoch == 0:
             self._add_tb_images(x, iter_type + " images")
             if not os.path.exists(true_path):
                 os.makedirs(true_path)
             self._save_images(x, x_idx, true_path)
 
+            meas_images = self.A.get_measurements_image(x, targets=True)
             if meas_images is not None:
                 if not os.path.exists(meas_path):
                     os.makedirs(meas_path)
@@ -276,16 +307,12 @@ class GBML:
                     self._add_tb_images(meas_images, iter_type + " measurements")
                     self._save_images(meas_images, x_idx, meas_path)
 
-        elif self.hparams.problem.learn_samples and self.hparams.problem.measurement_type == "fourier":
-            #Now we want all the images from the sampling
+        #want to save masked measurements at every iteration
+        if self.hparams.problem.learn_samples and self.hparams.problem.measurement_type == "fourier":
             if not os.path.exists(meas_path):
                 os.makedirs(meas_path)
 
-            meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_vis)
-
-            for key, val in meas_images.items():
-                self._add_tb_images(val, iter_type + key)
-                self._save_images(val, [str(idx.item())+key for idx in x_idx], meas_path)
+            meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_binary)
 
             for key, val in meas_images_masked.items():
                 self._add_tb_images(val, iter_type + key + "_mask")
@@ -310,6 +337,7 @@ class GBML:
 
         self.c.requires_grad_(False)
 
+        #take care of thresholding operators
         if self.hparams.outer.reg_hyperparam:
             if not self.hparams.problem.learn_samples:
                 self.c.clamp_(min=0.)
@@ -329,7 +357,6 @@ class GBML:
                 self.c[under_idx] *= 0
             else:
                 self.c.clamp(min=-1.0, max=1.0)
-                
         elif not self.hparams.outer.exp_params:
             self.c.clamp_(min=0.)
 
@@ -397,21 +424,9 @@ class GBML:
     def _init_c(self):
         """
         Initializes the hyperparameters as a scalar or vector.
-
-        Args:
-            hparams: The experiment parameters to use for init.
-                    Type: Namespace.
-                    Expected to have the consituents:
-                        hparams.outer.hyperparam_type - str in [scalar, vector]
-                        hparams.problem.num_measurements - int
-                        hparams.outer.hyperparam_init - int or float
-        
-        Returns:
-            c: The initialized hyperparameters.
-            Type: Tensor.
-            Shape: [] for scalar hyperparam
-                    [m] for vector hyperparam
+        Also does some cool stuff if we want to learn samples
         """
+
         c_type = self.hparams.outer.hyperparam_type
         m = self.hparams.problem.num_measurements
         init_val = float(self.hparams.outer.hyperparam_init)
@@ -436,22 +451,8 @@ class GBML:
     def _init_meta_optimizer(self):
         """
         Initializes the meta optmizer and scheduler.
-
-        Args:
-            opt_params: The parameters to optimize over.
-                        Type: Tensor.
-            hparams: The experiment parameters to use for init.
-                    Type: Namespace.
-                    Expected to have the consituents:
-                        hparams.outer.lr - float, the meta learning rate
-                        hparams.outer.lr_decay - [False, float], the exponential decay factor for the learning rate 
-                        hparams.outer.optimizer - str in [adam, sgd]
-        
-        Returns:
-            meta_opts: A dictionary containint the meta optimizer and scheduler.
-                    If lr_decay is false, the meta_scheduler key has value None.
-                    Type: dict.
         """
+
         opt_type = self.hparams.opt.optimizer
         lr = self.hparams.opt.lr
 
@@ -471,31 +472,28 @@ class GBML:
         self.scheduler = meta_scheduler
     
     def _checkpoint(self):
-        save_dict = {
-            "c": self.c,
-            "c_list": self.c_list,
-            "best_c": self.best_c,
-            "global_epoch": self.global_epoch,
-            "opt_state": self.opt.state_dict(),
-            "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None
-        }
-
-        metrics_dict = {
-            'train_metrics': self.metrics.train_metrics,
-            'val_metrics': self.metrics.val_metrics,
-            'test_metrics': self.metrics.test_metrics,
-            'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
-            'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
-            'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
-            'best_train_metrics': self.metrics.best_train_metrics,
-            'best_val_metrics': self.metrics.best_val_metrics,
-            'best_test_metrics': self.metrics.best_test_metrics
-        }
-
-        save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
-        save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
-
-        return
+        if not self.hparams.debug:
+            save_dict = {
+                "c": self.c,
+                "c_list": self.c_list,
+                "best_c": self.best_c,
+                "global_epoch": self.global_epoch,
+                "opt_state": self.opt.state_dict(),
+                "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None
+            }
+            metrics_dict = {
+                'train_metrics': self.metrics.train_metrics,
+                'val_metrics': self.metrics.val_metrics,
+                'test_metrics': self.metrics.test_metrics,
+                'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
+                'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
+                'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
+                'best_train_metrics': self.metrics.best_train_metrics,
+                'best_val_metrics': self.metrics.best_val_metrics,
+                'best_test_metrics': self.metrics.best_test_metrics
+            }
+            save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
+            save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
 
     def _make_log_folder(self):
         if not self.hparams.debug:
@@ -519,6 +517,10 @@ class GBML:
     def _add_metrics_to_tb(self, iter_type):
         if not self.hparams.debug:
             self.metrics.add_metrics_to_tb(self.tb_logger, self.global_epoch, iter_type)
+    
+    def _add_histogram_to_tb(self, values, tag):
+        if not self.hparams.debug:
+            self.tb_logger.add_histogram(tag, values, global_step=self.global_epoch)
 
     def _save_images(self, images, img_indices, save_path):
         if not self.hparams.debug and self.hparams.save_imgs:
