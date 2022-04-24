@@ -133,7 +133,7 @@ def parse_config(config_path):
         hparams['outer']['reg_hyperparam_type'] = None
         hparams['outer']['reg_hyperparam_scale'] = None
     else:
-        if hparams['outer']['reg_hyperparam_type'] != 'l1':
+        if hparams['outer']['reg_hyperparam_type'] not in ['l1', 'soft', 'hard']:
             raise NotImplementedError("This Meta Regularization term has not been implemented yet!")
 
     #automatically set ROI to a region if not specified

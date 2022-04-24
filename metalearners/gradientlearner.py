@@ -195,10 +195,10 @@ class GBML:
         """
         Adds metrics for a single batch to the metrics object.
         """
-        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(len(y.shape[1:])))) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
+        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
         weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 2.,
                                                       exp_params=self.hparams.outer.exp_params, 
-                                                      reduce_dims=tuple(np.arange(len(y.shape[1:]))), 
+                                                      reduce_dims=tuple(np.arange(y.dim())[1:]), 
                                                       learn_samples=self.hparams.problem.learn_samples,
                                                       sample_pattern=self.hparams.problem.sample_pattern) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
         all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c, 
@@ -310,10 +310,29 @@ class GBML:
 
         self.c.requires_grad_(False)
 
-        if not self.hparams.outer.exp_params:
+        if self.hparams.outer.reg_hyperparam:
+            if not self.hparams.problem.learn_samples:
+                self.c.clamp_(min=0.)
+
+            if self.hparams.outer.reg_hyperparam_type == "soft":
+                over_idx = (self.c > self.hparams.outer.reg_hyperparam_scale)
+                mid_idx = (self.c >= -self.hparams.outer.reg_hyperparam_scale) & \
+                            (self.c <= self.hparams.outer.reg_hyperparam_scale)
+                under_idx = (self.c < -self.hparams.outer.reg_hyperparam_scale)
+                self.c[over_idx] -= self.hparams.outer.reg_hyperparam_scale
+                self.c[mid_idx] *= 0
+                self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
+            elif self.hparams.outer.reg_hyperparam_type == "hard":
+                k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale)) 
+                smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0] 
+                under_idx = torch.abs(self.c) < smallest_kept_val 
+                self.c[under_idx] *= 0
+            else:
+                self.c.clamp(min=-1.0, max=1.0)
+                
+        elif not self.hparams.outer.exp_params:
             self.c.clamp_(min=0.)
-        if self.hparams.problem.learn_samples:
-            self.c.clamp_(max=1.)
+
         self.c_list.append(self.c.detach().clone().cpu())
     
         if (self.scheduler is not None) and (not self.hparams.opt.decay_on_val):

@@ -3,7 +3,7 @@ import torch
 
 def l2_loss(x_hat, x_true, reduce_dims=None):
     if reduce_dims is None:
-        reduce_dims = tuple(np.arange(len(x_hat.shape)))
+        reduce_dims = tuple(np.arange(x_hat.dim()))
     
     return 0.5 * torch.sum((x_hat - x_true)**2, reduce_dims)
 
@@ -22,11 +22,8 @@ def meta_loss(x_hat, x_true, reduce_dims=None, c=None,
     else:
         raise NotImplementedError("Meta loss type not supported")
     
-    if reg_hyperparam:
-        if reg_hyperparam_type == 'l1':
-            loss_2 = l1_loss(c, reg_hyperparam_scale)
-        else:
-            raise NotImplementedError("Meta regularization type not supported!")
+    if reg_hyperparam and reg_hyperparam_type == 'l1':
+        loss_2 = l1_loss(c, reg_hyperparam_scale)
     else:
         loss_2 = torch.zeros_like(loss_1)
     
@@ -46,7 +43,7 @@ def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, \
                                     x_hat, retain_graph=retain_graph, create_graph=create_graph)[0]
     x_hat.requires_grad_(grad_flag_x)
 
-    if reg_hyperparam:
+    if reg_hyperparam and reg_hyperparam_type == 'l1':
         grad_flag_c = c.requires_grad
         c.requires_grad_()
         meta_grad_c = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, meta_loss_type,\

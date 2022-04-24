@@ -46,8 +46,8 @@ outer:
  hyperparam_init: 0
 
  reg_hyperparam: true 
- reg_hyperparam_type: 'l1'
- reg_hyperparam_scale: 1 #the hyperparameter for regularizing the reg_hyperparam term in the meta loss
+ reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
+ reg_hyperparam_scale: 1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
  ROI_loss: false
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
@@ -70,7 +70,7 @@ inner:
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
  renormalize: True #whether to re-normalize the likelihood grad
- rescale_factor: 5
+ rescale_factor: 5 
 
  decimate: false 
  decimation_factor: 1 #factor to divide the number of noise levels by. Only relevant if decimate=True

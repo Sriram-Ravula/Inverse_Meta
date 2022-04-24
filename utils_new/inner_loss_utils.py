@@ -44,7 +44,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
         c = c_orig
     
     if reduce_dims is None:
-        reduce_dims = tuple(np.arange(len(y.shape)))
+        reduce_dims = tuple(np.arange(y.dim()))
     
     #[N, m] or [N, 2m] (fourier)
     #learn_samples: [N, C, H//D, W//D] (superres), [N, C, H, W] (inpaint), [N, C, H, W, 2] (fourier)
@@ -66,8 +66,10 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
 
     if c_type == 0:
         loss = scale * c * 0.5 * torch.sum(resid ** 2, reduce_dims) #(c/2) ||Ax - y||^2
-    elif c_type == 1:
+    elif c_type == 1 and not learn_samples:
         loss = scale * 0.5 * torch.sum(c * (resid ** 2), reduce_dims) #(1/2) ||Diag(sqrt(c))(Ax-y)||^2
+    elif c_type == 1 and learn_samples:
+        loss = scale * 0.5 * torch.sum((c * resid) ** 2, reduce_dims) #(1/2) ||C(Ax-y)||^2
     else:
         raise NotImplementedError("Hyperparameter dimensions not supported")
 
