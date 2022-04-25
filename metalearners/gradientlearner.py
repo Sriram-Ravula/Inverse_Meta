@@ -426,7 +426,10 @@ class GBML:
 
         c_type = self.hparams.outer.hyperparam_type
         m = self.hparams.problem.num_measurements
-        init_val = float(self.hparams.outer.hyperparam_init)
+        
+        init_val = self.hparams.outer.hyperparam_init
+        if init_val != "random":
+            init_val = float(init_val)
 
         #see if we would like to learn a sampling pattern during training
         if self.hparams.problem.learn_samples:
@@ -436,12 +439,20 @@ class GBML:
         elif self.hparams.problem.measurement_type == "fourier":
             m = m * 2 #for real and imaginary
 
-        if c_type == 'scalar':
-            c = torch.tensor(init_val)
-        elif c_type == 'vector':
-            c = torch.ones(m) * init_val
+        if init_val != "random": 
+            if c_type == 'scalar':
+                c = torch.tensor(init_val)
+            elif c_type == 'vector':
+                c = torch.ones(m) * init_val
+            else:
+                raise NotImplementedError("Hyperparameter type not supported")
         else:
-            raise NotImplementedError("Hyperparameter type not supported")
+            if c_type == 'scalar':
+                c = torch.randn(1)
+            elif c_type == 'vector':
+                c = torch.randn(m)
+            else:
+                raise NotImplementedError("Hyperparameter type not supported")
 
         self.c = c.to(self.device)
 
