@@ -212,11 +212,11 @@ class GBML:
 
         if self.hparams.outer.reg_hyperparam:
             sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
-            extra_metrics_dict["sparsity_level"] = np.array(sparsity_level.item())
-            extra_metrics_dict["c_min"] = np.array(torch.min(self.c).item())
-            extra_metrics_dict["c_max"] = np.array(torch.max(self.c).item())
-            extra_metrics_dict["c_mean"] = np.array(torch.mean(self.c).item())
-            extra_metrics_dict["c_std"] = np.array(torch.std(self.c).item())
+            extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) #ugly artifact
+            extra_metrics_dict["c_min"] = np.array([torch.min(self.c).item()] * x.shape[0])
+            extra_metrics_dict["c_max"] = np.array([torch.max(self.c).item()] * x.shape[0])
+            extra_metrics_dict["c_mean"] = np.array([torch.mean(self.c).item()] * x.shape[0])
+            extra_metrics_dict["c_std"] = np.array([torch.std(self.c).item()] * x.shape[0])
 
             self._add_histogram_to_tb(self.c, "C values")
 
