@@ -270,11 +270,11 @@ class Metrics:
         iterkey = 'iter_' + str(iter_num)
         for key, value in raw_dict[iterkey].items():
             mean_key = "mean_" + key
-            # std_key = "std_" + key
+            std_key = "std_" + key
             mean_value = np.mean(value)
-            # std_value = np.std(value)
+            std_value = np.std(value)
             agg_dict[iterkey][mean_key] = mean_value
-            # agg_dict[iterkey][std_key] = std_value 
+            agg_dict[iterkey][std_key] = std_value 
         
         if return_best:
             out_dict = None
