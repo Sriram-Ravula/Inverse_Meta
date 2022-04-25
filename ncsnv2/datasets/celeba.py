@@ -133,25 +133,27 @@ class CelebA(VisionDataset):
     def __getitem__(self, index):
         X = PIL.Image.open(os.path.join(self.root, self.base_folder, "img_align_celeba", self.filename[index]))
 
-        target = []
-        for t in self.target_type:
-            if t == "attr":
-                target.append(self.attr[index, :])
-            elif t == "identity":
-                target.append(self.identity[index, 0])
-            elif t == "bbox":
-                target.append(self.bbox[index, :])
-            elif t == "landmarks":
-                target.append(self.landmarks_align[index, :])
-            else:
-                raise ValueError("Target type \"{}\" is not recognized.".format(t))
-        target = tuple(target) if len(target) > 1 else target[0]
+        # target = []
+        # for t in self.target_type:
+        #     if t == "attr":
+        #         target.append(self.attr[index, :])
+        #     elif t == "identity":
+        #         target.append(self.identity[index, 0])
+        #     elif t == "bbox":
+        #         target.append(self.bbox[index, :])
+        #     elif t == "landmarks":
+        #         target.append(self.landmarks_align[index, :])
+        #     else:
+        #         raise ValueError("Target type \"{}\" is not recognized.".format(t))
+        # target = tuple(target) if len(target) > 1 else target[0]
 
         if self.transform is not None:
             X = self.transform(X)
+        
+        target = index
 
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+        # if self.target_transform is not None:
+        #     target = self.target_transform(target)
 
         return X, target
 

@@ -2,8 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch.fft as torch_fft
 import numpy as np
-from utils import get_mvue
-
+import sigpy
 
 def get_A(hparams):
     A_type = hparams.problem.measurement_type
@@ -13,7 +12,10 @@ def get_A(hparams):
     elif A_type == 'superres':
         A = None #don't explicitly form subsampling matrix
     elif A_type == 'inpaint':
-        A = get_A_inpaint(hparams).float()
+        if hparams.outer.use_autograd:
+            A = None
+        else:
+            A = get_A_inpaint(hparams).float()
     elif A_type == 'identity':
         A = None #save memory by not forming identity
     elif A_type == 'circulant':
@@ -44,7 +46,7 @@ def get_A_inpaint(hparams):
 
     return torch.from_numpy(A)
 
-def get_measurements(A, x, hparams, efficient_inp=False):
+def get_measurements(A, x, hparams, efficient_inp=False, noisy=False):
     """
     Efficient_inp uses a mask for element-wise inpainting instead of mm.
     But the dimensions don't play nice with our gradient functions!
@@ -72,7 +74,14 @@ def get_measurements(A, x, hparams, efficient_inp=False):
     else:
         raise NotImplementedError #TODO implement circulant!!
 
-    return Ax
+    if noisy:
+        if hparams.problem.noise_type == 'gaussian':
+            noise = torch.randn(Ax.shape, device=Ax.device) * hparams.problem.noise_std
+        elif hparams.problem.noise_type == 'gaussian_nonwhite': #TODO should fix rand instead of instantiating it newly each time!
+            noise = torch.randn(Ax.shape, device=Ax.device) * torch.rand(Ax.shape, device=Ax.device) * hparams.problem.noise_std
+        return Ax + noise
+    else:
+        return Ax
 
 def _ifft(x):
     x = torch_fft.ifftshift(x, dim=(-2, -1))
@@ -106,14 +115,7 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1, s_maps=None):
     #[N, m] (gaussian, inpaint, circulant)
     #[N, C, H//downsample, W//downsample] (superres)
     #[N, C, H, W] for identity
-    if hparams.data.dataset != 'mri':
-        Ax = get_measurements(A, x, hparams)
-    else:
-        zero_filled_mvue = get_mvue(y.cpu().numpy(),
-                                    s_maps.cpu().numpy())
-        normalization_factor = np.percentile(np.abs(zero_filled_mvue), 99)
-        x_normalized = x * normalization_factor
-        Ax = get_measurements(A, x_normalized, hparams)
+    Ax = get_measurements(A, x, hparams)
     resid = Ax - y
 
     if c_type == 'scalar':
@@ -125,7 +127,8 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1, s_maps=None):
             grad = scale * get_transpose_measurements(A, c_shaped * resid, hparams)
 
         else:
-            grad = scale * get_transpose_measurements(A, c * resid, hparams, s_maps)
+            grad = scale * get_transpose_measurements(A, c * resid,
+                                                      hparams, s_maps=s_maps)
 
     elif c_type == 'matrix':
         if A_type == 'superres' or A_type == 'identity':
@@ -141,9 +144,6 @@ def gradient_log_cond_likelihood(c, y, A, x, hparams, scale=1, s_maps=None):
     else:
         raise NotImplementedError
 
-    if hparams.data.dataset == 'mri':
-        grad /= normalization_factor
-
     return grad.view(x.shape)
 
 def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
@@ -157,6 +157,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
         raise NotImplementedError
 
     c_type = hparams.outer.hyperparam_type
+    A_type = hparams.problem.measurement_type
 
     #Gaussian or Inpaint + efficient=False - shape [N, m]
     #Inpaint with efficient=True or identity - shape [N, C, H, W]
@@ -165,14 +166,14 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
     #      We can flatten and use normally as size of c accounts for this.
     #NOTE: Efficient Inpaint has extraneous areas of 0 entry that c shape does not account for.
     #      We have to isolate the measurement region to play nice with c.
-    Ax = get_measurements(A, x, hparams, efficient_inp)
+    Ax = get_measurements(A, x, hparams)
     resid = Ax - y
 
     if c_type == 'scalar':
         loss = scale * c * 0.5 * torch.sum(resid ** 2)
 
     elif c_type == 'vector':
-        if c_type == 'inpaint' and efficient_inp:
+        if A_type == 'inpaint' and efficient_inp:
             mask = get_inpaint_mask(hparams)
             kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
             loss = scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1)[:,kept_inds])
@@ -181,7 +182,7 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
             loss = scale * 0.5 * torch.sum(c * (resid ** 2).flatten(start_dim=1))
 
     elif c_type == 'matrix':
-        if c_type == 'inpaint' and efficient_inp:
+        if A_type == 'inpaint' and efficient_inp:
             mask = get_inpaint_mask(hparams)
             kept_inds = (mask.flatten()>0).nonzero(as_tuple=False).flatten()
             interior = torch.mm(c, resid.flatten(start_dim=1)[:,kept_inds].T).T #[N, k]
@@ -195,6 +196,36 @@ def log_cond_likelihood_loss(c, y, A, x, hparams, scale=1, efficient_inp=False):
         raise NotImplementedError #TODO implement circulant!!
 
     return loss
+
+def simple_likelihood_loss(y, A, x, hparams, efficient_inp=False):
+    """
+    Returns ||Ax - y||^2 for each image in the batch dimension
+    """
+    Ax = get_measurements(A, x, hparams)
+    resid = Ax - y
+    resid = resid.flatten(start_dim=1)
+
+    loss = torch.norm(resid, dim=[-1]) #shape [N]
+
+    return loss
+
+
+def get_likelihood_grad(c, y, A, x, hparams, scale=1, efficient_inp=False,\
+    retain_graph=False, create_graph=False, s_maps=None):
+    """
+    A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)
+        and log_cond_likelihood_loss with autograd.
+    """
+    if hparams.outer.use_autograd:
+        grad_flag_x = x.requires_grad
+        x.requires_grad_()
+        likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss\
+                    (c, y, A, x, hparams, scale, efficient_inp), x, retain_graph=retain_graph, create_graph=create_graph)[0]
+        x.requires_grad_(grad_flag_x)
+    else:
+        likelihood_grad = gradient_log_cond_likelihood(c, y, A, x, hparams, scale, s_maps=s_maps)
+
+    return likelihood_grad
 
 def meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
@@ -212,6 +243,27 @@ def meta_loss(x_hat, x_true, hparams):
     else:
         return 0.5 * sse(x_hat, x_true)
 
+def elementwise_meta_loss(x_hat, x_true, hparams):
+    """
+    Like meta loss, but returns element-wise loss for each image in the batch dimension
+    """
+    meas_loss = hparams.outer.measurement_loss
+    meta_type = hparams.outer.meta_loss_type
+    ROI = hparams.outer.ROI
+
+    if meas_loss or meta_type != "l2":
+        raise NotImplementedError
+
+    if ROI:
+        ROI = getRectMask(hparams).to(x_hat.device)
+        roi_diff = ROI * (x_hat - x_true)
+        loss = torch.sum(roi_diff**2, dim=[1,2,3])
+    else:
+        diff = x_hat - x_true
+        loss = torch.sum(diff**2, dim=[1,2,3])
+
+    return loss
+
 def grad_meta_loss(x_hat, x_true, hparams):
     meas_loss = hparams.outer.measurement_loss
     meta_type = hparams.outer.meta_loss_type
@@ -226,6 +278,22 @@ def grad_meta_loss(x_hat, x_true, hparams):
         return (torch.mm(ROI_mat.T, vec.T).T).view(x_hat.shape)
     else:
         return (x_hat - x_true) #[N, C, H, W]
+
+def get_meta_grad(x_hat, x_true, hparams, retain_graph=False, create_graph=False):
+    """
+    A method for choosing between grad_meta_loss (explicitly-formed gradient)
+        and meta_loss with autograd.
+    """
+    if hparams.outer.use_autograd:
+        grad_flag_x = x_hat.requires_grad
+        x_hat.requires_grad_()
+        meta_grad = torch.autograd.grad(meta_loss\
+            (x_hat, x_true, hparams), x_hat, retain_graph=retain_graph, create_graph=create_graph)[0]
+        x_hat.requires_grad_(grad_flag_x)
+    else:
+        meta_grad = grad_meta_loss(x_hat, x_true, hparams)
+
+    return meta_grad
 
 def get_ROI_matrix(hparams):
     mask = getRectMask(hparams).numpy()
@@ -246,3 +314,39 @@ def getRectMask(hparams):
     mask_tensor[:, h_offset:h_offset+height, w_offset:w_offset+width] = 1
 
     return mask_tensor
+
+def get_loss_dict(y, A, x_hat, x, hparams, efficient_inp=False):
+    """
+    Calculates and returns a dictionary with the measurement loss and te meta loss
+    """
+    cur_meta_loss = elementwise_meta_loss(x_hat, x, hparams).detach().cpu().numpy().flatten()
+    cur_likelihood_loss = simple_likelihood_loss(y, A, x_hat, hparams, efficient_inp).detach().cpu().numpy().flatten()
+
+    out_dict = {
+        'meta_loss': cur_meta_loss,
+        'likelihood_loss': cur_likelihood_loss
+    }
+
+    return out_dict
+
+def tv_loss(img, weight=1):
+    tv_h = ((img[:,:,1:,:] - img[:,:,:-1,:]).pow(2)).sum()
+    tv_w = ((img[:,:,:,1:] - img[:,:,:,:-1]).pow(2)).sum()
+    return weight * (tv_h + tv_w)
+
+# computes mvue from kspace and coil sensitivities
+def get_mvue(kspace, s_maps):
+    '''
+    Get mvue estimate from coil measurements
+    Parameters:
+    -----------
+    kspace : complex np.array of size b x c x n x n
+            kspace measurements
+    s_maps : complex np.array of size b x c x n x n
+            coil sensitivities
+    Returns:
+    -------
+    mvue : complex np.array of shape b x n x n
+            returns minimum variance estimate of the scan
+    '''
+    return np.sum(sigpy.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=-3) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))

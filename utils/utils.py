@@ -6,12 +6,15 @@ import argparse
 import os
 import yaml
 import torch.utils.tensorboard as tb
-import time
 from datetime import datetime
-import sigpy as sp
 import torch.nn as nn
+import scipy as sp
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+import torchvision
+from utils.loss_utils import get_measurements, get_transpose_measurements
 
-
+plt.rcParams["savefig.bbox"] = 'tight'
 
 def set_all_seeds(random_seed):
     """
@@ -54,6 +57,8 @@ def split_dataset(base_dataset, hparams):
     num_val = hparams.data.num_val
     num_test = hparams.data.num_test
 
+    use_validation = hparams.outer.use_validation
+
     indices = list(range(len(base_dataset)))
 
     random_state = np.random.get_state()
@@ -61,23 +66,33 @@ def split_dataset(base_dataset, hparams):
     np.random.shuffle(indices)
     np.random.set_state(random_state)
 
-    train_indices = indices[:num_train]
-    val_indices = indices[num_train:num_train+num_val]
-    test_indices = indices[num_train+num_val:num_train+num_val+num_test]
+    if use_validation:
+        train_indices = indices[:num_train]
+        val_indices = indices[num_train:num_train+num_val]
+        test_indices = indices[num_train+num_val:num_train+num_val+num_test]
 
-    train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
-    val_dataset = torch.utils.data.Subset(base_dataset, val_indices)
-    test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
+        train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
+        val_dataset = torch.utils.data.Subset(base_dataset, val_indices)
+        test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
+    else:
+        train_indices = indices[:num_train]
+        test_indices = indices[num_train:num_train+num_test]
+
+        train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
+        val_dataset = None
+        test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
 
     return train_dataset, val_dataset, test_dataset
 
 def init_c(hparams):
     c_type = hparams.outer.hyperparam_type
+    init_val = float(hparams.outer.hyperparam_init)
+
     if hparams.problem.measurement_type == 'mri':
         if c_type == 'scalar':
             c = torch.tensor(1.)
         elif c_type == 'vector':
-            c = torch.ones(hparams.problem.measurement_shape)
+            c = torch.ones(hparams.problem.measurement_shape) * init_val
         elif c_type == 'matrix':
             raise NotImplementedError
         else:
@@ -87,11 +102,11 @@ def init_c(hparams):
         m = hparams.problem.num_measurements
 
         if c_type == 'scalar':
-            c = torch.tensor(1.)
+            c = torch.tensor(init_val)
         elif c_type == 'vector':
-            c = torch.ones(m)
+            c = torch.ones(m) * init_val
         elif c_type == 'matrix':
-            c = torch.eye(m)
+            c = torch.eye(m) * init_val
         else:
             raise NotImplementedError
 
@@ -168,36 +183,34 @@ def parse_config(config_path):
     elif hparams['problem']['measurement_type'] == 'inpaint':
         hparams['problem']['num_measurements'] = hparams['data']['n_input'] - hparams['data']['num_channels']*hparams['problem']['inpaint_size']**2
     elif hparams['problem']['measurement_type'] == 'mri':
-        hparams['problem']['measurement_shape'] = (16,
-                                                   hparams['data']['image_size'],
-                                                   hparams['data']['image_size'])
+        hparams['problem']['measurement_shape'] = (hparams['data']['image_size'], hparams['data']['image_size'])
 
 
-    if hparams['problem']['add_noise'] or hparams['problem']['add_dependent_noise']:
+    if hparams['problem']['add_dependent_noise']:
         raise NotImplementedError
 
     HPARAMS = dict2namespace(hparams)
 
+    print(yaml.dump(HPARAMS, default_flow_style=False))
+
     return HPARAMS
 
-# computes mvue from kspace and coil sensitivities
-def get_mvue(kspace, s_maps):
-    '''
-    Get mvue estimate from coil measurements
+def parse_args(docstring, manual=False, config=None, doc=None):
+    now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-    Parameters:
-    -----------
-    kspace : complex np.array of size b x c x n x n
-            kspace measurements
-    s_maps : complex np.array of size b x c x n x n
-            coil sensitivities
+    parser = argparse.ArgumentParser(description=docstring)
 
-    Returns:
-    -------
-    mvue : complex np.array of shape b x n x n
-            returns minimum variance estimate of the scan
-    '''
-    return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=-3) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
+    parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
+    parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
+                                                               'Will be the name of the log folder.')
+
+    if manual:
+        args = parser.parse_args(["--config", config, "--doc", doc])
+    else:
+        args = parser.parse_args()
+
+    return args
+
 
 # Multicoil forward operator for MRI
 class MulticoilForwardMRI(nn.Module):
@@ -252,17 +265,40 @@ class MulticoilForwardMRI(nn.Module):
         # Return downsampled k-space
         return ksp_coils
 
-def parse_args(docstring):
-    now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+def plot_images(images, title, save=False, fname=None):
+    #TODO THIS NEEDS FIXING!
+    """Function to plot and/or save an image"""
 
-    parser = argparse.ArgumentParser(description=docstring)
+    fig = plt.figure(figsize=(1, 1))
 
-    parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
-    parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
-                                                               'Will be the name of the log folder.')
-    parser.add_argument('--verbose', type=str, default='low', help='Verbose level: low | med | high')
+    grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2).permute(1, 2, 0)
 
-    args = parser.parse_args()
+    ax = fig.add_subplot(1, 1, 1, frameon=False)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_ticks([])
 
-    return args
+    frame = plt.gca()
+    frame.axes.get_xaxis().set_visible(False)
+    frame.axes.get_yaxis().set_visible(False)
+    frame = frame.imshow(grid_img)
 
+    if save:
+        plt.savefig(fname)
+    else:
+        ax.set_title(title)
+        plt.show();
+
+def get_measurement_images(images, hparams):
+    A_type = hparams.problem.measurement_type
+
+    if A_type not in ['superres', 'inpaint']:
+        print("\nCan't save given measurement type\n")
+        return
+
+    if A_type == 'inpaint':
+        images = get_measurements(None, images, hparams, True)
+    elif A_type == 'superres':
+        images = get_measurements(None, images, hparams)
+        images = get_transpose_measurements(None, images, hparams)
+
+    return images
