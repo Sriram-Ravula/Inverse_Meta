@@ -53,7 +53,7 @@ outer:
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
 
 opt:
-  num_iters: 50 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.1 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
@@ -62,18 +62,18 @@ opt:
   lr_decay: 0.95 #exponential weight decay rate.
   decay_on_val: true #only relevant if decay=True
 
-  val_iters: 10 #validate every n iterations
+  val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
 inner:
- alg: 'map' #type of inner algorithm. ['map', 'langevin']
+ alg: 'langevin' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
  renormalize: True #whether to re-normalize the likelihood grad
  rescale_factor: 5 
 
- decimate: false 
- decimation_factor: 1 #factor to divide the number of noise levels by. Only relevant if decimate=True
+ decimate: true 
+ decimation_factor: 10 #factor to divide the number of noise levels by. Only relevant if decimate=True
  decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
 
  verbose: 200 #print every n iterations. 0 means don't print. Only prints if verbose=true. 

@@ -20,9 +20,6 @@ from utils_new.meta_loss_utils import meta_loss, get_meta_grad
 from utils_new.inner_loss_utils import get_likelihood_grad, log_cond_likelihood_loss
 from utils_new.metric_utils import Metrics
 
-#TODO then fancy stuff like saving initialisations, different meta losses, different inner algo
-#       then ROI etc.
-
 class GBML:
     def __init__(self, hparams, args):
         self.hparams = hparams
