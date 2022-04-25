@@ -1,0 +1,3 @@
+[submodule "ddrm-mri"]
+	path = ddrm-mri
+	url = git@github.com:ajiljalal/ddrm-mri.git

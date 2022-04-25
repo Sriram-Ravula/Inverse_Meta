@@ -12,17 +12,18 @@ from utils_new.exp_utils import dict2namespace
 from utils_new.inner_loss_utils import log_cond_likelihood_loss, get_likelihood_grad
 
 class SGLD_NCSNv2(torch.nn.Module):
-    def __init__(self, hparams, c, A):
+    def __init__(self, hparams, args, c, A):
         """
-        Making this a module so we can parallelize operations for the 
-            - score network (prior) 
+        Making this a module so we can parallelize operations for the
+            - score network (prior)
             - forward operator (likelihood)
             - meta parameter (c)
-        If each component listed were to be parallelized separately (i.e. as part of different forward() calls), 
-            PyTorch would use more memory transfers between CPU and GPU.    
+        If each component listed were to be parallelized separately (i.e. as part of different forward() calls),
+            PyTorch would use more memory transfers between CPU and GPU.
         """
         super().__init__()
         self.hparams = hparams
+        self.args = args
 
         self.A = A
         self._init_net()
@@ -45,12 +46,12 @@ class SGLD_NCSNv2(torch.nn.Module):
 
         if hparams.outer.meta_type != 'mle':
             raise NotImplementedError("Meta Learner type not supported by SGLD!")
-    
+
     def forward(self, x_mod, y):
         fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
         titlestr = "%10s %10s %10s %10s %10s %10s"
         if self.verbose:
-            print('\n') 
+            print('\n')
             print(titlestr % ("Noise_Level", "Step_LR", "Meas_Loss", "Score_Norm", "Meas_Grad_Norm", "Total_Grad_Norm"))
 
         step_num = 0
@@ -70,7 +71,7 @@ class SGLD_NCSNv2(torch.nn.Module):
                 likelihood_grad = get_likelihood_grad(self.c, y, self.A, x_mod, self.hparams.use_autograd,\
                                     1/(sigma**2), self.hparams.outer.exp_params, learn_samples=self.hparams.problem.learn_samples,
                                     sample_pattern=self.hparams.problem.sample_pattern)
-                
+
                 #TODO rescale this to go sample-by-sample instead of just overall!
                 if self.renormalize:
                     likelihood_grad /= (torch.norm( likelihood_grad ) + 1e-6) #small epsilon to prevent div by 0
@@ -90,20 +91,20 @@ class SGLD_NCSNv2(torch.nn.Module):
                         prior_grad_norm = torch.norm(prior_grad.view(prior_grad.shape[0], -1), dim=-1).mean().item()
                         likelihood_grad_norm = torch.norm(likelihood_grad.view(likelihood_grad.shape[0], -1), dim=-1).mean().item()
                         grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean().item()
-                        likelihood_loss = log_cond_likelihood_loss(self.c, y, self.A, x_mod, 2., self.hparams.outer.exp_params, 
+                        likelihood_loss = log_cond_likelihood_loss(self.c, y, self.A, x_mod, 2., self.hparams.outer.exp_params,
                                             tuple(np.arange(y.dim())[1:]), self.hparams.problem.learn_samples, self.hparams.problem.sample_pattern).mean().item()
 
                         print(fmtstr % (t, step_size, likelihood_loss, prior_grad_norm, likelihood_grad_norm, grad_norm))
-        
+
                 step_num += 1
-        
+
         if self.verbose:
             print('\n')
-        
+
         x_mod = torch.clamp(x_mod, 0.0, 1.0)
 
         return x_mod
-        
+
     def set_c(self, c):
         #self.c = c #changing this from parameter to buffer
         self.c = c.detach().clone().type_as(self.c).to(self.c.device) #TODO remove detach() for e.g.MAML
@@ -111,7 +112,7 @@ class SGLD_NCSNv2(torch.nn.Module):
     def _init_net(self):
         """Initializes score net and related attributes"""
         if self.hparams.net.model != "ncsnv2":
-            raise NotImplementedError("This model is unsupported!") 
+            raise NotImplementedError("This model is unsupported!")
 
         ckpt_path = self.hparams.net.checkpoint_dir
         config_path = self.hparams.net.config_file
@@ -127,7 +128,7 @@ class SGLD_NCSNv2(torch.nn.Module):
             test_score = NCSNv2Deepest(net_config).to(self.hparams.device)
         elif self.hparams.data.dataset == 'celeba':
             test_score = NCSNv2(net_config).to(self.hparams.device)
-        
+
         test_score = torch.nn.DataParallel(test_score)
         test_score.load_state_dict(states[0], strict=True)
 
@@ -152,7 +153,7 @@ class SGLD_NCSNv2(torch.nn.Module):
         decimate_type = self.hparams.inner.decimation_type
 
         L = len(self.sigmas)
-        num_used_levels = L // decimate 
+        num_used_levels = L // decimate
 
         #geometrically-spaced entries biased towards later noise levels
         if decimate_type == 'log_last':
