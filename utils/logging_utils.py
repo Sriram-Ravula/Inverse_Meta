@@ -19,10 +19,13 @@ from utils.loss_utils import get_measurements, get_transpose_measurements
 def save_image(image, path):
     """Save a pytorch image as a png file"""
     image = image.detach().cpu().numpy() #image comes in as an [C, H, W] torch tensor
+    image = image.transpose(1,2,0)
+    if image.shape[-1] == 1:
+        image = image[:,:,0]
+    elif image.shape[-1] == 2:
+        image = np.linalg.norm(image, axis=-1)
+    image = (image - image.min())/(image.max() - image.min())
     x_png = np.uint8(np.clip(image*256,0,255))
-    x_png = x_png.transpose(1,2,0)
-    if x_png.shape[-1] == 1:
-        x_png = x_png[:,:,0]
     x_png = Image.fromarray(x_png).save(path)
 
 def save_images(est_images, save_prefix):
@@ -92,7 +95,7 @@ class Logger:
     def __save_config(self):
         with open(os.path.join(self.log_dir, 'config.yml'), 'w') as f:
             yaml.dump(self.hparams, f, default_flow_style=False)
-    
+
     def checkpoint(self):
         checkpoint_dict = self.get_checkpoint_dict()
         metrics_dict = self.get_metrics_dict()
@@ -111,7 +114,7 @@ class Logger:
         torch.save(states, os.path.join(self.log_dir, 'states.pth'))
 
         return
-    
+
     def get_checkpoint_dict(self):
         out_dict = {
             #'A': self.learner.A,
@@ -123,7 +126,7 @@ class Logger:
             'grads': self.learner.grads
         }
         return out_dict
-    
+
     def get_metrics_dict(self):
         out_dict = {
             'range': self.metrics.range,
@@ -139,7 +142,7 @@ class Logger:
         }
 
         return out_dict
-    
+
     def save_image_measurements(self, images, image_nums, save_prefix, noisy=False):
         save_path = os.path.join(self.image_root, save_prefix)
 
@@ -150,7 +153,7 @@ class Logger:
 
         for i in range(images.shape[0]):
             image_dict[image_nums[i]] = images[i]
-        
+
         save_measurement_images(image_dict, self.hparams, save_path, noisy=noisy)
 
     def save_images(self, images, image_nums, save_prefix):
@@ -163,9 +166,9 @@ class Logger:
 
         for i in range(images.shape[0]):
             image_dict[image_nums[i]] = images[i]
-        
+
         save_images(image_dict, save_path)
-    
+
     def save_image_measurements_torch(self, images, image_nums, save_prefix):
         A_type = self.hparams.problem.measurement_type
         save_path = os.path.join(self.image_root, save_prefix + '.pth')
@@ -179,13 +182,13 @@ class Logger:
         elif A_type == 'superres':
             images = get_measurements(None, images.unsqueeze(0), self.hparams, self.learner.noisy)
             images = get_transpose_measurements(None, images, self.hparams).squeeze(0)
-        
+
         torch.save(images, save_path)
-    
+
     def save_images_torch(self, images, image_nums, save_prefix):
         save_path = os.path.join(self.image_root, save_prefix + '.pth')
         torch.save(images, save_path)
-    
+
     def add_tb_images(self, images, tag):
         step = self.learner.global_iter
         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
@@ -205,7 +208,7 @@ class Logger:
         elif A_type == 'superres':
             images = get_measurements(None, images, self.hparams, self.learner.noisy)
             images = get_transpose_measurements(None, images, self.hparams)
-            
+
 
         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
         self.tb_logger.add_image(tag, grid_img, global_step=step)
@@ -228,16 +231,16 @@ class Logger:
         if iterkey not in raw_dict:
             print("\ncurrent iteration has not yet been logged\n")
             return
-        
+
         for metric_type, metric_value in raw_dict[iterkey].items():
             for i, val in enumerate(metric_value):
                 self.tb_logger.add_scalars("raw " + metric_type, {iter_type: val}, i)
-        
+
         for metric_type, metric_value in agg_dict[iterkey].items():
             self.tb_logger.add_scalars(metric_type, {iter_type: metric_value}, step)
-        
+
         for metric_type, metric_value in best_dict.items():
             self.tb_logger.add_scalars("best " + metric_type + " iter", {iter_type: metric_value[0]}, step)
             self.tb_logger.add_scalars("best " + metric_type + " value", {iter_type: metric_value[1]}, step)
-        
+
         return

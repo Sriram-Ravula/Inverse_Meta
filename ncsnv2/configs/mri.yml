@@ -10,7 +10,7 @@ training:
 sampling:
   batch_size: 4
   data_init: false
-  step_lr: 0.0000009
+  step_lr: 5e-5 # 0.0000009
   n_steps_each: 3
   ckpt_id: 5000
   final_only: true
@@ -38,9 +38,9 @@ test:
 
 data:
   dataset: "mri"
-  data_path: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
-  input_dir: "validation_cplx_scans/raw" #or 'FFHQ' (all caps)
-  maps_dir: "validation_cplx_scans/maps_768" #or 'FFHQ' (all caps)
+  data_path: "validation_cplx_scans_small/raw" #or 'FFHQ' (all caps)
+  input_dir: "validation_cplx_scans_small/raw" #or 'FFHQ' (all caps)
+  maps_dir: "validation_cplx_scans_small/maps_768" #or 'FFHQ' (all caps)
   project_dir: './'
   image_size: 384
   channels: 2

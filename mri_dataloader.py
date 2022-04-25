@@ -5,7 +5,7 @@ import sigpy as sp
 from scipy.ndimage.interpolation import rotate
 import torch
 from torch.utils.data import Dataset
-from utils import get_mvue
+from utils.loss_utils import get_mvue
 
 
 class MVU_Estimator_Brain(Dataset):
@@ -140,7 +140,6 @@ class MVU_Estimator_Brain(Dataset):
 
         # Scale data
         mvue_two_channel = mvue_two_channel / scale_factor
-        print(mvue.shape)
         gt_ksp = gt_ksp / scale_factor
 
         # Compute ACS size based on R factor and sample size
@@ -177,7 +176,7 @@ class MVU_Estimator_Brain(Dataset):
                   'scan_idx': scan_idx,
                   'slice_idx': slice_idx,
                   'mvue_file': mvue_file}
-        return sample
+        return sample, idx
 
 class MVU_Estimator_Knees(Dataset):
     def __init__(self, file_list, maps_dir, input_dir,
