@@ -309,7 +309,7 @@ class GBML:
             if not os.path.exists(meas_path):
                 os.makedirs(meas_path)
 
-            meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_binary)
+            meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_binary.to(x.device))
 
             for key, val in meas_images_masked.items():
                 self._add_tb_images(val, iter_type + key + "_mask")
