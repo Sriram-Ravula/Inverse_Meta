@@ -255,7 +255,7 @@ class GBML:
             c_mag[2, :, :] = 1 - c_abs_scaled
 
             #image where black = 0, white = nonzero
-            c_binary = torch.zeros_like(c)
+            c_binary = torch.zeros_like(c).cpu()
             c_binary[c != 0] = 1.0
             c_binary = c_binary.unsqueeze(0).repeat(3, 1, 1)
 

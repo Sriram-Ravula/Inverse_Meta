@@ -53,7 +53,7 @@ outer:
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
 
 opt:
-  num_iters: 10 #number of meta iterations to run
+  num_iters: 5 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.1 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
