@@ -10,7 +10,7 @@ import sys
 import torch.utils.tensorboard as tb
 import yaml
 
-from algorithms.sgld import SGLD_NCSNv2
+from algorithms.sgld import SGLD_NCSNv2, DDRM
 from problems import get_forward_operator
 from datasets import get_dataset, split_dataset
 
@@ -38,7 +38,8 @@ class GBML:
         self.test_metric = 'psnr'
 
         #Langevin algorithm
-        self.langevin_runner = SGLD_NCSNv2(self.hparams, self.c, self.A).to(self.device)
+        # self.langevin_runner = SGLD_NCSNv2(self.hparams, self.args, self.c, self.A).to(self.device)
+        self.langevin_runner = DDRM(self.hparams, self.args, self.c, self.A).to(self.device)
         if self.hparams.gpu_num == -1:
             self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
 
@@ -63,7 +64,7 @@ class GBML:
             if iter % self.hparams.opt.val_iters == 0:
                 self._run_validation()
                 self._add_metrics_to_tb("val")
-            
+
             #train
             self._run_outer_step()
             self._add_metrics_to_tb("train")
@@ -90,7 +91,7 @@ class GBML:
         """
         self._print_if_verbose("\nTRAINING\n")
 
-        meta_grad = 0.0 
+        meta_grad = 0.0
         n_samples = 0
         num_batches = self.hparams.opt.batches_per_iter
         if num_batches < 0 or num_batches > len(self.train_loader):
@@ -103,7 +104,7 @@ class GBML:
 
             #(2) Calculate the meta-gradient and (possibly) update
             meta_grad += self._mle_grad(x_hat, x, y)
-            
+
             #if we have passed through the requisite number of samples, update
             n_samples += x.shape[0]
             num_batches -= 1
@@ -116,7 +117,7 @@ class GBML:
                 else:
                     self.langevin_runner.module.set_c(self.c)
 
-                meta_grad = 0.0 
+                meta_grad = 0.0
                 n_samples = 0
                 num_batches = self.hparams.opt.batches_per_iter
                 if num_batches < 0 or num_batches > len(self.train_loader):
@@ -156,7 +157,7 @@ class GBML:
                 self.scheduler.step()
                 LR_NEW = self.opt.param_groups[0]['lr']
                 self._print_if_verbose("\nVAL LOSS HASN'T IMPROVED; DECAYING LR: ", LR_OLD, " --> ", LR_NEW)
-    
+
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
 
@@ -165,10 +166,10 @@ class GBML:
 
             #logging and saving
             self._save_all_images(x_hat, x, y, x_idx, "test")
-        
+
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
-    
+
     def _shared_step(self, x, iter_type):
         """
         given a batch of samples x, solve the inverse problem and log the batch metrics
@@ -186,7 +187,7 @@ class GBML:
         self._add_batch_metrics(x_hat, x, y, iter_type)
 
         return x_hat, x, y
-    
+
     @torch.no_grad()
     def _add_batch_metrics(self, x_hat, x, y, iter_type):
         """
@@ -194,11 +195,11 @@ class GBML:
         """
         real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
         weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 2.,
-                                                      exp_params=self.hparams.outer.exp_params, 
-                                                      reduce_dims=tuple(np.arange(y.dim())[1:]), 
+                                                      exp_params=self.hparams.outer.exp_params,
+                                                      reduce_dims=tuple(np.arange(y.dim())[1:]),
                                                       learn_samples=self.hparams.problem.learn_samples,
                                                       sample_pattern=self.hparams.problem.sample_pattern) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
-        all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c, 
+        all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c,
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
                                     reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
@@ -238,8 +239,8 @@ class GBML:
                 c = self.c.unsqueeze(1).repeat(1, y.shape[3])
             elif self.hparams.problem.sample_pattern == 'vertical':
                 c = self.c.unsqueeze(0).repeat(y.shape[2], 1)
-            
-            #image where more red = higher, more blue = lower 
+
+            #image where more red = higher, more blue = lower
             c_min = torch.min(c)
             c_max = torch.max(c)
             c_scaled = (c - c_min) / (c_max - c_min)
@@ -266,7 +267,7 @@ class GBML:
                 self._add_tb_images(c_out, "Learned Mask")
                 if not os.path.exists(c_path):
                     os.makedirs(c_path)
-                self._save_images(c_out, ["PosNeg_" + str(self.global_epoch), 
+                self._save_images(c_out, ["PosNeg_" + str(self.global_epoch),
                                           "Mag_" + str(self.global_epoch),
                                           "Binary_" + str(self.global_epoch)], c_path)
         #make paths
@@ -276,14 +277,14 @@ class GBML:
             recovered_path = os.path.join(self.image_root, iter_type + "_recon")
         else:
             recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
-        
+
         #save reconstruictions at every iteration
         self._add_tb_images(x_hat, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat, x_idx, recovered_path)
 
-        #we want to save ground truth images and corresponding measurements 
+        #we want to save ground truth images and corresponding measurements
         # just once each for train, val, and test
         if iter_type == "test" or self.global_epoch == 0:
             self._add_tb_images(x, iter_type + " images")
@@ -314,10 +315,10 @@ class GBML:
             for key, val in meas_images_masked.items():
                 self._add_tb_images(val, iter_type + key + "_mask")
                 self._save_images(val, [str(idx.item())+key+"_mask" for idx in x_idx], meas_path)
-    
+
     def _opt_step(self, meta_grad):
         """
-        Will take an optimization step (and scheduler if applicable). 
+        Will take an optimization step (and scheduler if applicable).
         Sets c.grad to True then False.
         """
         self.opt.zero_grad()
@@ -348,9 +349,9 @@ class GBML:
                 self.c[mid_idx] *= 0
                 self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
             elif self.hparams.outer.reg_hyperparam_type == "hard":
-                k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale)) 
-                smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0] 
-                under_idx = torch.abs(self.c) < smallest_kept_val 
+                k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
+                smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
+                under_idx = torch.abs(self.c) < smallest_kept_val
                 self.c[under_idx] *= 0
             else:
                 self.c.clamp(min=-1.0, max=1.0)
@@ -358,7 +359,7 @@ class GBML:
             self.c.clamp_(min=0.)
 
         self.c_list.append(self.c.detach().clone().cpu())
-    
+
         if (self.scheduler is not None) and (not self.hparams.opt.decay_on_val):
             LR_OLD = self.opt.param_groups[0]['lr']
             self.scheduler.step()
@@ -385,17 +386,17 @@ class GBML:
                                                             ROI_loss=self.hparams.outer.ROI_loss,
                                                             ROI=self.hparams.outer.ROI,
                                                             use_autograd=self.hparams.use_autograd)
-        
+
         #(2)
         self.c.requires_grad_()
-        
-        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd, 
-                                            exp_params=self.hparams.outer.exp_params, 
-                                            retain_graph=True, 
+
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd,
+                                            exp_params=self.hparams.outer.exp_params,
+                                            retain_graph=True,
                                             create_graph=True,
                                             learn_samples=self.hparams.problem.learn_samples,
                                             sample_pattern=self.hparams.problem.sample_pattern)
-        
+
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
         out_grad += grad_c_meta_loss
@@ -403,7 +404,7 @@ class GBML:
         self.c.requires_grad_(False)
 
         return out_grad
-    
+
     def _init_dataset(self):
         _, base_dataset = get_dataset(self.hparams)
         split_dict = split_dataset(base_dataset, self.hparams)
@@ -430,7 +431,7 @@ class GBML:
 
         #see if we would like to learn a sampling pattern during training
         if self.hparams.problem.learn_samples:
-            m = m // self.hparams.data.num_channels 
+            m = m // self.hparams.data.num_channels
             if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 m = int(np.sqrt(m)) #sqrt instead of dividing by image size to account for superres
         elif self.hparams.problem.measurement_type == "fourier":
@@ -467,7 +468,7 @@ class GBML:
 
         self.opt =  meta_opt
         self.scheduler = meta_scheduler
-    
+
     def _checkpoint(self):
         if not self.hparams.debug:
             save_dict = {
@@ -500,7 +501,7 @@ class GBML:
                 os.makedirs(self.log_dir)
                 os.makedirs(self.image_root)
                 os.makedirs(self.tb_root)
-    
+
     def _save_config(self):
         if not self.hparams.debug:
             with open(os.path.join(self.log_dir, 'config.yml'), 'w') as f:
@@ -510,11 +511,11 @@ class GBML:
         if not self.hparams.debug and self.hparams.save_imgs:
             grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
             self.tb_logger.add_image(tag, grid_img, global_step=self.global_epoch)
-    
+
     def _add_metrics_to_tb(self, iter_type):
         if not self.hparams.debug:
             self.metrics.add_metrics_to_tb(self.tb_logger, self.global_epoch, iter_type)
-    
+
     def _add_histogram_to_tb(self, values, tag):
         if not self.hparams.debug:
             self.tb_logger.add_histogram(tag, values, global_step=self.global_epoch)

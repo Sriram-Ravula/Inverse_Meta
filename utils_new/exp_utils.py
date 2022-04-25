@@ -124,7 +124,7 @@ def parse_config(config_path):
     #check meta learning type
     if hparams['outer']['meta_type'] != 'mle':
         raise NotImplementedError("This Meta Learning Algorithm has not been implemented yet!")
-    
+
     if hparams['outer']['meta_loss_type'] != 'l2':
         raise NotImplementedError("This Meta Loss has not been implemented yet!")
 
@@ -150,7 +150,7 @@ def parse_config(config_path):
     #check if opt supported
     if hparams['opt']['optimizer'] not in ['adam', 'sgd']:
         raise NotImplementedError("This optimizer has not been implemented yet!")
-    
+
     #null decay if needed
     if not hparams['opt']['decay']:
         hparams['opt']['lr_decay'] = None
@@ -160,7 +160,7 @@ def parse_config(config_path):
     #check if algorithm supported
     if hparams['inner']['alg'] not in ['langevin', 'map']:
         raise NotImplementedError("This reconstruction algorithm has not been implemented yet!")
-    
+
     #null decimation stuff if needed
     if not hparams['inner']['decimate']:
         hparams['inner']['decimation_factor'] = None
@@ -198,7 +198,7 @@ def parse_config(config_path):
         hparams['problem']['y_shape'] = (hparams['problem']['num_measurements'])
     else:
         hparams['problem']['y_shape'] = (hparams['problem']['num_measurements'] * 2)
-    
+
     #deal with sampling and coupling of pixels
     if hparams['problem']['learn_samples']:
         if hparams['problem']['measurement_type'] not in ['superres', 'inpaint', 'fourier']:
@@ -208,14 +208,14 @@ def parse_config(config_path):
 
         if hparams['problem']['measurement_type'] in ['inpaint', 'fourier']:
             hparams['problem']['num_measurements'] = hparams['data']['n_input']
-        
+
         if hparams['problem']['measurement_type'] == 'superres':
             hparams['problem']['y_shape'] = (hparams['data']['num_channels'], new_size, new_size)
         elif hparams['problem']['measurement_type'] == 'inpaint':
             hparams['problem']['y_shape'] = hparams['data']['image_shape']
         elif hparams['problem']['measurement_type'] == 'fourier':
             hparams['problem']['y_shape'] = hparams['data']['image_shape'] + (2,) #2 at the end for real/im
-        
+
         if hparams['problem']['sample_pattern'] not in ['horizontal', 'vertical', 'random']:
             raise NotImplementedError("Given sample pattern not implemented!")
 
@@ -244,6 +244,9 @@ def parse_args(docstring="", manual=False, config=None, doc=None):
     parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
     parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
                                                                'Will be the name of the log folder.')
+    parser.add_argument('--eta', type=float, default=1., help='etaA param for ddrm')
+    parser.add_argument('--etaB', type=float, default=1., help='etaB param for ddrm')
+
 
     if manual:
         args = parser.parse_args(["--config", config, "--doc", doc])

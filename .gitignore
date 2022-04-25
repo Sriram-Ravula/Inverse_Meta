@@ -1,0 +1,10 @@
+*.ipynb*
+*cache*
+*backup*
+*.tar.gz
+*.zip
+*.tar
+trial
+*scans*
+ncsnv2-mri-mvue/*
+
