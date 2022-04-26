@@ -4,7 +4,7 @@ gpu_num: -1 #-1 means use all (DP mode)
 verbose: true
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "/content/exp" #root of folder to save run information
+save_dir: "exp" #root of folder to save run information
 
 seed: 2022
 
@@ -16,7 +16,6 @@ resume_dir: "" #the root of the checkpoint folder to resume from
 
 net:
  model: 'ncsnpp'
- config_file: "/content/Inverse_Meta/ncsnv2/configs/ffhq.yml"
  checkpoint_dir: "/csiNAS2/fast/ajil/score_sde_pytorch_checkpoints/brain-multicoil-vp-ncsnpp-centered/checkpoints/"
  checkpoint: 14
 
@@ -76,20 +75,22 @@ diffusion:
 
 data:
  dataset: 'Brain-Multicoil'
- data_path: "/content/meta_exp/datasets/ffhq"
+ input_dir: "/home/ajil/work/ddrm/mri_datasets/brain_T2"
+ maps_dir: "/home/ajil/work/ddrm/mri_datasets/brain_T2_maps"
+ centered: True
 
  num_train: 1
  num_val: 1
  num_test: 1
 
- train_batch_size: 4
- val_batch_size: 2
- test_batch_size: 4
+ train_batch_size: 1
+ val_batch_size: 1
+ test_batch_size: 1
 
- image_size: 256
- num_channels: 3
+ image_size: 384
+ num_channels: 2
 
- random_flip: true
+ random_flip: false
 
 outer:
  meta_type: 'mle' #only mle supported
@@ -121,7 +122,7 @@ opt:
   checkpoint_iters: 1 #checkpoint every n iterations
 
 inner:
- alg: 'langevin' #type of inner algorithm. ['map', 'langevin']
+ alg: 'ddrm' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
 
  renormalize: True #whether to re-normalize the likelihood grad
@@ -135,11 +136,13 @@ inner:
  lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
 
 problem:
- measurement_type: 'fourier' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
- learn_samples: true #whether the problem is one of learning samples; not usable for gaussian or identity
+ measurement_type: 'fourier-multicoil' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
+ learn_samples: false #whether the problem is one of learning samples; not usable for gaussian or identity
  sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
+ measurement_selection: true
+ measurement_weighting: false
 
- num_measurements: 65536 #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
+ num_measurements: None #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
  fourier_mask_type: 'random' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
  #downsample_factor: 16 #factor to downsample each side of the image
  #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
@@ -147,8 +150,8 @@ problem:
  #efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
 
  add_noise: false #whether to add noise after measuring
- noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite]
- noise_std: 0.1
+#  noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite]
+#  noise_std: 0.1
 
  add_dependent_noise: false #whether to add noise before measuring
  dependent_noise_type: "gaussian" #[gaussian, uniform]

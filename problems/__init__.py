@@ -20,6 +20,6 @@ def get_forward_operator(config):
         operator = SuperresOperator(config)
     else:
         raise NotImplementedError
-    
+
     return operator
-    
+

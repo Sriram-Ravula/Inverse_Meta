@@ -108,12 +108,12 @@ def parse_config(config_path):
 
     #NET
     #check generative models
-    if hparams['net']['model'] != 'ncsnv2':
+    if hparams['net']['model'] not in [ 'ncsnv2', 'ncsnpp']:
         raise NotImplementedError("No implementation for this network yet!")
 
     #DATA
     #check dataset
-    if hparams['data']['dataset'] not in ["celeba", "ffhq"]:
+    if hparams['data']['dataset'] not in ["celeba", "ffhq", 'Brain-Multicoil']:
         raise NotImplementedError("This dataset has not been implemented!")
 
     #make some more input dimension metadata
@@ -158,7 +158,7 @@ def parse_config(config_path):
 
     #INNER
     #check if algorithm supported
-    if hparams['inner']['alg'] not in ['langevin', 'map']:
+    if hparams['inner']['alg'] not in ['langevin', 'map', 'ddrm']:
         raise NotImplementedError("This reconstruction algorithm has not been implemented yet!")
 
     #null decimation stuff if needed
@@ -168,7 +168,9 @@ def parse_config(config_path):
 
     #PROBLEM
     #check if problem supported
-    if hparams['problem']['measurement_type'] not in ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']:
+    if hparams['problem']['measurement_type'] not in ['superres', 'inpaint',
+                                                      'identity', 'gaussian',
+                                                      'fourier', 'fourier-multicoil']:
         raise NotImplementedError("This forward operator has not been implemented")
 
     #do problem-specific stuff
@@ -201,7 +203,9 @@ def parse_config(config_path):
 
     #deal with sampling and coupling of pixels
     if hparams['problem']['learn_samples']:
-        if hparams['problem']['measurement_type'] not in ['superres', 'inpaint', 'fourier']:
+        if hparams['problem']['measurement_type'] not in ['superres',
+                                                          'inpaint', 'fourier',
+                                                          'fourier-multicoil']:
             raise NotImplementedError("Sample selection not supported for chosen measurement type!")
         elif hparams['outer']['hyperparam_type'] != "vector":
             raise NotImplementedError("Sample selection must use a vector hyperparam")
@@ -246,6 +250,7 @@ def parse_args(docstring="", manual=False, config=None, doc=None):
                                                                'Will be the name of the log folder.')
     parser.add_argument('--eta', type=float, default=1., help='etaA param for ddrm')
     parser.add_argument('--etaB', type=float, default=1., help='etaB param for ddrm')
+    parser.add_argument('--timesteps', type=int, default=1000, help='number of steps for ddrm')
 
 
     if manual:

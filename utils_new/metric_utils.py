@@ -1,6 +1,6 @@
 """
 Class for calculating metrics for a proposed image and the original.
-NOTE: all methods return per-image metrics, i.e. the number of returned values is equal to batch dimension. 
+NOTE: all methods return per-image metrics, i.e. the number of returned values is equal to batch dimension.
 """
 import lpips
 import torch
@@ -41,7 +41,7 @@ def get_nmse(x_hat, x):
 
     nmse_val = sse / denom
 
-    return nmse_val.cpu().numpy().flatten() 
+    return nmse_val.cpu().numpy().flatten()
 
 @torch.no_grad()
 def get_psnr(x_hat, x, range=1.):
@@ -79,8 +79,13 @@ def get_all_metrics(x_hat, x, range = 1.):
     function for getting all image reference metrics and returning in a dict
     """
     metrics = {}
+    print(x.shape, x_hat.shape)
+    range = torch.abs(x).max() - torch.abs(x).min()
 
-    metrics['lpips'] = get_lpips(x_hat, x)
+    try:
+        metrics['lpips'] = get_lpips(x_hat, x)
+    except:
+        metrics['lpips'] = np.inf * np.ones(x.shape[0])
     metrics['ssim'] = get_ssim(x_hat, x, range=range)
     metrics['nmse'] = get_nmse(x_hat, x)
     metrics['psnr'] = get_psnr(x_hat, x, range=range)
@@ -107,9 +112,9 @@ class Metrics:
         self.val_metrics_aggregate = {}
         self.test_metrics_aggregate = {}
 
-        #dicts for holding the best summary stats 
+        #dicts for holding the best summary stats
         #the entries have keys named after the metrics and values that are tuples of the best iteration and best value
-        #e.g.  self.best_train_metrics['psnr'] = (10, 0.99) means that training psnr had its best value at iter 10, and that value is 0.99 
+        #e.g.  self.best_train_metrics['psnr'] = (10, 0.99) means that training psnr had its best value at iter 10, and that value is 0.99
         self.best_train_metrics = {}
         self.best_val_metrics = {}
         self.best_test_metrics = {}
@@ -129,10 +134,10 @@ class Metrics:
             cur_dict[iterkey] = {}
 
         return
-    
+
     def __append_to_iter_dict(self, cur_dict, iter_metrics, iter_num):
         """
-        Helper method for appending values to a given iteration metric dict 
+        Helper method for appending values to a given iteration metric dict
         """
         iterkey = 'iter_' + str(iter_num)
         for key, value in iter_metrics.items():
@@ -140,9 +145,9 @@ class Metrics:
                 cur_dict[iterkey][key] = value
             else:
                 cur_dict[iterkey][key] = np.append(cur_dict[iterkey][key], value)
-        
+
         return
-    
+
     def __retrieve_dict(self, iter_type, dict_type='raw'):
         """
         Helper method for validating and retrieving the correct dictionary (train, val, or test)
@@ -157,7 +162,7 @@ class Metrics:
                 cur_dict = self.val_metrics
             elif iter_type == 'test':
                 cur_dict = self.test_metrics
-        
+
         elif dict_type == 'aggregate':
             if iter_type == 'train':
                 cur_dict = self.train_metrics_aggregate
@@ -173,13 +178,13 @@ class Metrics:
                 cur_dict = self.best_val_metrics
             elif iter_type == 'test':
                 cur_dict = self.best_test_metrics
-        
+
         return cur_dict
-    
+
     def get_dict(self, iter_type, dict_type='raw'):
         """Public-facing getter than calls retrieve_dict"""
         return self.__retrieve_dict(iter_type, dict_type)
-    
+
     def get_best(self, iter_type, metric_key):
         """
         Getter method for retrieving the best iter and value for a given metric.
@@ -194,7 +199,7 @@ class Metrics:
 
     def get_metric(self, iter_num, iter_type, metric_key):
         """
-        Getter method for retrieving a mean aggregated metric for a certain iteration. 
+        Getter method for retrieving a mean aggregated metric for a certain iteration.
         """
         cur_dict = self.__retrieve_dict(iter_type, dict_type='aggregate')
 
@@ -206,7 +211,7 @@ class Metrics:
             out_metric = cur_dict[iterkey][metric_key]
 
         return out_metric
-    
+
     def get_all_metrics(self, iter_num, iter_type):
         """
         Getter method for retrieiving all the aggregated metrics for a certain iteration.
@@ -218,7 +223,7 @@ class Metrics:
             out_dict = None
         else:
             out_dict = cur_dict[iterkey]
-        
+
         return out_dict
 
     def calc_iter_metrics(self, x_hat, x, iter_num, iter_type='train'):
@@ -233,14 +238,22 @@ class Metrics:
         """
         cur_dict = self.__retrieve_dict(iter_type) #validate and retrieve the right dict
 
-        iter_metrics = get_all_metrics(x_hat, x, range = self.range) #calc the metrics
+        if x_hat.shape[1] == 2:
+            x_hat_ = torch.norm(x_hat, dim=1)
+            x_ = torch.norm(x, dim=1)
+            range = x_.max() - x_.min()
+        else:
+            x_hat_ = x_hat.clone()
+            x_ = x.clone()
+            range = self.range
+        iter_metrics = get_all_metrics(x_hat, x, range=range) #calc the metrics
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
-        
+
         self.__append_to_iter_dict(cur_dict, iter_metrics, iter_num) #add the values to the iter dict
 
         return
-    
+
     def add_external_metrics(self, external_metrics, iter_num, iter_type='train'):
         """
         Function for adding a given dict of metrics to the given iteration.
@@ -248,15 +261,15 @@ class Metrics:
         cur_dict = self.__retrieve_dict(iter_type) #validate and retrieve the right dict
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
-        
+
         self.__append_to_iter_dict(cur_dict, external_metrics, iter_num) #add the values to the iter dict
 
         return
-    
+
     def aggregate_iter_metrics(self, iter_num, iter_type='train', return_best=False):
         """
         Called at the end of an iteration/epoch to find summary stats for all the metrics.
-        If desired, returns a dict with the name and value of each metric from the iteration that 
+        If desired, returns a dict with the name and value of each metric from the iteration that
             achieved their best value. If no metric had its best value, return None.
         """
         agg_dict = self.__retrieve_dict(iter_type, dict_type='aggregate') #validate and retrieve the right dicts
@@ -266,7 +279,7 @@ class Metrics:
         self.__init_iter_dict(agg_dict, iter_num) #check that the iter dict is initialized
         self.__init_iter_dict(raw_dict, iter_num, should_exist=True) #make sure the corresponding dict exists in the raw
 
-        #go through all the metrics in the raw data and aggregate them 
+        #go through all the metrics in the raw data and aggregate them
         iterkey = 'iter_' + str(iter_num)
         for key, value in raw_dict[iterkey].items():
             mean_key = "mean_" + key
@@ -274,16 +287,16 @@ class Metrics:
             mean_value = np.mean(value)
             # std_value = np.std(value)
             agg_dict[iterkey][mean_key] = mean_value
-            # agg_dict[iterkey][std_key] = std_value 
-        
+            # agg_dict[iterkey][std_key] = std_value
+
         if return_best:
             out_dict = None
-        
+
         #aggregation is done, now we check if the aggregates values contain any bests
         for key, value in agg_dict[iterkey].items():
             if 'mean' not in key: #we are only interested in the mean values
                 continue
-            
+
             metric_key = key[5:] #strip "mean_" from the front of the key
 
             best = self.get_best(iter_type, metric_key)
@@ -307,12 +320,12 @@ class Metrics:
                     if out_dict is None:
                         out_dict = {}
                     out_dict[metric_key] = value
-        
+
         if return_best:
             return out_dict
         else:
             return
-    
+
     def add_metrics_to_tb(self, tb_logger, step, iter_type='train'):
         """
         Run through metrics and log everything there.
@@ -330,16 +343,16 @@ class Metrics:
         if iterkey not in raw_dict:
             print("\ncurrent iteration has not yet been logged\n")
             return
-        
+
         for metric_type, metric_value in raw_dict[iterkey].items():
             for i, val in enumerate(metric_value):
                 tb_logger.add_scalars("raw " + metric_type, {iter_type: val}, i)
-        
+
         for metric_type, metric_value in agg_dict[iterkey].items():
             tb_logger.add_scalars(metric_type, {iter_type: metric_value}, step)
-        
+
         for metric_type, metric_value in best_dict.items():
             tb_logger.add_scalars("best " + metric_type + " iter", {iter_type: metric_value[0]}, step)
             tb_logger.add_scalars("best " + metric_type + " value", {iter_type: metric_value[1]}, step)
-        
+
         return

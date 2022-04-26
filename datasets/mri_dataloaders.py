@@ -7,11 +7,13 @@ import torch
 from tqdm import tqdm
 import h5py
 import sigpy as sp
-from utils import get_mvue
 import pickle as pkl
 import sys
 
 
+def get_mvue(kspace, s_maps):
+    ''' Get mvue estimate from coil measurements '''
+    return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=-3) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
 
 
 class BrainMultiCoil(Dataset):
@@ -141,16 +143,17 @@ class BrainMultiCoil(Dataset):
             acs_lines = np.floor(0.04 * total_lines).astype(int)
 
         # Get a mask
-        mask = self._get_mask(acs_lines, total_lines,
-                              self.R, self.pattern)
+        # mask = self._get_mask(acs_lines, total_lines,
+        #                       self.R, self.pattern)
         # Mask k-space
-        if self.orientation == 'vertical':
-            ksp = gt_ksp * mask[None, None, :]
-        elif self.orientation == 'horizontal':
-            ksp = gt_ksp * mask[None, :, None]
-        else:
-            raise NotImplementedError
+        # if self.orientation == 'vertical':
+        #     ksp = gt_ksp * mask[None, None, :]
+        # elif self.orientation == 'horizontal':
+        #     ksp = gt_ksp * mask[None, :, None]
+        # else:
+        #     raise NotImplementedError
 
+        ksp = gt_ksp
         # find mvue image
         aliased_mvue = get_mvue(ksp, s_maps)
 
@@ -162,7 +165,7 @@ class BrainMultiCoil(Dataset):
         gt_mvue /= gt_mvue_scale_factor
 
         s_maps_scale = np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
-        print(s_maps_scale)
+        # print(s_maps_scale)
         ksp /= s_maps_scale
         aliased_mvue /= s_maps_scale
         gt_mvue /= s_maps_scale
@@ -182,7 +185,7 @@ class BrainMultiCoil(Dataset):
         sample = {
                   'ksp': ksp,
                   's_maps': s_maps,
-                  'mask': mask,
+                  # 'mask': mask,
                   'aliased_image': aliased_mvue_two_channel.astype(np.float32),
                   'gt_image': gt_mvue_two_channel.astype(np.float32),
                   'scale_factor': scale_factor.astype(np.float32),
@@ -190,7 +193,7 @@ class BrainMultiCoil(Dataset):
                   'scan_idx': scan_idx,
                   'slice_idx': slice_idx}
         print(ksp.shape)
-        return sample
+        return sample, idx
 
 class KneesMultiCoil(BrainMultiCoil):
     def __init__(self, file_list, maps_dir, input_dir,
@@ -354,6 +357,6 @@ class KneesSingleCoil(Dataset):
                   # Just for feedback
                   'scan_idx': scan_idx,
                   'slice_idx': slice_idx_shifted}
-        return sample
+        return sample, idx
 
 

@@ -3,10 +3,15 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import Subset
 import numpy as np
+import glob
 
 from datasets.celeba import CelebA
 from datasets.ffhq import FFHQ
 from datasets.mri_dataloaders import BrainMultiCoil, KneesSingleCoil, KneesMultiCoil
+
+def get_all_files(folder, pattern='*'):
+    files = [x for x in glob.iglob(os.path.join(folder, pattern))]
+    return sorted(files)
 
 def get_dataset(config):
     if config.data.dataset == 'celeba':
@@ -61,9 +66,9 @@ def get_dataset(config):
                                 input_dir=config.data.input_dir,
                                 maps_dir=config.data.maps_dir,
                                 image_size = config.data.image_size,
-                                R=config.data.R,
-                                pattern=config.data.pattern,
-                                orientation=config.data.orientation)
+                                R=config.problem.R,
+                                pattern=config.problem.pattern,
+                                orientation=config.problem.orientation)
         num_items = len(dataset)
         indices = list(range(num_items))
         random_state = np.random.get_state()

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import torch
 from time import time
 import yaml
@@ -9,9 +10,10 @@ from ddrm_mri.models.ema import ExponentialMovingAverage
 from ddrm_mri.runners.diffusion import get_beta_schedule
 from ddrm_mri.functions.denoising import efficient_generalized_steps
 from ddrm_mri.functions.ckpt_util import get_ckpt_path
+from ddrm_mri.functions.svd_replacement import FourierSingleCoil, FourierMultiCoil
+from ddrm_mri.ncsnpp_utils import restore_checkpoint
 
 from utils_new.exp_utils import dict2namespace
-from ..functions.svd_replacement import FourierSingleCoil, FourierMultiCoil
 # from utils_new.inner_loss_utils import log_cond_likelihood_loss, get_likelihood_grad
 
 class DDRM(torch.nn.Module):
@@ -33,19 +35,13 @@ class DDRM(torch.nn.Module):
             )
         self.device = device
         self.hparams = hparams
+        self.args = args
 
         self.A = A
         self._init_net()
         self.register_buffer('c', c.detach().clone()) #TODO remove detach() for e.g.MAML
 
-        self.T = self.hparams.inner.T
-        self.step_lr = self.hparams.inner.lr
-        if self.hparams.inner.decimate:
-            self.register_buffer('used_levels', torch.from_numpy(self._get_decimated_sigmas()))
-            self.total_steps = len(self.used_levels) * self.T
-        else:
-            self.total_steps = len(self.sigmas) * self.T
-            self.register_buffer('used_levels', torch.from_numpy(np.arange(len(self.sigmas))))
+
         self.add_noise = True if hparams.inner.alg == 'langevin' else False
 
         self.renormalize = hparams.inner.renormalize #whether to re-scale the log likelihood gradient
@@ -58,12 +54,18 @@ class DDRM(torch.nn.Module):
             raise NotImplementedError("Meta Learner type not supported by SGLD!")
 
         # special stuff for the Variance Preserving NCSN++
-        self.model_var_type = config.model.var_type
+        self.model_var_type = self.hparams.model.var_type
         betas = get_beta_schedule(hparams.diffusion.beta_schedule,
                                        hparams.diffusion.beta_start,
                                        hparams.diffusion.beta_end,
                                        hparams.diffusion.num_diffusion_timesteps)
         betas = self.betas = torch.from_numpy(betas).float().to(self.device)
+
+        start = 0
+        end = self.betas.shape[0]
+        skip = (end - start)// self.args.timesteps
+        self.seq = np.array(range(start, end, skip))
+        self.register_buffer('used_levels', torch.from_numpy(self.seq))
 
         alphas = 1.0 - betas
         alphas_cumprod = alphas.cumprod(dim=0)
@@ -82,7 +84,7 @@ class DDRM(torch.nn.Module):
             self.logvar = posterior_variance.clamp(min=1e-20).log()
 
         # stuff for measurement operator and its SVD
-        if self.hparams.problem.measurement_type == 'fourier':
+        if self.hparams.problem.measurement_type == 'fourier-multicoil':
             R = self.hparams.problem.R
             pattern = self.hparams.problem.pattern
             orientation = self.hparams.problem.orientation
@@ -93,13 +95,15 @@ class DDRM(torch.nn.Module):
 
 
     def forward(self, x_mod, y):
-        start = 0
-        end = self.betas.shape[0]
-        skip = (end - start)// self.hparams.timesteps
-        seq = range(start, end, skip)
+        # for some reason y is a two-channel float. convert to complex
+        y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
 
         singulars = self.c.clone()
-        self.H_funcs._singulars = singulars.reshape(-1)
+        if self.hparams.problem.measurement_selection:
+            singulars = singulars.view(-1, y.shape[-2], y.shape[-1])
+            singulars = singulars.repeat(y.shape[-3], 1, 1)
+        # print(singulars.shape, x_mod.shape, y.shape)
+        self.H_funcs._singulars = torch.sqrt(torch.abs(singulars)).reshape(-1)
 
         # TODO: make sigma_0 non-zero
         # patch = gt_image[0,:,:5,:5]
@@ -109,11 +113,12 @@ class DDRM(torch.nn.Module):
         # args.sigma_0 = sigma_0
         sigma_0 = 0
 
-
-        x = efficient_generalized_steps(x_mod, seq, self.model, self.betas,\
+        # print('lah', y.shape)
+        # print(y)
+        x = efficient_generalized_steps(x_mod, self.seq, self.model, self.betas,\
         self.H_funcs, y, sigma_0, etaB=self.args.etaB, etaA=self.args.eta, \
                                         etaC=self.args.eta)
-        return x[0][-1]
+        return x[0][-1].to(self.device)
     # def forward(self, x_mod, y):
     #     fmtstr = "%10i %10.3g %10.3g %10.3g %10.3g %10.3g"
     #     titlestr = "%10s %10s %10s %10s %10s %10s"
@@ -225,7 +230,7 @@ class DDRM(torch.nn.Module):
         for param in model.parameters():
             param.requires_grad = False
         model.eval()
-        ema = ExponentialMovingAverage(model.parameters(), decay=self.config.model.ema_rate)
+        ema = ExponentialMovingAverage(model.parameters(), decay=self.hparams.model.ema_rate)
         state = dict(model=model, ema=ema)
 
         ckpt = os.path.join(self.hparams.net.checkpoint_dir, f'checkpoint_{self.hparams.net.checkpoint}.pth')
