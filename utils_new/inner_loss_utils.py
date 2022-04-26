@@ -69,7 +69,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
     elif c_type == 1 and not learn_samples:
         loss = scale * 0.5 * torch.sum(c * (resid ** 2), reduce_dims) #(1/2) ||Diag(sqrt(c))(Ax-y)||^2
     elif c_type == 1 and learn_samples:
-        loss = scale * 0.5 * torch.sum((c * resid) ** 2, reduce_dims) #(1/2) ||C(Ax-y)||^2
+        loss = scale * 0.5 * torch.sum((c * resid) ** 2, reduce_dims) #(1/2) ||Diag(c)(Ax-y)||^2
     else:
         raise NotImplementedError("Hyperparameter dimensions not supported")
 

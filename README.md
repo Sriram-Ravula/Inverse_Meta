@@ -20,7 +20,7 @@ Meta learning can be run in 2 modes:
 Furthermore, we can learn an sampling pattern for measurements, e.g. for square matrix A we want to find the matrix C for the inner loss: L = ||C(Ax - y)||^2 - log p(x) that results in the best reconstruction. Currently, only a diagonal C can be learned for this mode - i.e. C point-wise multiplies the residual (Ax - y). 
 
 ## How to run
-Check **configs** > ```sample_ffhq.yml`` for an example of how to set up a configuration file for you experiment along with details for each parameter.
+Check **configs** > ```sample_ffhq.yml``` for an example of how to set up a configuration file for you experiment along with details for each parameter.
 
 To start an experiment, run the command
 ```
