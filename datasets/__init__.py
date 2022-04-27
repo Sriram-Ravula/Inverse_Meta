@@ -62,41 +62,43 @@ def get_dataset(config):
 
     elif config.data.dataset == 'Brain-Multicoil':
         files = get_all_files(config.data.input_dir, pattern='*.h5')
-        dataset = BrainMultiCoil(files,
+        dataset = None
+        test_dataset = BrainMultiCoil(files,
                                 input_dir=config.data.input_dir,
                                 maps_dir=config.data.maps_dir,
                                 image_size = config.data.image_size,
                                 R=config.problem.R,
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation)
-        num_items = len(dataset)
-        indices = list(range(num_items))
-        random_state = np.random.get_state()
-        np.random.seed(2019)
-        np.random.shuffle(indices)
-        np.random.set_state(random_state)
-        train_indices, test_indices = indices[:int(num_items * 0.9)], indices[int(num_items * 0.9):]
-        test_dataset = Subset(dataset, test_indices)
-        dataset = Subset(dataset, train_indices)
+        # num_items = len(dataset)
+        # indices = list(range(num_items))
+        # random_state = np.random.get_state()
+        # np.random.seed(2019)
+        # np.random.shuffle(indices)
+        # np.random.set_state(random_state)
+        # train_indices, test_indices = indices[:int(num_items * 0.9)], indices[int(num_items * 0.9):]
+        # test_dataset = Subset(dataset, test_indices)
+        # dataset = Subset(dataset, train_indices)
 
-    elif config.data.dataset == 'Knees-Multicoil':
+    elif config.data.dataset == 'Knee-Multicoil':
         files = get_all_files(config.data.input_dir, pattern='*.h5')
-        dataset = KneesMultiCoil(files,
+        dataset = None
+        test_dataset = KneesMultiCoil(files,
                                 input_dir=config.data.input_dir,
                                 maps_dir=config.data.maps_dir,
                                 image_size = config.data.image_size,
-                                R=config.data.R,
-                                pattern=config.data.pattern,
-                                orientation=config.data.orientation)
-        num_items = len(dataset)
-        indices = list(range(num_items))
-        random_state = np.random.get_state()
-        np.random.seed(2019)
-        np.random.shuffle(indices)
-        np.random.set_state(random_state)
-        train_indices, test_indices = indices[:int(num_items * 0.9)], indices[int(num_items * 0.9):]
-        test_dataset = Subset(dataset, test_indices)
-        dataset = Subset(dataset, train_indices)
+                                R=config.problem.R,
+                                pattern=config.problem.pattern,
+                                orientation=config.problem.orientation)
+        # num_items = len(dataset)
+        # indices = list(range(num_items))
+        # random_state = np.random.get_state()
+        # np.random.seed(2019)
+        # np.random.shuffle(indices)
+        # np.random.set_state(random_state)
+        # train_indices, test_indices = indices[:int(num_items * 0.9)], indices[int(num_items * 0.9):]
+        # test_dataset = Subset(dataset, test_indices)
+        # dataset = Subset(dataset, train_indices)
     elif config.data.dataset == 'Knees-Singlecoil':
         dataset = None
         files = get_all_files(config.data.input_dir, pattern='*.h5')
@@ -137,14 +139,16 @@ def split_dataset(base_dataset, hparams):
 
     indices = list(range(len(base_dataset)))
 
-    random_state = np.random.get_state()
-    np.random.seed(hparams.seed)
-    np.random.shuffle(indices)
-    np.random.set_state(random_state)
+    # random_state = np.random.get_state()
+    # np.random.seed(hparams.seed)
+    # np.random.shuffle(indices)
+    # np.random.set_state(random_state)
 
     train_indices = indices[:num_train]
     val_indices = indices[num_train:num_train+num_val]
     test_indices = indices[num_train+num_val:num_train+num_val+num_test]
+    # TODO: delete
+    print('INDICES', train_indices, val_indices, test_indices)
 
     train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
     val_dataset = torch.utils.data.Subset(base_dataset, val_indices)

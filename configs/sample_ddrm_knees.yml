@@ -16,8 +16,8 @@ resume_dir: "" #the root of the checkpoint folder to resume from
 
 net:
  model: 'ncsnpp'
- checkpoint_dir: "/csiNAS2/fast/ajil/score_sde_pytorch_checkpoints/brain-multicoil-vp-ncsnpp-centered/checkpoints/"
- checkpoint: 14
+ checkpoint_dir: "/csiNAS2/fast/ajil/score_sde_pytorch_checkpoints/knee-multicoil-vp-centered/checkpoints/"
+ checkpoint: 34
 
 model:
  type: "simple"
@@ -74,20 +74,20 @@ diffusion:
 
 
 data:
- dataset: 'Brain-Multicoil'
- input_dir: "/home/ajil/work/ddrm/mri_datasets/brain_T2"
- maps_dir: "/home/ajil/work/ddrm/mri_datasets/brain_T2_maps"
+ dataset: 'Knee-Multicoil'
+ input_dir: "/home/ajil/work/ddrm/mri_datasets/knee"
+ maps_dir:  "/home/ajil/work/ddrm/mri_datasets/knee_maps"
  centered: True
 
  num_train: 2
  num_val: 2
  num_test: 2
 
- train_batch_size: 1
- val_batch_size: 1
- test_batch_size: 1
+ train_batch_size: 2
+ val_batch_size:   2
+ test_batch_size:  2
 
- image_size: 384
+ image_size: 320
  num_channels: 2
 
  random_flip: false
@@ -99,7 +99,7 @@ outer:
 
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector]
  exp_params: false #whether to use exp(hyperparams) instead of hyperparams
- hyperparam_init: 0
+ hyperparam_init: 0.1
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]

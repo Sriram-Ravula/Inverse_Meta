@@ -116,7 +116,7 @@ def parse_config(config_path):
 
     #DATA
     #check dataset
-    if hparams['data']['dataset'] not in ["celeba", "ffhq", 'Brain-Multicoil']:
+    if hparams['data']['dataset'] not in ["celeba", "ffhq", 'Brain-Multicoil', 'Knee-Multicoil']:
         raise NotImplementedError("This dataset has not been implemented!")
 
     #make some more input dimension metadata

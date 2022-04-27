@@ -40,9 +40,9 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
     c_type = len(c_orig.shape)
 
     if exp_params:
-        c = torch.exp(c_orig)
+        c = torch.exp(c_orig.clone())
     else:
-        c = c_orig
+        c = c_orig.clone()
 
     if len(y.shape) == 4 and c_type > 0:
         c = c_orig.view(-1, y.shape[-2], y.shape[-1])
@@ -58,16 +58,18 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
     Ax = A(x, targets=False)
     resid = Ax - y
     resid = resid.view(y.shape[0], -1)
-    c = c.view(y.shape[0], -1)
+    if c_type > 0 :
+        c = c.view(-1)
+        c = c.repeat(y.shape[0],1)
     c = c.to(resid.device)
 
     # print(resid.shape, Ax.shape, y.shape, c.shape)
 
     #we need to reshape the hyperparameters to be [H, W] (or [H//D, W//D] for superres)
     if learn_samples:
-        if sample_pattern == 'random':
-            c = c.view(resid.shape[2:4])
-        elif sample_pattern == 'horizontal':
+        # if sample_pattern == 'random':
+        #     c = c.view(resid.shape[2:4])
+        if sample_pattern == 'horizontal':
             c = c.unsqueeze(1).repeat(1, resid.shape[3])
         elif sample_pattern == 'vertical':
             c = c.unsqueeze(0).repeat(resid.shape[2], 1)
@@ -81,7 +83,7 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
     elif c_type == 1 and not learn_samples:
         loss = scale * 0.5 * torch.sum(c * (torch.abs(resid) ** 2), reduce_dims) #(1/2) ||Diag(sqrt(c))(Ax-y)||^2
     elif c_type == 1 and learn_samples:
-        loss = scale * 0.5 * torch.sum((c * torch.abs(resid)) ** 2, reduce_dims) #(1/2) ||C(Ax-y)||^2
+        loss = scale * 0.5 * torch.sum(c * (torch.abs(resid) ** 2), reduce_dims) #(1/2) ||C(Ax-y)||^2
     else:
         raise NotImplementedError("Hyperparameter dimensions not supported")
 
@@ -102,7 +104,12 @@ def get_likelihood_grad(c, y, A, x, use_autograd,
     if use_autograd:
         grad_flag_x = x.requires_grad
         x.requires_grad_()
-        likelihood_grad = torch.autograd.grad(log_cond_likelihood_loss(c, y, A, x, scale, exp_params, reduce_dims, learn_samples, sample_pattern),
+        likelihood_grad = torch.autograd.grad(torch.mean(log_cond_likelihood_loss(c, y, A, x,
+                                                                scale,
+                                                                exp_params,
+                                                                reduce_dims,
+                                                                learn_samples,
+                                                                sample_pattern)),
                             x, retain_graph=retain_graph, create_graph=create_graph)[0]
         x.requires_grad_(grad_flag_x)
     else:

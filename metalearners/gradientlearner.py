@@ -109,8 +109,8 @@ class GBML:
         elif num_batches == 0:
             return
 
-        for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
-            if self.hparams.data.dataset not in ['Brain-Multicoil']:
+        for i, (item, x_idx) in tqdm(enumerate(self.train_loader)):
+            if self.hparams.data.dataset not in ['Brain-Multicoil', 'Knee-Multicoil']:
                 x = item[0]
                 y = None
             else:
@@ -166,7 +166,7 @@ class GBML:
         self._print_if_verbose("\nVALIDATING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
-            if self.hparams.data.dataset not in ['Brain-Multicoil']:
+            if self.hparams.data.dataset not in ['Brain-Multicoil', 'Knee-Multicoil']:
                 x = item[0]
                 y = None
             else:
@@ -209,7 +209,20 @@ class GBML:
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
 
-        for i, (x, x_idx) in tqdm(enumerate(self.test_loader)):
+        for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
+            if self.hparams.data.dataset not in ['Brain-Multicoil', 'Knee-Multicoil']:
+                x = item[0]
+                y = None
+            else:
+                # assert sigma_0 == 0, 'currently cannot add extra noise to MRI measurements'
+                aliased_image = item['aliased_image'].to(self.device)
+                x = item['gt_image'].to(self.device)
+                y = item['ksp'].type(torch.cfloat).to(self.device)
+                scale_factor = item['scale_factor'].to(self.device)
+                s_maps = item['s_maps'].to(self.device)
+                self.langevin_runner.module.H_funcs.s_maps = s_maps
+                self.A = lambda x, targets: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
+
             x_hat, x, y = self._shared_step(x, "test")
 
             #logging and saving
@@ -308,44 +321,46 @@ class GBML:
             return
 
         #make and save visualisations of sampling masks
-        if self.hparams.problem.learn_samples:
-            if self.hparams.problem.sample_pattern == 'random':
-                c = self.c.view(y.shape[2:4])
-            elif self.hparams.problem.sample_pattern == 'horizontal':
-                c = self.c.unsqueeze(1).repeat(1, y.shape[3])
-            elif self.hparams.problem.sample_pattern == 'vertical':
-                c = self.c.unsqueeze(0).repeat(y.shape[2], 1)
+        # TODO: (ajil) my code was for learned_samples=False, so I commented
+        # the line below. needs to be changed
+        # if self.hparams.problem.learn_samples:
+        if self.hparams.problem.sample_pattern == 'random':
+            c = self.c.view(y.shape[2:4])
+        elif self.hparams.problem.sample_pattern == 'horizontal':
+            c = self.c.unsqueeze(1).repeat(1, y.shape[3])
+        elif self.hparams.problem.sample_pattern == 'vertical':
+            c = self.c.unsqueeze(0).repeat(y.shape[2], 1)
 
-            #image where more red = higher, more blue = lower
-            c_min = torch.min(c)
-            c_max = torch.max(c)
-            c_scaled = (c - c_min) / (c_max - c_min)
-            c_pos_neg = torch.zeros(3, c.shape[0], c.shape[1])
-            c_pos_neg[0, :, :] = c_scaled
-            c_pos_neg[2, :, :] = 1 - c_scaled
+        #image where more red = higher, more blue = lower
+        c_min = torch.min(c)
+        c_max = torch.max(c)
+        c_scaled = (c - c_min) / (c_max - c_min)
+        c_pos_neg = torch.zeros(3, c.shape[0], c.shape[1])
+        c_pos_neg[0, :, :] = c_scaled
+        c_pos_neg[2, :, :] = 1 - c_scaled
 
-            #image where more red = higher magnitude, more blue = lower magnitude
-            c_abs_max = torch.max(torch.abs(c))
-            c_abs_scaled = torch.abs(c) / c_abs_max
-            c_mag = torch.zeros(3, c.shape[0], c.shape[1])
-            c_mag[0, :, :] = c_abs_scaled
-            c_mag[2, :, :] = 1 - c_abs_scaled
+        #image where more red = higher magnitude, more blue = lower magnitude
+        c_abs_max = torch.max(torch.abs(c))
+        c_abs_scaled = torch.abs(c) / c_abs_max
+        c_mag = torch.zeros(3, c.shape[0], c.shape[1])
+        c_mag[0, :, :] = c_abs_scaled
+        c_mag[2, :, :] = 1 - c_abs_scaled
 
-            #image where black = 0, white = nonzero
-            c_binary = torch.zeros_like(c).cpu()
-            c_binary[c != 0] = 1.0
-            c_binary = c_binary.unsqueeze(0).repeat(3, 1, 1)
+        #image where black = 0, white = nonzero
+        c_binary = torch.zeros_like(c).cpu()
+        c_binary[c != 0] = 1.0
+        c_binary = c_binary.unsqueeze(0).repeat(3, 1, 1)
 
-            if iter_type == "train":
-                c_path = os.path.join(self.image_root, "learned_masks")
+        if iter_type == "train":
+            c_path = os.path.join(self.image_root, "learned_masks")
 
-                c_out = torch.stack([c_pos_neg, c_mag, c_binary])
-                self._add_tb_images(c_out, "Learned Mask")
-                if not os.path.exists(c_path):
-                    os.makedirs(c_path)
-                self._save_images(c_out, ["PosNeg_" + str(self.global_epoch),
-                                          "Mag_" + str(self.global_epoch),
-                                          "Binary_" + str(self.global_epoch)], c_path)
+            c_out = torch.stack([c_pos_neg, c_mag, c_binary])
+            self._add_tb_images(c_out, "Learned Mask")
+            if not os.path.exists(c_path):
+                os.makedirs(c_path)
+            self._save_images(c_out, ["PosNeg_" + str(self.global_epoch),
+                                        "Mag_" + str(self.global_epoch),
+                                        "Binary_" + str(self.global_epoch)], c_path)
         #make paths
         true_path = os.path.join(self.image_root, iter_type)
         meas_path = os.path.join(self.image_root, iter_type + "_meas", "epoch_"+str(self.global_epoch))

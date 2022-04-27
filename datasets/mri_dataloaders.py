@@ -325,12 +325,13 @@ class KneesSingleCoil(Dataset):
         mask = self._get_mask(acs_lines, total_lines,
                               self.R, self.pattern)
         # Mask k-space
-        if self.orientation == 'vertical':
-            ksp = gt_ksp * mask[None, :]
-        elif self.orientation == 'horizontal':
-            ksp = gt_ksp * mask[:, None]
-        else:
-            raise NotImplementedError
+        # if self.orientation == 'vertical':
+        #     ksp = gt_ksp * mask[None, :]
+        # elif self.orientation == 'horizontal':
+        #     ksp = gt_ksp * mask[:, None]
+        # else:
+        #     raise NotImplementedError
+        ksp = gt_ksp
 
         aliased_image = sp.ifft(ksp, axes=(-2,-1))
         scale_factor = np.percentile(np.abs(aliased_image), 99)
