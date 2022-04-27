@@ -31,3 +31,8 @@ For knees:
 ```
 python main_new.py --config configs/sample_ddrm_knees.yml --doc new --timesteps 1000 --eta 0.7 --etaB 1.0
 ```
+
+## Submodule initialization
+```
+git submodule update --init --recursive
+```
