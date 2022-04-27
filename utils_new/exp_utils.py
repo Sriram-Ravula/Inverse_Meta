@@ -11,10 +11,13 @@ import pickle
 def save_image(image, path):
     """Save a pytorch image as a png file"""
     image = image.detach().cpu().numpy() #image comes in as an [C, H, W] torch tensor
-    x_png = np.uint8(np.clip(image*256,0,255))
-    x_png = x_png.transpose(1,2,0)
+    print(image.shape)
+    x_png = image.transpose(1,2,0)
     if x_png.shape[-1] == 1:
         x_png = x_png[:,:,0]
+    elif x_png.shape[-1] == 2:
+        x_png = np.linalg.norm(x_png, axis=-1)
+    x_png = np.uint8(np.clip(x_png*256,0,255))
     x_png = Image.fromarray(x_png).save(path)
 
 def save_images(images, labels, save_prefix):
