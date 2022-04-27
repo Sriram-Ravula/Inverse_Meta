@@ -36,3 +36,19 @@ python main_new.py --config configs/sample_ddrm_knees.yml --doc new --timesteps 
 ```
 git submodule update --init --recursive
 ```
+
+## Download checkpoints
+Knee checkpoint:
+```
+gdown https://drive.google.com/uc?id=13_D2_wg3QxLdl98skUlIBXTRrSrY-qZ3
+```
+
+Brain checkpoint:
+```
+gdown https://drive.google.com/uc?id=1K6zcfX7cvG30skP8F8NkbEIlOnQlaj94
+```
+
+Knee data:
+```
+gdown https://drive.google.com/uc?id=1q5B8sG_5rXHNLzv3AuUQ7L4snl4Cx7kJ
+```
