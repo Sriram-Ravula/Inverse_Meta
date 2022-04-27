@@ -40,12 +40,12 @@ git submodule update --init --recursive
 ## Download checkpoints
 Knee checkpoint:
 ```
-gdown https://drive.google.com/uc?id=13_D2_wg3QxLdl98skUlIBXTRrSrY-qZ3
+gdown https://drive.google.com/uc?id=1VOrIq8_53Oy6J-t90rzZDiZnLu-oeDN8
 ```
 
 Brain checkpoint:
 ```
-gdown https://drive.google.com/uc?id=1K6zcfX7cvG30skP8F8NkbEIlOnQlaj94
+gdown https://drive.google.com/uc?id=1aSjBUnce-rrtrpFS_BdARpOjOEWfY_gA
 ```
 
 Knee data:
