@@ -106,9 +106,9 @@ class DDRM(torch.nn.Module):
             c = self.c.clone().view(y.shape[2:])
             # c = torch.ones_like(self.c).view(y.shape[2:])
             print(c[None, None, :, :].shape)
-            y_ = c[None, None, :, :] * y
+            y_ = torch.sqrt(torch.abs(c[None, None, :, :])) * y
         # print(singulars.shape, x_mod.shape, y.shape)
-        self.H_funcs._singulars = singulars.reshape(-1)
+        self.H_funcs._singulars = torch.sqrt(torch.abs(singulars)).reshape(-1)
         print(self.H_funcs._singulars)
 
         # TODO: make sigma_0 non-zero
