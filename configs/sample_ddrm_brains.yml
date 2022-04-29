@@ -79,13 +79,13 @@ data:
  maps_dir: "/home/ajil/work/ddrm/mri_datasets/brain_T2_maps"
  centered: True
 
- num_train: 2
- num_val: 2
- num_test: 2
+ num_train: 1
+ num_val:   1
+ num_test:  1
 
  train_batch_size: 1
- val_batch_size: 1
- test_batch_size: 1
+ val_batch_size:   1
+ test_batch_size:  1
 
  image_size: 384
  num_channels: 2

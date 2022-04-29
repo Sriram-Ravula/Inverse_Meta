@@ -242,15 +242,24 @@ class GBML:
         if y is None:
             with torch.no_grad():
                 y = self.A(x, targets=True)
+            patch = x[0,:,:5,:5]
+            mag_patch = torch.sum(torch.square(patch), axis=0)
+            sigma_0 = torch.sqrt(torch.mean(mag_patch)).item()
+            print(f'estimated noise is: {sigma_0}')
         else:
-            pass
+            sigma_0 = None
+
 
         x_mod = torch.rand_like(x)
 
         # TODO: delete
         # print('lo', y.shape)
         # print(y)
-        x_hat = self.langevin_runner(x_mod, y)
+        if sigma_0 is None:
+            x_hat = self.langevin_runner(x_mod, y)
+        else:
+            x_hat = self.langevin_runner(x_mod, y, sigma_0)
+
 
         #logging
         # TODO: delete

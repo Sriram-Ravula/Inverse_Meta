@@ -94,18 +94,22 @@ class DDRM(torch.nn.Module):
             raise NotImplementedError
 
 
-    def forward(self, x_mod, y):
+    def forward(self, x_mod, y, sigma_0=0):
         # for some reason y is a two-channel float. convert to complex
         y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
 
         singulars = self.c.clone()
+        # singulars = torch.ones_like(self.c)
         if self.hparams.problem.measurement_selection:
             singulars = singulars.view(-1, y.shape[-2], y.shape[-1])
             singulars = singulars.repeat(y.shape[-3], 1, 1)
+            c = self.c.clone().view(y.shape[2:])
+            # c = torch.ones_like(self.c).view(y.shape[2:])
+            print(c[None, None, :, :].shape)
+            y_ = c[None, None, :, :] * y
         # print(singulars.shape, x_mod.shape, y.shape)
-        self.H_funcs._singulars = torch.abs(singulars).reshape(-1)
-        c = self.c.view(y.shape[2:])
-        y_ = c[None, None] * y
+        self.H_funcs._singulars = singulars.reshape(-1)
+        print(self.H_funcs._singulars)
 
         # TODO: make sigma_0 non-zero
         # patch = gt_image[0,:,:5,:5]
@@ -113,7 +117,7 @@ class DDRM(torch.nn.Module):
         # sigma_0 = torch.sqrt(torch.mean(mag_patch)).item()
         # print(f'estimated noise is: {sigma_0}')
         # args.sigma_0 = sigma_0
-        sigma_0 = 0
+        # sigma_0 = 0
 
         # print('lah', y.shape)
         # print(y)
