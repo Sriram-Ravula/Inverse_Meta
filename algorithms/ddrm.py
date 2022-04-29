@@ -103,7 +103,9 @@ class DDRM(torch.nn.Module):
             singulars = singulars.view(-1, y.shape[-2], y.shape[-1])
             singulars = singulars.repeat(y.shape[-3], 1, 1)
         # print(singulars.shape, x_mod.shape, y.shape)
-        self.H_funcs._singulars = torch.sqrt(torch.abs(singulars)).reshape(-1)
+        self.H_funcs._singulars = torch.abs(singulars).reshape(-1)
+        c = self.c.view(y.shape[2:])
+        y_ = c[None, None] * y
 
         # TODO: make sigma_0 non-zero
         # patch = gt_image[0,:,:5,:5]
@@ -116,7 +118,7 @@ class DDRM(torch.nn.Module):
         # print('lah', y.shape)
         # print(y)
         x = efficient_generalized_steps(x_mod, self.seq, self.model, self.betas,\
-        self.H_funcs, y, sigma_0, etaB=self.args.etaB, etaA=self.args.eta, \
+        self.H_funcs, y_, sigma_0, etaB=self.args.etaB, etaA=self.args.eta, \
                                         etaC=self.args.eta)
         return x[0][-1].to(self.device)
     # def forward(self, x_mod, y):
