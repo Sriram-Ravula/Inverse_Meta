@@ -10,8 +10,6 @@ Meta Learning for Inverse Problems with Generative Models.
 - **utils_new**: useful functions for experiment logging, metrics, and losses
 - ```main_new.py```: program to invoke for running meta-learning from command line
 
-The files in **learners**, **utils**, and ```main.py``` are deprecated.
-
 ## Settings
 Meta learning can be run in 2 modes:
 - scalar: learn a hyperparameter for weighting one term in the inner solution algorithm, e.g. we want to learn scalar c in: L = c * ||Ax - y||^2 - log p(x)

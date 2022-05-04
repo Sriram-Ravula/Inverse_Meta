@@ -27,7 +27,7 @@ class SGLD_NCSNv2(torch.nn.Module):
 
         self.A = A
         self._init_net()
-        self.register_buffer('c', c.detach().clone()) #TODO remove detach() for e.g.MAML
+        self.register_buffer('c', c.detach().clone())
         self.T = self.hparams.inner.T
         self.step_lr = self.hparams.inner.lr
         if self.hparams.inner.decimate:
