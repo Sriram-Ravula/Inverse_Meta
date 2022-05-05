@@ -48,6 +48,8 @@ outer:
  reg_hyperparam: true 
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
  reg_hyperparam_scale: 1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ #note that the scale parameter for "hard" currently means "keep [scale] proportion of the entries"
+ #e.g. if scale = 0.9 then we want to keep only the highest 0.9 fraction of the entries
 
  ROI_loss: false #currently not supported
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]

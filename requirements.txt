@@ -14,8 +14,8 @@ Pillow
 pkginfo
 protobuf
 protobuf3-to-dict
-pytorch-msssim
 PyYAML
+pytorch-msssim
 requests
 requests-oauthlib
 retrying

@@ -23,7 +23,6 @@ class MulticoilForwardMRI(nn.Module):
         x = torch_fft.ifftshift(x, dim=(-2, -1))
         return x
 
-
     '''
     Inputs:
      - image = [B, H, W] torch.complex64/128    in image domain
@@ -46,10 +45,9 @@ class MulticoilForwardMRI(nn.Module):
             # Mask k-space frequency encode lines
             ksp_coils = ksp_coils * mask[:, None, :, None]
         elif self.orientation == 'random':
-                ksp_coils = ksp_coils * mask
+            ksp_coils = ksp_coils * mask
         else:
             raise NotImplementedError('mask orientation not supported')
-
 
         # Return downsampled k-space
         return ksp_coils
@@ -74,7 +72,6 @@ class MulticoilForwardMRINoMask(nn.Module):
         x = torch_fft.ifftshift(x, dim=(-2, -1))
         return x
 
-
     '''
     Inputs:
      - image = [B, H, W] torch.complex64/128    in image domain
@@ -91,4 +88,3 @@ class MulticoilForwardMRINoMask(nn.Module):
 
         # Return k-space
         return ksp_coils
-

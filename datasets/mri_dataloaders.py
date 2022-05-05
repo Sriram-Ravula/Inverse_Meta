@@ -10,11 +10,9 @@ import sigpy as sp
 import pickle as pkl
 import sys
 
-
 def get_mvue(kspace, s_maps):
     ''' Get mvue estimate from coil measurements '''
     return np.sum(sp.ifft(kspace, axes=(-1, -2)) * np.conj(s_maps), axis=-3) / np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
-
 
 class BrainMultiCoil(Dataset):
     def __init__(self, file_list, maps_dir, input_dir,

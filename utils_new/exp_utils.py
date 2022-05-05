@@ -243,7 +243,7 @@ def parse_config(config_path):
 
     return HPARAMS
 
-def parse_args(docstring="", manual=False, config=None, doc=None):
+def parse_args(docstring="", manual=False, config=None, doc=None, eta=None, etaB=None, timesteps=None):
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
     parser = argparse.ArgumentParser(description=docstring)
@@ -255,9 +255,10 @@ def parse_args(docstring="", manual=False, config=None, doc=None):
     parser.add_argument('--etaB', type=float, default=1., help='etaB param for ddrm')
     parser.add_argument('--timesteps', type=int, default=1000, help='number of steps for ddrm')
 
-
-    if manual:
+    if manual and eta is None and etaB is None and timesteps is None:
         args = parser.parse_args(["--config", config, "--doc", doc])
+    elif manual:
+        args = parser.parse_args(["--config", config, "--doc", doc, '--eta', eta, '--etaB', etaB, '--timesteps', timesteps])
     else:
         args = parser.parse_args()
 
