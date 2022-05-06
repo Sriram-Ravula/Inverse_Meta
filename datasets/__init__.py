@@ -5,8 +5,6 @@ from torch.utils.data import Subset
 import numpy as np
 import glob
 
-from datasets.celeba import CelebA
-from datasets.ffhq import FFHQ
 from datasets.mri_dataloaders import BrainMultiCoil, KneesSingleCoil, KneesMultiCoil
 
 def get_all_files(folder, pattern='*'):
@@ -14,41 +12,7 @@ def get_all_files(folder, pattern='*'):
     return sorted(files)
 
 def get_dataset(config):
-    if config.data.dataset == 'celeba':
-        dataset = None
-        test_dataset = CelebA(root=os.path.join(config.data.data_path, 'celeba_test'), split='test',
-                              transform=transforms.Compose([
-                                  transforms.CenterCrop(140),
-                                  transforms.Resize(config.data.image_size),
-                                  transforms.ToTensor()]),
-                                  download=True)
-
-    elif config.data.dataset == "ffhq":
-        if config.data.random_flip:
-            base_dataset = FFHQ(path=os.path.join(config.data.data_path),
-                            transform=transforms.Compose([
-                                transforms.RandomHorizontalFlip(p=0.5),
-                                transforms.ToTensor()]),
-                                resolution=config.data.image_size)
-        else:
-            base_dataset = FFHQ(path=os.path.join(config.data.data_path),
-                            transform=transforms.ToTensor(),
-                            resolution=config.data.image_size)
-
-        num_items = len(base_dataset)
-        indices = list(range(num_items))
-
-        #re-create the dataset splits fron ncsnv2
-        random_state = np.random.get_state()
-        np.random.seed(2019)
-        np.random.shuffle(indices)
-        np.random.set_state(random_state)
-
-        test_indices = indices[int(num_items * 0.9):]
-        test_dataset = Subset(base_dataset, test_indices)
-        dataset = None
-
-    elif config.data.dataset == 'Brain-Multicoil':
+    if config.data.dataset == 'Brain-Multicoil':
         files = get_all_files(config.data.input_dir, pattern='*.h5')
 
         dataset = None
@@ -100,8 +64,6 @@ def split_dataset(base_dataset, hparams):
     train_indices = indices[:num_train]
     val_indices = indices[num_train:num_train+num_val]
     test_indices = indices[num_train+num_val:num_train+num_val+num_test]
-    # TODO: delete
-    print('INDICES', train_indices, val_indices, test_indices)
 
     train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
     val_dataset = torch.utils.data.Subset(base_dataset, val_indices)
