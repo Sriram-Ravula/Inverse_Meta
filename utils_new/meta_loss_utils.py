@@ -11,11 +11,7 @@ def l1_loss(c, scale=1.):
     return scale * torch.norm(c, p=1)
 
 def meta_loss(x_hat, x_true, reduce_dims=None, c=None,
-    meta_loss_type='l2', reg_hyperparam=False, reg_hyperparam_type='l1', reg_hyperparam_scale=1,
-    ROI_loss=False, ROI=None):
-
-    if ROI_loss:
-        raise NotImplementedError("Meta ROI loss not supported!")
+    meta_loss_type='l2', reg_hyperparam=False, reg_hyperparam_type='l1', reg_hyperparam_scale=1):
     
     if meta_loss_type == 'l2':
         loss_1 = l2_loss(x_hat, x_true, reduce_dims)
@@ -31,15 +27,12 @@ def meta_loss(x_hat, x_true, reduce_dims=None, c=None,
 
 def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, \
     meta_loss_type='l2', reg_hyperparam=False, reg_hyperparam_type='l1', reg_hyperparam_scale=1,
-    ROI_loss=False, ROI=None, use_autograd=True, retain_graph=False, create_graph=False):
-    
-    if not use_autograd:
-        raise NotImplementedError("Explicit meta loss not implemented!")
+    retain_graph=False, create_graph=False):
     
     grad_flag_x = x_hat.requires_grad
     x_hat.requires_grad_()
     meta_grad_x = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, meta_loss_type,\
-                                             reg_hyperparam, reg_hyperparam_type, reg_hyperparam_scale, ROI_loss, ROI)[-1], 
+                                             reg_hyperparam, reg_hyperparam_type, reg_hyperparam_scale)[-1], 
                                     x_hat, retain_graph=retain_graph, create_graph=create_graph)[0]
     x_hat.requires_grad_(grad_flag_x)
 
@@ -47,7 +40,7 @@ def get_meta_grad(x_hat, x_true, reduce_dims=None, c=None, \
         grad_flag_c = c.requires_grad
         c.requires_grad_()
         meta_grad_c = torch.autograd.grad(meta_loss(x_hat, x_true, reduce_dims, c, meta_loss_type,\
-                                                reg_hyperparam, reg_hyperparam_type, reg_hyperparam_scale, ROI_loss, ROI)[-1], 
+                                                reg_hyperparam, reg_hyperparam_type, reg_hyperparam_scale)[-1], 
                                         c, retain_graph=retain_graph, create_graph=create_graph)[0]
         c.requires_grad_(grad_flag_c)
     else:

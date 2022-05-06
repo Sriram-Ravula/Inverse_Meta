@@ -8,9 +8,10 @@ save_dir: "/content/exp" #root of folder to save run information
 
 seed: 2022
 
+#remove
 use_autograd: true #whether to use autograd for loss calculateions (vs explicitly forming the function)
 
-#TODO implement these
+#remove both
 resume: false 
 resume_dir: "" #the root of the checkpoint folder to resume from
 
@@ -37,10 +38,12 @@ data:
  random_flip: true
 
 outer:
+#remove
  meta_type: 'mle' #only mle supported
 
  meta_loss_type: 'l2'
 
+#remove type and exp
  hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector] 
  exp_params: false #whether to use exp(hyperparams) instead of hyperparams
  hyperparam_init: 0 #[float, "random"]
@@ -51,6 +54,7 @@ outer:
  #note that the scale parameter for "hard" currently means "keep [scale] proportion of the entries"
  #e.g. if scale = 0.9 then we want to keep only the highest 0.9 fraction of the entries
 
+#remove these
  ROI_loss: false #currently not supported
  ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
 
@@ -67,6 +71,7 @@ opt:
   val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
+#remove this whole thing
 inner:
  alg: 'langevin' #type of inner algorithm. ['map', 'langevin']
  T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
@@ -83,9 +88,11 @@ inner:
 
 problem:
  measurement_type: 'fourier' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
+ #remove learn_samples - replace with measurement selection and measurement weighting
  learn_samples: true #whether the problem is one of learning samples; not usable for gaussian or identity
  sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
 
+#remove all of these
  num_measurements: 65536 #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
  fourier_mask_type: 'random' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
  #downsample_factor: 16 #factor to downsample each side of the image
@@ -97,6 +104,7 @@ problem:
  noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite] 
  noise_std: 0.1 
  
+ #get rid of this
  add_dependent_noise: false #whether to add noise before measuring
  dependent_noise_type: "gaussian" #[gaussian, uniform]
  dependent_noise_std: 1

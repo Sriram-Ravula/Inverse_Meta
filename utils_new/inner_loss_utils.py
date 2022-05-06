@@ -1,48 +1,15 @@
 import numpy as np
 import torch
 
-def gradient_log_cond_likelihood(c_orig, y, A, x,
-                                 scale=1.,
-                                 exp_params=False):
-    """
-    Explicit gradient for l2 (log conditional likelihood) loss.
-
-    Args:
-        c:
-    """
-    c_type = len(c_orig.shape)
-
-    if exp_params:
-        c = torch.exp(c_orig)
-    else:
-        c = c_orig
-
-    Ax = A(x, targets=False) #don't add noise since we are making a sample
-    resid = Ax - y #[N, m]
-
-    if c_type == 0:
-        grad = scale * c * A.adjoint(resid) #c * A^T * (Ax - y)
-    elif c_type == 1:
-        grad = scale * A.adjoint(c * resid) #A^T * Diag(c) * (Ax - y)
-    else:
-        raise NotImplementedError("Hyperparameter dimensions not supported")
-
-    return grad #the adjoint takes care of reshaping properly
-
-# TODO: remove reduce_dims
 def log_cond_likelihood_loss(c_orig, y, A, x,
                              scale=1.,
-                             exp_params=False,
                              reduce_dims=None,
                              learn_samples=False,
                              sample_pattern=None):
 
     c_type = len(c_orig.shape)
 
-    if exp_params:
-        c = torch.exp(c_orig.clone())
-    else:
-        c = c_orig.clone()
+    c = c_orig.clone()
 
     if len(y.shape) == 4 and c_type > 0:
         c = c_orig.view(-1, y.shape[-2], y.shape[-1])
@@ -89,9 +56,8 @@ def log_cond_likelihood_loss(c_orig, y, A, x,
 
     return loss
 
-def get_likelihood_grad(c, y, A, x, use_autograd,
+def get_likelihood_grad(c, y, A, x,
                         scale=1.,
-                        exp_params=False,
                         reduce_dims=None,
                         learn_samples=False,
                         sample_pattern=None,
@@ -101,18 +67,14 @@ def get_likelihood_grad(c, y, A, x, use_autograd,
     A method for choosing between gradient_log_cond_likelihood (explicitly-formed gradient)
         and log_cond_likelihood_loss with autograd.
     """
-    if use_autograd:
-        grad_flag_x = x.requires_grad
-        x.requires_grad_()
-        likelihood_grad = torch.autograd.grad(torch.mean(log_cond_likelihood_loss(c, y, A, x,
-                                                                scale,
-                                                                exp_params,
-                                                                reduce_dims,
-                                                                learn_samples,
-                                                                sample_pattern)),
-                            x, retain_graph=retain_graph, create_graph=create_graph)[0]
-        x.requires_grad_(grad_flag_x)
-    else:
-        likelihood_grad = gradient_log_cond_likelihood(c, y, A, x, scale, exp_params)
+    grad_flag_x = x.requires_grad
+    x.requires_grad_()
+    likelihood_grad = torch.autograd.grad(torch.mean(log_cond_likelihood_loss(c, y, A, x,
+                                                            scale,
+                                                            reduce_dims,
+                                                            learn_samples,
+                                                            sample_pattern)),
+                        x, retain_graph=retain_graph, create_graph=create_graph)[0]
+    x.requires_grad_(grad_flag_x)
 
     return likelihood_grad

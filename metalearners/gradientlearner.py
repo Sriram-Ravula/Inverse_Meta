@@ -9,6 +9,7 @@ import os
 import sys
 import torch.utils.tensorboard as tb
 import yaml
+import sigpy.mri
 
 from algorithms.sgld import SGLD_NCSNv2
 from algorithms.ddrm import DDRM
@@ -32,23 +33,14 @@ class GBML:
         self._init_c()
         self._init_meta_optimizer()
         self._init_dataset()
-        if 'multicoil' not in self.hparams.data.dataset.lower():
-            self.A = get_forward_operator(self.hparams).to(self.device)
-        else:
-            self.A = None
+        self.A = None
 
         self.global_epoch = 0
         self.best_c = self.c.detach().clone()
         self.c_list = [self.c.detach().clone().cpu()]
-        self.test_metric = 'psnr'
+        self.test_metric = ['psnr', 'ssim']
 
-        #Langevin algorithm
-        if self.hparams.inner.alg.lower() == 'langevin':
-            self.langevin_runner = SGLD_NCSNv2(self.hparams, self.args, self.c, self.A).to(self.device)
-        elif self.hparams.inner.alg.lower() == 'ddrm':
-            self.langevin_runner = DDRM(self.hparams, self.args, self.c, self.A).to(self.device)
-        else:
-            raise NotImplementedError
+        self.langevin_runner = DDRM(self.hparams, self.args, self.c, self.A).to(self.device)
 
         if self.hparams.gpu_num == -1:
             self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
@@ -216,10 +208,10 @@ class GBML:
             else:
                 # assert sigma_0 == 0, 'currently cannot add extra noise to MRI measurements'
                 aliased_image = item['aliased_image'].to(self.device)
-                x = item['gt_image'].to(self.device)
-                y = item['ksp'].type(torch.cfloat).to(self.device)
+                x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
+                y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
                 scale_factor = item['scale_factor'].to(self.device)
-                s_maps = item['s_maps'].to(self.device)
+                s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
                 self.langevin_runner.module.H_funcs.s_maps = s_maps
                 self.A = lambda x, targets: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
@@ -285,7 +277,6 @@ class GBML:
 
         # TODO: remove reduce_dims
         weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 2.,
-                                                      exp_params=self.hparams.outer.exp_params,
                                                       reduce_dims=tuple(np.arange(y.dim())[1:]),
                                                       learn_samples=self.hparams.problem.learn_samples,
                                                       sample_pattern=self.hparams.problem.sample_pattern) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
@@ -485,16 +476,12 @@ class GBML:
                                                             meta_loss_type=self.hparams.outer.meta_loss_type,
                                                             reg_hyperparam=self.hparams.outer.reg_hyperparam,
                                                             reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
-                                                            reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale,
-                                                            ROI_loss=self.hparams.outer.ROI_loss,
-                                                            ROI=self.hparams.outer.ROI,
-                                                            use_autograd=self.hparams.use_autograd)
+                                                            reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
 
         #(2)
         self.c.requires_grad_()
 
-        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat, self.hparams.use_autograd,
-                                            exp_params=self.hparams.outer.exp_params,
+        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat,
                                             retain_graph=True,
                                             create_graph=True,
                                             learn_samples=self.hparams.problem.learn_samples,
@@ -521,58 +508,79 @@ class GBML:
                                 num_workers=1, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
                                 num_workers=1, drop_last=True)
+    
+    def _shape_c(self, c):
+        """
+        Function for properly shaping c to broadcast with images and measurements
+        """
+        if self.hparams.problem.measurement_weighting:
+            c_shaped = torch.ones((self.hparams.data.image_size, self.hparams.data.image_size)) * c
+
+        elif self.hparams.problem.measurement_selection:
+            if self.hparams.problem.sample_pattern == 'random':
+                c_shaped = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
+
+            elif self.hparams.problem.sample_pattern == 'horizontal':
+                c_shaped = c.unsqueeze(1).repeat(1, self.hparams.data.image_size)
+
+            elif self.hparams.problem.sample_pattern == 'vertical':
+                c_shaped = c.unsqueeze(0).repeat(self.hparams.data.image_size, 1)
+            
+        return c_shaped
 
     def _init_c(self):
         """
-        Initializes the hyperparameters as a scalar or vector.
-        Also does some cool stuff if we want to learn samples
+        Initializes C.
+        (1) Check for measurement_selection; False means c scalar, and we are done
+        (2) Check for sample_pattern; resize accordingly
+        (3) Check for any smart initialization
         """
 
-        c_type = self.hparams.outer.hyperparam_type
-        if self.hparams.problem.num_measurements is not None:
-            m = self.hparams.problem.num_measurements
-        else:
-            m = None
+        problem_check = sum([self.hparams.problem.measurement_weighting, 
+                             self.hparams.problem.measurement_selection])
+        assert problem_check == 1, "Must choose exactly one of measurement weighting and selection!"
 
-        init_val = self.hparams.outer.hyperparam_init
-        if init_val != "random":
-            init_val = float(init_val)
+        if self.hparams.problem.measurement_weighting:
+            c = torch.tensor(1.)
+            
+        elif self.hparams.problem.measurement_selection:
+            if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                m = self.hparams.data.image_size
 
-        #see if we would like to learn a sampling pattern during training
-        if self.hparams.problem.measurement_type == 'fourier-multicoil':
-            assert (self.hparams.problem.measurement_selection !=
-                    self.hparams.problem.measurement_weighting),\
-            'pick exactly one between measurement selection and weighting'
-            if self.hparams.problem.measurement_selection:
-                m = self.hparams.data.image_size**2
-            elif self.hparams.problem.measurement_weighting:
-                raise NotImplementedError
+            elif self.hparams.problem.sample_pattern == 'random':
+                m = self.hparams.data.image_size ** 2
+
             else:
-                raise NotImplementedError
-        else:
-            if self.hparams.problem.learn_samples:
-                m = m // self.hparams.data.num_channels
-                if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                    m = int(np.sqrt(m)) #sqrt instead of dividing by image size to account for superres
-            elif 'fourier' in self.hparams.problem.measurement_type:
-                m = m * 2 #for real and imaginary
+                raise NotImplementedError("Fourier sampling pattern not supported!")
 
-        if init_val != "random":
-            if c_type == 'scalar':
-                c = torch.tensor(init_val)
-            elif c_type == 'vector':
-                c = torch.ones(m) * init_val
-            else:
-                raise NotImplementedError("Hyperparameter type not supported")
-        else:
-            if c_type == 'scalar':
-                c = torch.randn(1)
-            elif c_type == 'vector':
-                c = torch.randn(m)
-            else:
-                raise NotImplementedError("Hyperparameter type not supported")
+            #now check for any smart initializations
+            if self.hparams.outer.hyperparam_init == "random":
+                c = torch.rand(m)
 
+            elif isinstance(self.hparams.outer.hyperparam_init, (int, float)):
+                c = torch.ones(m) * float(self.hparams.outer.hyperparam_init)
+
+            elif self.hparams.outer.hyperparam_init == "smart":
+                if self.hparams.problem.sample_pattern == 'random':
+                    c = sigpy.mri.poisson(img_shape=(self.hparams.data.image_size, self.hparams.data.image_size),
+                                          accel=self.hparams.problem.R,
+                                          seed=self.hparams.seed)
+                    c = torch.tensor(c)
+                    c = torch.view_as_real(c)[:,:,0]
+                    c = c.flatten()
+
+                elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                    num_sampled_lines = np.floor(self.hparams.data.image_size / self.hparams.problem.R)
+                    center_line_idx = np.arange((self.hparams.data.image_size - 30) // 2,
+                                        (self.hparams.data.image_size + 30) // 2)
+                    outer_line_idx = np.setdiff1d(np.arange(self.hparams.data.image_size), center_line_idx)
+                    random_line_idx = outer_line_idx[::int(self.hparams.problem.R)]
+                    c = torch.zeros(self.hparams.data.image_size)
+                    c[center_line_idx] = 1.
+                    c[random_line_idx] = 1.
+            
         self.c = c.to(self.device)
+        return
 
     def _init_meta_optimizer(self):
         """
