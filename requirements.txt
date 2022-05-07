@@ -26,7 +26,6 @@ scikit-image
 scikit-learn
 scipy
 seaborn
-sigpy
 Sphinx
 sphinxcontrib-websupport
 tensorboard

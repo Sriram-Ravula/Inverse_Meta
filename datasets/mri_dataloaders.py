@@ -82,7 +82,6 @@ class BrainMultiCoil(Dataset):
         return x[..., x1:x1+wout, y1:y1+hout]
 
     def __getitem__(self, idx):
-        print(idx)
         # Convert to numerical
         if torch.is_tensor(idx):
             idx = idx.tolist()
@@ -190,7 +189,7 @@ class BrainMultiCoil(Dataset):
                   # Just for feedback
                   'scan_idx': scan_idx,
                   'slice_idx': slice_idx}
-        print(ksp.shape)
+
         return sample, idx
 
 class KneesMultiCoil(BrainMultiCoil):

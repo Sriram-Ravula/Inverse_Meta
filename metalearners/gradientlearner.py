@@ -197,102 +197,70 @@ class GBML:
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
 
+    @torch.no_grad()
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
         """
         Given true, measurement, and recovered images, save to tensorboard and png.
         """
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
-
-        #make and save visualisations of sampling masks
-        # TODO: (ajil) my code was for learned_samples=False, so I commented
-        # the line below. needs to be changed
-        # if self.hparams.problem.learn_samples:
-        if self.hparams.problem.sample_pattern == 'random':
-            c = self.c.view(y.shape[2:4])
-        elif self.hparams.problem.sample_pattern == 'horizontal':
-            c = self.c.unsqueeze(1).repeat(1, y.shape[3])
-        elif self.hparams.problem.sample_pattern == 'vertical':
-            c = self.c.unsqueeze(0).repeat(y.shape[2], 1)
-
-        #image where more red = higher, more blue = lower
-        c_min = torch.min(c)
-        c_max = torch.max(c)
-        c_scaled = (c - c_min) / (c_max - c_min)
-        c_pos_neg = torch.zeros(3, c.shape[0], c.shape[1])
-        c_pos_neg[0, :, :] = c_scaled
-        c_pos_neg[2, :, :] = 1 - c_scaled
-
-        #image where more red = higher magnitude, more blue = lower magnitude
-        c_abs_max = torch.max(torch.abs(c))
-        c_abs_scaled = torch.abs(c) / c_abs_max
-        c_mag = torch.zeros(3, c.shape[0], c.shape[1])
-        c_mag[0, :, :] = c_abs_scaled
-        c_mag[2, :, :] = 1 - c_abs_scaled
-
-        #image where black = 0, white = nonzero
-        c_binary = torch.zeros_like(c).cpu()
-        c_binary[c != 0] = 1.0
-        c_binary = c_binary.unsqueeze(0).repeat(3, 1, 1)
-
+        
+        #(1) Save samping masks
         if iter_type == "train":
+            c_shaped = self._shape_c(self.c).cpu()
+            c_shaped_binary = torch.zeros_like(c_shaped).cpu()
+            c_shaped_binary[c_shaped > 0] = 1
+
             c_path = os.path.join(self.image_root, "learned_masks")
 
-            c_out = torch.stack([c_pos_neg, c_mag, c_binary])
+            c_out = torch.stack([c_shaped, c_shaped_binary])
             self._add_tb_images(c_out, "Learned Mask")
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
-            self._save_images(c_out, ["PosNeg_" + str(self.global_epoch),
-                                        "Mag_" + str(self.global_epoch),
-                                        "Binary_" + str(self.global_epoch)], c_path)
-        #make paths
-        true_path = os.path.join(self.image_root, iter_type)
-        meas_path = os.path.join(self.image_root, iter_type + "_meas", "epoch_"+str(self.global_epoch))
-        if iter_type == "test":
-            recovered_path = os.path.join(self.image_root, iter_type + "_recon")
-        else:
-            recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
+            self._save_images(c_out, ["Actual_" + str(self.global_epoch),
+                                      "Binary_" + str(self.global_epoch)], c_path)
 
-        #save reconstruictions at every iteration
-        self._add_tb_images(x_hat, "recovered " + iter_type + " images")
+        #(3) Save reconstructions at every iteration
+        meas_recovered_path = os.path.join(self.image_root, iter_type + "_recon_meas", "epoch_"+str(self.global_epoch))
+        recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
+
+        x_hat_vis = torch.complex(x_hat[:,0], x_hat[:,1])
+        x_hat_vis = torch.abs(x_hat_vis)
+
+        self._add_tb_images(x_hat_vis, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
-        self._save_images(x_hat, x_idx, recovered_path)
+        self._save_images(x_hat_vis, x_idx, recovered_path)
+        
+        fake_maps = torch.ones_like(x)[:,0,:,:] #[N, 1, H, W]
+        recon_meas = MulticoilForwardMRINoMask()(torch.complex(x_hat[:,0], x_hat[:,1]), fake_maps)
+        recon_meas = torch.abs(recon_meas)
 
-        #we want to save ground truth images and corresponding measurements
-        # just once each for train, val, and test
+        self._add_tb_images(recon_meas, "recovered " + iter_type + " meas")
+        if not os.path.exists(meas_recovered_path):
+            os.makedirs(meas_recovered_path)
+        self._save_images(recon_meas, x_idx, meas_recovered_path)
+
+        #(4) Save ground truth only once
         if iter_type == "test" or self.global_epoch == 0:
-            self._add_tb_images(x, iter_type + " images")
+            true_path = os.path.join(self.image_root, iter_type)
+            meas_path = os.path.join(self.image_root, iter_type + "_meas")
+
+            x_vis = torch.complex(x[:,0], x[:,1])
+            x_vis = torch.abs(x_vis)
+
+            self._add_tb_images(x_vis, iter_type + " images")
             if not os.path.exists(true_path):
                 os.makedirs(true_path)
-            self._save_images(x, x_idx, true_path)
+            self._save_images(x_vis, x_idx, true_path)
 
-            try:
-                meas_images = self.A.get_measurements_image(x, targets=True)
-            except AttributeError:
-                meas_images = None
-            if meas_images is not None:
-                if not os.path.exists(meas_path):
-                    os.makedirs(meas_path)
+            gt_meas = MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), fake_maps)
+            gt_meas = torch.abs(gt_meas)
 
-                if isinstance(meas_images, dict):
-                    for key, val in meas_images.items():
-                        self._add_tb_images(val, iter_type + key)
-                        self._save_images(val, [str(idx.item())+key for idx in x_idx], meas_path)
-                else:
-                    self._add_tb_images(meas_images, iter_type + " measurements")
-                    self._save_images(meas_images, x_idx, meas_path)
-
-        #want to save masked measurements at every iteration
-        if self.hparams.problem.learn_samples and self.hparams.problem.measurement_type == "fourier":
+            self._add_tb_images(gt_meas, iter_type + " meas")
             if not os.path.exists(meas_path):
                 os.makedirs(meas_path)
-
-            meas_images_masked = self.A.get_measurements_image(x, targets=True, c=c_binary.to(x.device))
-
-            for key, val in meas_images_masked.items():
-                self._add_tb_images(val, iter_type + key + "_mask")
-                self._save_images(val, [str(idx.item())+key+"_mask" for idx in x_idx], meas_path)
+            self._save_images(gt_meas, x_idx, meas_path)
 
     def _opt_step(self, meta_grad):
         """
