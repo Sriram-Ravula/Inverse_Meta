@@ -66,7 +66,7 @@ opt:
 
   decay: false 
   lr_decay: 0.95 #exponential weight decay rate.
-  decay_on_val: true #only relevant if decay=True
+  decay_on_val: true #only relevant if decay=True #TODO get rid of this one
 
   val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations

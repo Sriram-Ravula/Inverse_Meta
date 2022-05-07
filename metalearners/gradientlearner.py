@@ -11,7 +11,6 @@ import torch.utils.tensorboard as tb
 import yaml
 import sigpy.mri
 
-from algorithms.sgld import SGLD_NCSNv2
 from algorithms.ddrm import DDRM
 from problems import get_forward_operator
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
@@ -36,11 +35,9 @@ class GBML:
         self.A = None
 
         self.global_epoch = 0
-        self.best_c = self.c.detach().clone()
         self.c_list = [self.c.detach().clone().cpu()]
-        self.test_metric = ['psnr', 'ssim']
 
-        self.langevin_runner = DDRM(self.hparams, self.args, self.c, self.A).to(self.device)
+        self.langevin_runner = DDRM(self.hparams, self.args, self.c).to(self.device)
 
         if self.hparams.gpu_num == -1:
             self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
@@ -73,19 +70,11 @@ class GBML:
 
             self.global_epoch += 1
 
-        if not (self.hparams.outer.reg_hyperparam or self.hparams.problem.learn_samples):
-            if self.hparams.gpu_num != -1:
-                self.langevin_runner.set_c(self.best_c)
-            else:
-                self.langevin_runner.module.set_c(self.best_c)
-
         #test
         self._run_test()
         self._add_metrics_to_tb("test")
 
-        #checkpoint
-        if (iter + 1) % self.hparams.opt.checkpoint_iters == 0:
-            self._checkpoint()
+        self._checkpoint()
 
     def _run_outer_step(self):
         """
@@ -102,26 +91,8 @@ class GBML:
             return
 
         for i, (item, x_idx) in tqdm(enumerate(self.train_loader)):
-            if self.hparams.data.dataset not in ['Brain-Multicoil', 'Knee-Multicoil']:
-                x = item[0]
-                y = None
-            else:
-                # assert sigma_0 == 0, 'currently cannot add extra noise to MRI measurements'
-                aliased_image = item['aliased_image'].to(self.device)
-                x = item['gt_image'].to(self.device)
-                y = item['ksp'].type(torch.cfloat).to(self.device)
-                scale_factor = item['scale_factor'].to(self.device)
-                # mask = item['mask'].to(self.device)
-                # num_non_zeros = torch.sum(mask).cpu().numpy()
-                # self.H_funcs.mask = mask
-                # singulars = torch.ones(np.prod(y_0.shape[1:])).reshape(y_0.shape).to(self.device)
-                # mask_ = mask[0]
-                s_maps = item['s_maps'].to(self.device)
-                self.langevin_runner.module.H_funcs.s_maps = s_maps
-                self.A = lambda x, targets: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
-                # print(y.shape, s_maps.shape)
-            # for i, (x, x_idx) in tqdm(enumerate(self.train_loader)):
-            x_hat, x, y = self._shared_step(x, "train")
+            x_hat, x, y = self._shared_step(item)
+            self._add_batch_metrics(x_hat, x, y, "train")
 
             #(2) Calculate the meta-gradient and (possibly) update
             meta_grad += self._mle_grad(x_hat, x, y)
@@ -152,70 +123,25 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
 
     def _run_validation(self):
-        """
-        Runs one epoch of meta learning validation.
-        """
         self._print_if_verbose("\nVALIDATING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
-            if self.hparams.data.dataset not in ['Brain-Multicoil', 'Knee-Multicoil']:
-                x = item[0]
-                y = None
-            else:
-                # assert sigma_0 == 0, 'currently cannot add extra noise to MRI measurements'
-                aliased_image = item['aliased_image'].to(self.device)
-                x = item['gt_image'].to(self.device)
-                y = item['ksp'].type(torch.cfloat).to(self.device)
-                scale_factor = item['scale_factor'].to(self.device)
-                # mask = item['mask'].to(self.device)
-                # num_non_zeros = torch.sum(mask).cpu().numpy()
-                # self.H_funcs.mask = mask
-                # singulars = torch.ones(np.prod(y_0.shape[1:])).reshape(y_0.shape).to(self.device)
-                # mask_ = mask[0]
-                s_maps = item['s_maps'].to(self.device)
-                self.langevin_runner.module.H_funcs.s_maps = s_maps
-                self.A = lambda x, targets: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
-                # print(y.shape, s_maps.shape)
-
-            x_hat, x, y = self._shared_step(x, "val", y)
+            x_hat, x, y = self._shared_step(item)
+            self._add_batch_metrics(x_hat, x, y, "val")
 
             #logging and saving
             if i == 0:
                 self._save_all_images(x_hat, x, y, x_idx, "val")
 
-        new_best_dict = self.metrics.aggregate_iter_metrics(self.global_epoch, "val", True)
+        self.metrics.aggregate_iter_metrics(self.global_epoch, "val", False)
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "val"), "\n")
-
-        #aggregate metrics, see if we have a new best
-        #if we do, set the new best c. If we don't, decay lr (if applicable)
-        if self.global_epoch > 0:
-            if new_best_dict is not None and self.test_metric in new_best_dict:
-                self._print_if_verbose("\nNEW BEST VAL " + self.test_metric + ": ", new_best_dict[self.test_metric], "\n")
-                self.best_c = self.c.detach().clone()
-            elif self.scheduler is not None and self.hparams.opt.decay_on_val:
-                LR_OLD = self.opt.param_groups[0]['lr']
-                self.scheduler.step()
-                LR_NEW = self.opt.param_groups[0]['lr']
-                self._print_if_verbose("\nVAL LOSS HASN'T IMPROVED; DECAYING LR: ", LR_OLD, " --> ", LR_NEW)
 
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
-            if self.hparams.data.dataset not in ['Brain-Multicoil', 'Knee-Multicoil']:
-                x = item[0]
-                y = None
-            else:
-                # assert sigma_0 == 0, 'currently cannot add extra noise to MRI measurements'
-                aliased_image = item['aliased_image'].to(self.device)
-                x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
-                y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
-                scale_factor = item['scale_factor'].to(self.device)
-                s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
-                self.langevin_runner.module.H_funcs.s_maps = s_maps
-                self.A = lambda x, targets: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
-
-            x_hat, x, y = self._shared_step(x, "test")
+            x_hat, x, y = self._shared_step(item)
+            self._add_batch_metrics(x_hat, x, y, "test")
 
             #logging and saving
             self._save_all_images(x_hat, x, y, x_idx, "test")
@@ -223,41 +149,18 @@ class GBML:
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
 
-    def _shared_step(self, x, iter_type, y=None):
-        """
-        given a batch of samples x, solve the inverse problem and log the batch metrics
-        """
-        #Find x(c) by running the inner algorithm
-        x = x.to(self.hparams.device)
-        # in MRI the measurements are pre-loaded, don't have to be (and
-        # shouldn't be) computed again
-        if y is None:
-            with torch.no_grad():
-                y = self.A(x, targets=True)
-            patch = x[0,:,:5,:5]
-            mag_patch = torch.sum(torch.square(patch), axis=0)
-            sigma_0 = torch.sqrt(torch.mean(mag_patch)).item()
-            print(f'estimated noise is: {sigma_0}')
-        else:
-            sigma_0 = None
+    def _shared_step(self, item):
+        x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
+        y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
+        s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
 
+        #set coil maps and forward operator including current coil maps
+        self.langevin_runner.module.H_funcs.s_maps = s_maps
+        self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
+        #Get the reconstruction and log batch metrics
         x_mod = torch.rand_like(x)
-
-        # TODO: delete
-        # print('lo', y.shape)
-        # print(y)
-        if sigma_0 is None:
-            x_hat = self.langevin_runner(x_mod, y)
-        else:
-            x_hat = self.langevin_runner(x_mod, y, sigma_0)
-
-
-        #logging
-        # TODO: delete
-        # print(x.shape, x_hat.shape, y.shape)
-
-        self._add_batch_metrics(x_hat, x, y, iter_type)
+        x_hat = self.langevin_runner(x_mod, y)
 
         return x_hat, x, y
 
@@ -267,20 +170,9 @@ class GBML:
         Adds metrics for a single batch to the metrics object.
         """
         real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
-        # if self.hparams.problem.measurement_type == 'fourier-multicoil':
-        #     if self.hparams.problem.measurement_selection:
-        #         c = self.c.clone()
-        #         c = c.reshape(-1, y.shape[-2], y.shape[-1])
-        #         c_ = c.repeat(y.shape[-3],1,1)
-        # else:
-        #     c_ = self.c.clone()
-
-        # TODO: remove reduce_dims
-        weighted_meas_loss = log_cond_likelihood_loss(self.c, y, self.A, x_hat, 2.,
-                                                      reduce_dims=tuple(np.arange(y.dim())[1:]),
-                                                      learn_samples=self.hparams.problem.learn_samples,
-                                                      sample_pattern=self.hparams.problem.sample_pattern) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
-        all_meta_losses = meta_loss(x_hat, x, (1,2,3), self.c,
+        weighted_meas_loss = log_cond_likelihood_loss(self._shape_c(self.c), y, self.A, x_hat, 2.,
+                                                      reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
+        all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
                                     reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
@@ -303,14 +195,6 @@ class GBML:
             self._add_histogram_to_tb(self.c, "C values")
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
-
-        # TODO: pytorch SSIM doesn't accept this, skimage would expect it in
-        # this form
-        # if self.hparams.problem.measurement_type == 'fourier-multicoil':
-        #     x_hat_ = torch.norm(x_hat.clone(), dim=1)
-        #     x_ = torch.norm(x.clone(), dim=1)
-        # else:
-        #     x_hat_, x_ = x_hat.clone(), x.clone()
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
 
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
@@ -483,9 +367,7 @@ class GBML:
 
         cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat,
                                             retain_graph=True,
-                                            create_graph=True,
-                                            learn_samples=self.hparams.problem.learn_samples,
-                                            sample_pattern=self.hparams.problem.sample_pattern)
+                                            create_graph=True)
 
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
@@ -610,7 +492,6 @@ class GBML:
             save_dict = {
                 "c": self.c,
                 "c_list": self.c_list,
-                "best_c": self.best_c,
                 "global_epoch": self.global_epoch,
                 "opt_state": self.opt.state_dict(),
                 "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None

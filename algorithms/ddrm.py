@@ -17,7 +17,7 @@ from utils_new.exp_utils import dict2namespace
 # from utils_new.inner_loss_utils import log_cond_likelihood_loss, get_likelihood_grad
 
 class DDRM(torch.nn.Module):
-    def __init__(self, hparams, args, c, A, device=None):
+    def __init__(self, hparams, args, c, device=None):
         """
         Making this a module so we can parallelize operations for the
             - score network (prior)
@@ -87,13 +87,12 @@ class DDRM(torch.nn.Module):
 
         singulars = self.c.clone()
         # singulars = torch.ones_like(self.c)
-        if self.hparams.problem.measurement_selection:
-            singulars = singulars.view(-1, y.shape[-2], y.shape[-1])
-            singulars = singulars.repeat(y.shape[-3], 1, 1)
-            c = self.c.clone().view(y.shape[2:])
-            # c = torch.ones_like(self.c).view(y.shape[2:])
-            print(c[None, None, :, :].shape)
-            y_ = torch.sqrt(torch.abs(c[None, None, :, :])) * y
+        singulars = singulars.view(-1, y.shape[-2], y.shape[-1])
+        singulars = singulars.repeat(y.shape[-3], 1, 1)
+        c = self.c.clone().view(y.shape[2:])
+        # c = torch.ones_like(self.c).view(y.shape[2:])
+        print(c[None, None, :, :].shape)
+        y_ = torch.sqrt(torch.abs(c[None, None, :, :])) * y
         # print(singulars.shape, x_mod.shape, y.shape)
         self.H_funcs._singulars = torch.sqrt(torch.abs(singulars)).reshape(-1)
         print(self.H_funcs._singulars)
