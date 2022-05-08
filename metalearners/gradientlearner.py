@@ -12,7 +12,6 @@ import yaml
 import sigpy.mri
 
 from algorithms.ddrm import DDRM
-from problems import get_forward_operator
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
 
