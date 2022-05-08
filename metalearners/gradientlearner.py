@@ -445,6 +445,20 @@ class GBML:
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
                     c[random_line_idx] = 1. #TODO what happens when the entries of this guy go towards -1?
+
+        #take a snap of the initialization
+        if not self.hparams.debug and self.hparams.save_imgs:
+            c_shaped = torch.abs(self._shape_c(c))
+            c_shaped_binary = torch.zeros_like(c_shaped)
+            c_shaped_binary[c_shaped > 0] = 1
+
+            c_path = os.path.join(self.image_root, "learned_masks")
+
+            c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
+            self._add_tb_images(c_out, "Learned Mask")
+            if not os.path.exists(c_path):
+                os.makedirs(c_path)
+            self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
             
         self.c = c.to(self.device)
         return
