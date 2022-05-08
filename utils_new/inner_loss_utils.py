@@ -14,7 +14,7 @@ def log_cond_likelihood_loss(c, y, A, x,
     resid = Ax - y
 
     #match broadcast dimensions
-    if resid.shape[-1] != c.shape[-1]:
+    if c.numel()>1 and resid.shape[-1] != c.shape[-1]:
         c = c.unsqueeze(-1)
 
     #(1/2) ||Diag(sqrt(c))(Ax-y)||^2
