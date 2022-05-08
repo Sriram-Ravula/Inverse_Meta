@@ -10,7 +10,7 @@
 #SBATCH --mail-type 'ALL'
 #SBATCH --cpus-per-task 16
 
-cds 
+cd /scratch/04703/sravula
 cd Inverse_Meta
 
 module load conda

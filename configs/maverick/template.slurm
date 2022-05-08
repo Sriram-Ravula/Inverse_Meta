@@ -9,7 +9,7 @@
 #SBATCH --mail-type 'ALL'
 #SBATCH --cpus-per-task 16
 
-cdw
+cd /work/04703/sravula/maverick2
 
 source /work/04703/sravula/maverick2/software/venvs/ncsnv2/bin/activate
 

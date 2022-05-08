@@ -14,7 +14,7 @@ module load python3/3.9.2
 module load gcc/9.1.0
 module load cuda/11.3
 
-cds
+cd /scratch1/04703/sravula/
 
 source venvs/ncsnv2/bin/activate
 
