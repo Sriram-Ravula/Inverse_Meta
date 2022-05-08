@@ -153,7 +153,7 @@ class GBML:
 
     def _shared_step(self, item):
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
-        y = torch.view_as_complex(item['ksp']).to(self.device) #[N, C, H, W]
+        y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
 
         #set coil maps and forward operator including current coil maps
@@ -163,6 +163,9 @@ class GBML:
         #Get the reconstruction and log batch metrics
         x_mod = torch.rand_like(x)
         x_hat = self.langevin_runner(x_mod, y)
+
+        #Y (k-space meas) is acting weirdly - comes in as 2-channel complex float
+        #each channel has all real entries
 
         print("Image shape: ", x.shape)
         print("Image type: ", x.dtype)
