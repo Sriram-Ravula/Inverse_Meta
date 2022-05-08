@@ -5,7 +5,7 @@ def l2_loss(x_hat, x_true, reduce_dims=None):
     if reduce_dims is None:
         reduce_dims = tuple(np.arange(x_hat.dim()))
     
-    return 0.5 * torch.mean((x_hat - x_true)**2, reduce_dims)
+    return 0.5 * torch.sum((x_hat - x_true)**2, reduce_dims)
 
 def l1_loss(c, scale=1.):
     return scale * torch.norm(c, p=1)

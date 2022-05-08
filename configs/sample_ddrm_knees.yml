@@ -73,13 +73,13 @@ data:
  maps_dir:  "/content/meta_exp/datasets/knee/maps"
  centered: True
 
- num_train: 1
- num_val:   1
- num_test:  1
+ num_train: 4
+ num_val:   2
+ num_test:  8
 
- train_batch_size: 1
- val_batch_size:   1
- test_batch_size:  1
+ train_batch_size: 4
+ val_batch_size:   2
+ test_batch_size:  4
 
  image_size: 320
  num_channels: 2
@@ -91,12 +91,12 @@ outer:
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ reg_hyperparam_scale: 1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 5 #number of meta iterations to run
+  num_iters: 20 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.1 #meta learning rate
+  lr: 0.05 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
@@ -107,7 +107,7 @@ opt:
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 
