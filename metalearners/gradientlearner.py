@@ -153,7 +153,7 @@ class GBML:
 
     def _shared_step(self, item):
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
-        y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
+        y = torch.view_as_complex(item['ksp']).to(self.device) #[N, C, H, W]
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
 
         #set coil maps and forward operator including current coil maps
@@ -232,12 +232,12 @@ class GBML:
             self._save_images(c_out, ["Actual_" + str(self.global_epoch),
                                       "Binary_" + str(self.global_epoch)], c_path)
 
-        #(3) Save reconstructions at every iteration
+        #(2) Save reconstructions at every iteration
         meas_recovered_path = os.path.join(self.image_root, iter_type + "_recon_meas", "epoch_"+str(self.global_epoch))
         recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
 
-        x_hat_vis = torch.complex(x_hat[:,0], x_hat[:,1])
-        x_hat_vis = torch.abs(x_hat_vis)
+        x_hat_vis = torch.complex(x_hat[:,0], x_hat[:,1]) #[N, H, W]
+        x_hat_vis = torch.abs(x_hat_vis).unsqueeze(1) #[N, H, W] --> [N, 1, H, W]
 
         self._add_tb_images(x_hat_vis, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
@@ -253,13 +253,13 @@ class GBML:
             os.makedirs(meas_recovered_path)
         self._save_images(recon_meas, x_idx, meas_recovered_path)
 
-        #(4) Save ground truth only once
+        #(3) Save ground truth only once
         if iter_type == "test" or self.global_epoch == 0:
             true_path = os.path.join(self.image_root, iter_type)
             meas_path = os.path.join(self.image_root, iter_type + "_meas")
 
             x_vis = torch.complex(x[:,0], x[:,1])
-            x_vis = torch.abs(x_vis)
+            x_vis = torch.abs(x_vis).unsqueeze(1)
 
             self._add_tb_images(x_vis, iter_type + " images")
             if not os.path.exists(true_path):

@@ -82,10 +82,8 @@ class DDRM(torch.nn.Module):
 
 
     def forward(self, x_mod, y, sigma_0=0):
-        # for some reason y is a two-channel float. convert to complex
         print("DDRM Y Shape: ", y.shape)
         print("DDRM Y Type: ", y.dtype)
-        y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
 
         singulars = self.c.clone()
         # singulars = torch.ones_like(self.c)
