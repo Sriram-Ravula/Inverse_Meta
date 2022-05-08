@@ -67,6 +67,9 @@ class GBML:
                 os.makedirs(c_path)
             self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
 
+            sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
+            self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
+
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.opt.num_iters)):
             #checkpoint
