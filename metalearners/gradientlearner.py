@@ -330,7 +330,7 @@ class GBML:
             elif self.hparams.outer.reg_hyperparam_type != "l1":
                 raise NotImplementedError("This meta regularizer has not been implemented yet!")
             
-            self.c.clamp(min=-1., max=1.) #TODO check if clamping at 0 or -1 is better
+            self.c.clamp(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
         
         self.c_list.append(self.c.detach().clone().cpu())
 
@@ -436,7 +436,7 @@ class GBML:
 
             #now check for any smart initializations
             if self.hparams.outer.hyperparam_init == "random":
-                c = torch.rand(m) * 2 - 1 #TODO check if letting c be negative is good
+                c = torch.rand(m)
 
             elif isinstance(self.hparams.outer.hyperparam_init, (int, float)):
                 c = torch.ones(m) * float(self.hparams.outer.hyperparam_init)
@@ -448,7 +448,7 @@ class GBML:
                                           seed=self.hparams.seed)
                     c = torch.tensor(c)
                     c = torch.view_as_real(c)[:,:,0].type(torch.float)
-                    c = c.flatten() #TODO what happens when the entries of this guy go towards -1?
+                    c = c.flatten() 
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                     num_sampled_lines = np.floor(self.hparams.data.image_size / self.hparams.problem.R)
@@ -458,7 +458,7 @@ class GBML:
                     random_line_idx = outer_line_idx[::int(self.hparams.problem.R)]
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
-                    c[random_line_idx] = 1. #TODO what happens when the entries of this guy go towards -1?
+                    c[random_line_idx] = 1. 
             
         self.c = c.to(self.device)
         return
