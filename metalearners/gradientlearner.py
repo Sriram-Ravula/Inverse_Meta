@@ -425,6 +425,7 @@ class GBML:
             c = torch.tensor(1.)
             
         elif self.hparams.problem.measurement_selection:
+            #define the number of parameters
             if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 m = self.hparams.data.image_size
 
@@ -451,14 +452,28 @@ class GBML:
                     c = c.flatten() 
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                    num_sampled_lines = np.floor(self.hparams.data.image_size / self.hparams.problem.R)
-                    center_line_idx = np.arange((self.hparams.data.image_size - 30) // 2,
-                                        (self.hparams.data.image_size + 30) // 2)
+                    num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+                    center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
+                                        (self.hparams.data.image_size + num_center_lines) // 2)
                     outer_line_idx = np.setdiff1d(np.arange(self.hparams.data.image_size), center_line_idx)
                     random_line_idx = outer_line_idx[::int(self.hparams.problem.R)]
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
                     c[random_line_idx] = 1. 
+            
+            #finally check to see if we want to keep the center
+            if self.hparams.outer.keep_center:
+                num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+                center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
+                                    (self.hparams.data.image_size + num_center_lines) // 2)
+
+                if self.hparams.problem.sample_pattern == 'random':
+                    center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
+                    c = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
+                    c[center_line_idx] = 1. 
+
+                elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                    c[center_line_idx] = 1.
             
         self.c = c.to(self.device)
         return

@@ -88,6 +88,7 @@ outer:
  meta_loss_type: 'l2' #["l2"]
 
  hyperparam_init: 0 #[float, "smart", "random"]
+ keep_center: True
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
