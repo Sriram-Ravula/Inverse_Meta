@@ -330,7 +330,7 @@ class GBML:
             elif self.hparams.outer.reg_hyperparam_type != "l1":
                 raise NotImplementedError("This meta regularizer has not been implemented yet!")
             
-            self.c.clamp(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
+            self.c.clamp_(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
         
         self.c_list.append(self.c.detach().clone().cpu())
 
