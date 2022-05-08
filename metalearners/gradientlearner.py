@@ -332,6 +332,21 @@ class GBML:
             
             self.c.clamp_(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
         
+        #finally check to see if we want to keep the center
+        if self.hparams.problem.measurement_selection and self.hparams.outer.keep_center:
+            num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+            center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
+                                (self.hparams.data.image_size + num_center_lines) // 2)
+
+            if self.hparams.problem.sample_pattern == 'random':
+                center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
+                self.c = self.c.view(self.hparams.data.image_size, self.hparams.data.image_size)
+                self.c[center_line_idx] = 1. 
+                self.c = self.c.flatten()
+
+            elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                self.c[center_line_idx] = 1.
+        
         self.c_list.append(self.c.detach().clone().cpu())
 
         if self.scheduler is not None and self.hparams.opt.decay:
@@ -471,6 +486,7 @@ class GBML:
                     center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
                     c = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
                     c[center_line_idx] = 1. 
+                    c = c.flatten()
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                     c[center_line_idx] = 1.
