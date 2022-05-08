@@ -166,6 +166,7 @@ class GBML:
 
         #Y (k-space meas) is acting weirdly - comes in as 2-channel complex float
         #each channel has all real entries
+        #But after Langevin, contains actual complex dtype with a single channel with (Re, Im)
 
         print("Image shape: ", x.shape)
         print("Image type: ", x.dtype)
@@ -193,8 +194,8 @@ class GBML:
                                     reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
                                     reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
 
-        extra_metrics_dict = {"real_meas_loss": real_meas_loss.cpu().numpy().flatten(),
-                              "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
+        extra_metrics_dict = {"real_meas_loss": torch.abs(real_meas_loss).cpu().numpy().flatten(),
+                              "weighted_meas_loss": torch.abs(weighted_meas_loss).cpu().numpy().flatten(),
                               "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
                               "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
                               "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
@@ -239,8 +240,7 @@ class GBML:
         meas_recovered_path = os.path.join(self.image_root, iter_type + "_recon_meas", "epoch_"+str(self.global_epoch))
         recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
 
-        x_hat_vis = torch.complex(x_hat[:,0], x_hat[:,1]) #[N, H, W]
-        x_hat_vis = torch.abs(x_hat_vis).unsqueeze(1) #[N, H, W] --> [N, 1, H, W]
+        x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
 
         self._add_tb_images(x_hat_vis, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
@@ -261,8 +261,7 @@ class GBML:
             true_path = os.path.join(self.image_root, iter_type)
             meas_path = os.path.join(self.image_root, iter_type + "_meas")
 
-            x_vis = torch.complex(x[:,0], x[:,1])
-            x_vis = torch.abs(x_vis).unsqueeze(1)
+            x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
             self._add_tb_images(x_vis, iter_type + " images")
             if not os.path.exists(true_path):

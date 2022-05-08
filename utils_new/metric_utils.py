@@ -14,8 +14,11 @@ def get_lpips(x_hat, x):
     Calculates LPIPS(x_hat, x).
     Assumes given images are in range [0, 1].
     """
-    x_hat_rescaled = (x_hat * 2.) - 1.
-    x_rescaled = (x * 2.) - 1.
+    x_hat_vis = x_hat.repeat(1,3,1,1) #[N, 3, H, W]
+    x_vis = x.repeat(1,3,1,1) #[N, 3, H, W]
+
+    x_hat_rescaled = (x_hat_vis * 2.) - 1.
+    x_rescaled = (x_vis * 2.) - 1.
 
     loss_fn = lpips.LPIPS(net='alex').to(x_hat.device)
     lpips_loss = loss_fn.forward(x_hat_rescaled, x_rescaled)
@@ -78,19 +81,17 @@ def get_all_metrics(x_hat, x, range = 1.):
     """
     function for getting all image reference metrics and returning in a dict
     """
-    metrics = {}
-    print(x.shape, x_hat.shape)
-    range = torch.abs(x).max() - torch.abs(x).min()
+    x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
+    x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
-    try:
-        metrics['lpips'] = get_lpips(x_hat, x)
-    except:
-        metrics['lpips'] = np.inf * np.ones(x.shape[0])
-    metrics['ssim'] = get_ssim(x_hat, x, range=range)
-    metrics['nmse'] = get_nmse(x_hat, x)
-    metrics['psnr'] = get_psnr(x_hat, x, range=range)
-    metrics['sse'] = get_sse(x_hat, x)
-    metrics['mse'] = get_mse(x_hat, x)
+    metrics = {}
+
+    metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
+    metrics['ssim'] = get_ssim(x_hat_vis, x_vis, range=range)
+    metrics['nmse'] = get_nmse(x_hat_vis, x_vis)
+    metrics['psnr'] = get_psnr(x_hat_vis, x_vis, range=range)
+    metrics['sse'] = get_sse(x_hat_vis, x_vis)
+    metrics['mse'] = get_mse(x_hat_vis, x_vis)
 
     return metrics
 
