@@ -446,7 +446,7 @@ class GBML:
                     c = sigpy.mri.poisson(img_shape=(self.hparams.data.image_size, self.hparams.data.image_size),
                                           accel=self.hparams.problem.R,
                                           seed=self.hparams.seed)
-                    c = torch.tensor(c)
+                    c = torch.tensor(c).type(float)
                     c = torch.view_as_real(c)[:,:,0]
                     c = c.flatten() #TODO what happens when the entries of this guy go towards -1?
 
