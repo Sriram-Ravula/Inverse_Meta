@@ -263,7 +263,7 @@ class GBML:
         
         fake_maps = torch.ones_like(x)[:,0,:,:] #[N, 1, H, W]
         recon_meas = MulticoilForwardMRINoMask()(torch.complex(x_hat[:,0], x_hat[:,1]), fake_maps)
-        recon_meas = torch.abs(recon_meas).unsqueeze(1)
+        recon_meas = torch.abs(recon_meas)
 
         self._add_tb_images(recon_meas, "recovered " + iter_type + " meas")
         if not os.path.exists(meas_recovered_path):
@@ -283,7 +283,7 @@ class GBML:
             self._save_images(x_vis, x_idx, true_path)
 
             gt_meas = MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), fake_maps)
-            gt_meas = torch.abs(gt_meas).unsqueeze(1)
+            gt_meas = torch.abs(gt_meas)
 
             self._add_tb_images(gt_meas, iter_type + " meas")
             if not os.path.exists(meas_path):
