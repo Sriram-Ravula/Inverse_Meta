@@ -261,7 +261,7 @@ class GBML:
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
         
-        fake_maps = torch.ones_like(x)[:,0,:,:] #[N, 1, H, W]
+        fake_maps = torch.ones_like(x)[:,0,:,:].unsqueeze(1) #[N, 1, H, W]
         recon_meas = MulticoilForwardMRINoMask()(torch.complex(x_hat[:,0], x_hat[:,1]), fake_maps)
         recon_meas = torch.abs(recon_meas)
 
