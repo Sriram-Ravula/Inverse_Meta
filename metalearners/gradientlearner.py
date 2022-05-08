@@ -223,13 +223,13 @@ class GBML:
         
         #(1) Save samping masks
         if iter_type == "train":
-            c_shaped = self._shape_c(self.c).cpu()
-            c_shaped_binary = torch.zeros_like(c_shaped).cpu()
+            c_shaped = self._shape_c(self.c)
+            c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
 
             c_path = os.path.join(self.image_root, "learned_masks")
 
-            c_out = torch.stack([c_shaped, c_shaped_binary])
+            c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
             self._add_tb_images(c_out, "Learned Mask")
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
