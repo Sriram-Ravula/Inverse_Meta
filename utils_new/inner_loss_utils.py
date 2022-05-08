@@ -18,7 +18,7 @@ def log_cond_likelihood_loss(c, y, A, x,
         c = c.unsqueeze(-1)
 
     #(1/2) ||Diag(sqrt(c))(Ax-y)||^2
-    loss = scale * 0.5 * torch.sum(c * (resid ** 2), reduce_dims) 
+    loss = scale * 0.5 * torch.mean(c * (resid ** 2), reduce_dims) 
 
     return loss
 

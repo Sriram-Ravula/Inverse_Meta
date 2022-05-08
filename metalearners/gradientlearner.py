@@ -37,7 +37,8 @@ class GBML:
         self.global_epoch = 0
         self.c_list = [self.c.detach().clone().cpu()]
 
-        self.langevin_runner = DDRM(self.hparams, self.args, self.c).to(self.device)
+        c_shaped = self._shape_c(self.c) #properly re-shape c before giving to DDRM
+        self.langevin_runner = DDRM(self.hparams, self.args, c_shaped).to(self.device)
 
         if self.hparams.gpu_num == -1:
             self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
@@ -104,10 +105,12 @@ class GBML:
                 meta_grad /= n_samples
                 self._opt_step(meta_grad)
 
+                #put in the proper shape before giving to DDRM (ensures proper singular vals)
+                c_shaped = self._shape_c(self.c) 
                 if self.hparams.gpu_num != -1:
-                    self.langevin_runner.set_c(self.c)
+                    self.langevin_runner.set_c(c_shaped)
                 else:
-                    self.langevin_runner.module.set_c(self.c)
+                    self.langevin_runner.module.set_c(c_shaped)
 
                 meta_grad = 0.0
                 n_samples = 0
@@ -162,6 +165,15 @@ class GBML:
         x_mod = torch.rand_like(x)
         x_hat = self.langevin_runner(x_mod, y)
 
+        print("Image shape: ", x.shape)
+        print("Image type: ", x.dtype)
+        print("Recon shape: ", x_hat.shape)
+        print("Recon type: ", x_hat.dtype)
+        print("K-Space shape: ", y.shape)
+        print("K-Space dtype: ", y.dtype)
+        print("Coil map shape: ", s_maps.shape)
+        print("Coil map dtype: ", s_maps.dtype)
+
         return x_hat, x, y
 
     @torch.no_grad()
@@ -169,9 +181,10 @@ class GBML:
         """
         Adds metrics for a single batch to the metrics object.
         """
-        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise ||Ax - y||^2 (i.e. sse for each sample)
-        weighted_meas_loss = log_cond_likelihood_loss(self._shape_c(self.c), y, self.A, x_hat, 2.,
-                                                      reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise C||Ax - y||^2 (i.e. sse for each sample)
+        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise MSE
+        c_shaped = self._shape_c(self.c)
+        weighted_meas_loss = log_cond_likelihood_loss(c_shaped, y, self.A, x_hat, 2.,
+                                                      reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise MSE with mask
         all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
@@ -268,24 +281,20 @@ class GBML:
         Sets c.grad to True then False.
         """
         self.opt.zero_grad()
-
         self.c.requires_grad_()
 
-         #dummy update to make sure grad is initialized
+        #dummy update to make sure grad is initialized
         if type(self.c.grad) == type(None):
             dummy_loss = torch.sum(self.c)
             dummy_loss.backward()
-
+        
         self.c.grad.copy_(meta_grad)
         self.opt.step()
-
         self.c.requires_grad_(False)
 
-        #take care of thresholding operators
         if self.hparams.outer.reg_hyperparam:
-            if not self.hparams.problem.learn_samples:
-                self.c.clamp_(min=0.)
-
+            #the scale parameter in soft is lambda for soft thresholding with the 
+            #   proximal l1-sparsity operator
             if self.hparams.outer.reg_hyperparam_type == "soft":
                 over_idx = (self.c > self.hparams.outer.reg_hyperparam_scale)
                 mid_idx = (self.c >= -self.hparams.outer.reg_hyperparam_scale) & \
@@ -294,19 +303,28 @@ class GBML:
                 self.c[over_idx] -= self.hparams.outer.reg_hyperparam_scale
                 self.c[mid_idx] *= 0
                 self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
+            
+            #the scale parameter in hard thresholding means keep <scale> highest values
+            #   and zero the (1 - <scale>) remaining 
             elif self.hparams.outer.reg_hyperparam_type == "hard":
                 k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
-                smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
-                under_idx = torch.abs(self.c) < smallest_kept_val
+                smallest_kept_val = torch.kthvalue(self.c, k)[0]
+                under_idx = self.c < smallest_kept_val
                 self.c[under_idx] *= 0
+            
+            elif self.hparams.outer.reg_hyperparam_type == "l1":
+                pass
+            
             else:
-                self.c.clamp(min=-1.0, max=1.0)
-        elif not self.hparams.outer.exp_params:
-            self.c.clamp_(min=0.)
-
+                raise NotImplementedError("This meta regularizer has not been implemented yet!")
+            
+            self.c.clamp(min=0., max=1.)
+        else:
+            self.c.clamp(min=0.)
+        
         self.c_list.append(self.c.detach().clone().cpu())
 
-        if (self.scheduler is not None) and (not self.hparams.opt.decay_on_val):
+        if self.scheduler is not None and self.hparams.opt.decay:
             LR_OLD = self.opt.param_groups[0]['lr']
             self.scheduler.step()
             LR_NEW = self.opt.param_groups[0]['lr']
@@ -333,10 +351,10 @@ class GBML:
         #(2)
         self.c.requires_grad_()
 
-        cond_log_grad = get_likelihood_grad(self.c, y, self.A, x_hat,
+        c_shaped = self._shape_c(self.c)
+        cond_log_grad = get_likelihood_grad(c_shaped, y, self.A, x_hat,
                                             retain_graph=True,
                                             create_graph=True)
-
         out_grad = 0.0
         out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
         out_grad += grad_c_meta_loss
@@ -375,6 +393,9 @@ class GBML:
 
             elif self.hparams.problem.sample_pattern == 'vertical':
                 c_shaped = c.unsqueeze(0).repeat(self.hparams.data.image_size, 1)
+            
+            else:
+                raise NotImplementedError("This sample pattern is not supported!")
             
         return c_shaped
 

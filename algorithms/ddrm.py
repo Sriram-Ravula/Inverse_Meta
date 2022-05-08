@@ -78,7 +78,7 @@ class DDRM(torch.nn.Module):
             self.H_funcs = FourierMultiCoil(self.hparams.data.image_size, R, pattern,
                                         orientation, self.device)
         else:
-            raise NotImplementedError
+            raise NotImplementedError("This forward operator is not supported")
 
 
     def forward(self, x_mod, y, sigma_0=0):
