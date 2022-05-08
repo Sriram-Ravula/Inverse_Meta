@@ -70,7 +70,7 @@ diffusion:
 data:
  dataset: 'Brain-Multicoil'
  input_dir: "/content/meta_exp/datasets/brain/brain_T2"
- maps_dir: "/content/meta_exp/datasets/brain_T2_maps"
+ maps_dir: "/content/meta_exp/datasets/brain/brain_T2_maps"
  centered: True
 
  num_train: 1
