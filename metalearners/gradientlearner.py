@@ -62,7 +62,7 @@ class GBML:
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-            self._add_tb_images(c_out, "Learned Mask")
+            self._add_tb_images(c_out, "Mask Initialization")
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
             self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
