@@ -223,7 +223,7 @@ class GBML:
         
         #(1) Save samping masks
         if iter_type == "train":
-            c_shaped = self._shape_c(self.c)
+            c_shaped = torch.abs(self._shape_c(self.c))
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
 
@@ -309,19 +309,14 @@ class GBML:
             #   and zero the (1 - <scale>) remaining 
             elif self.hparams.outer.reg_hyperparam_type == "hard":
                 k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
-                smallest_kept_val = torch.kthvalue(self.c, k)[0]
-                under_idx = self.c < smallest_kept_val
+                smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
+                under_idx = torch.abs(self.c) < smallest_kept_val
                 self.c[under_idx] *= 0
             
-            elif self.hparams.outer.reg_hyperparam_type == "l1":
-                pass
-            
-            else:
+            elif self.hparams.outer.reg_hyperparam_type != "l1":
                 raise NotImplementedError("This meta regularizer has not been implemented yet!")
             
-            self.c.clamp(min=0., max=1.)
-        else:
-            self.c.clamp(min=0.)
+            self.c.clamp(min=-1., max=1.) #TODO check if clamping at 0 or -1 is better
         
         self.c_list.append(self.c.detach().clone().cpu())
 
@@ -427,7 +422,7 @@ class GBML:
 
             #now check for any smart initializations
             if self.hparams.outer.hyperparam_init == "random":
-                c = torch.rand(m)
+                c = torch.rand(m) * 2 - 1 #TODO check if letting c be negative is good
 
             elif isinstance(self.hparams.outer.hyperparam_init, (int, float)):
                 c = torch.ones(m) * float(self.hparams.outer.hyperparam_init)
@@ -439,7 +434,7 @@ class GBML:
                                           seed=self.hparams.seed)
                     c = torch.tensor(c)
                     c = torch.view_as_real(c)[:,:,0]
-                    c = c.flatten()
+                    c = c.flatten() #TODO what happens when the entries of this guy go towards -1?
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                     num_sampled_lines = np.floor(self.hparams.data.image_size / self.hparams.problem.R)
@@ -449,7 +444,7 @@ class GBML:
                     random_line_idx = outer_line_idx[::int(self.hparams.problem.R)]
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
-                    c[random_line_idx] = 1.
+                    c[random_line_idx] = 1. #TODO what happens when the entries of this guy go towards -1?
             
         self.c = c.to(self.device)
         return
