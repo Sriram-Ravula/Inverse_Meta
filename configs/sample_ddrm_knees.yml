@@ -4,19 +4,13 @@ gpu_num: -1 #-1 means use all (DP mode)
 verbose: true
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "exp" #root of folder to save run information
+save_dir: "/content/exp" #root of folder to save run information
 
 seed: 2022
 
-use_autograd: true #whether to use autograd for loss calculateions (vs explicitly forming the function)
-
-#TODO implement these
-resume: false
-resume_dir: "" #the root of the checkpoint folder to resume from
-
 net:
  model: 'ncsnpp'
- checkpoint_dir: "/csiNAS2/fast/ajil/score_sde_pytorch_checkpoints/knee-multicoil-vp-centered/checkpoints/"
+ checkpoint_dir: "/content/meta_exp/checkpoints/DDRM_knee"
  checkpoint: 34
 
 model:
@@ -75,8 +69,8 @@ diffusion:
 
 data:
  dataset: 'Knee-Multicoil'
- input_dir: "/home/ajil/work/ddrm/mri_datasets/knee"
- maps_dir:  "/home/ajil/work/ddrm/mri_datasets/knee_maps"
+ input_dir: "/content/meta_exp/datasets/knee/raw"
+ maps_dir:  "/content/meta_exp/datasets/knee/maps"
  centered: True
 
  num_train: 1
@@ -90,23 +84,14 @@ data:
  image_size: 320
  num_channels: 2
 
- random_flip: false
-
 outer:
- meta_type: 'mle' #only mle supported
+ meta_loss_type: 'l2' #["l2"]
 
- meta_loss_type: 'l2'
-
- hyperparam_type: 'vector' #type of hyperparam c to use. [scalar, vector]
- exp_params: false #whether to use exp(hyperparams) instead of hyperparams
- hyperparam_init: 0.1
+ hyperparam_init: 0 #[float, "smart", "random"]
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.005 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
-
- ROI_loss: false
- ROI: None #[None, ((vertical offset, horizontal offset)(height, width))]
+ reg_hyperparam_scale: 0.001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
   num_iters: 5 #number of meta iterations to run
@@ -116,48 +101,16 @@ opt:
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
-  decay_on_val: true #only relevant if decay=True
 
   val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
-inner:
- alg: 'ddrm' #type of inner algorithm. ['map', 'langevin']
- T: 3 #number of inner optimization steps. For langevin, number of steps per noise level. (5 for celeba, 3 for ffhq)
-
- renormalize: True #whether to re-normalize the likelihood grad
- rescale_factor: 5
-
- decimate: true
- decimation_factor: 10 #factor to divide the number of noise levels by. Only relevant if decimate=True
- decimation_type: 'linear' #['linear', 'log_last', 'log_first', 'last', 'first']
-
- verbose: 200 #print every n iterations. 0 means don't print. Only prints if verbose=true.
- lr: 0.0000009 #learning rate. (0.0000033 for celeba, 0.0000009 for ffhq for ncsnv2)
-
 problem:
- measurement_type: 'fourier-multicoil' #measurement type ['superres', 'inpaint', 'identity', 'gaussian', 'fourier']
- learn_samples: false #whether the problem is one of learning samples; not usable for gaussian or identity
+ measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
  sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 
- num_measurements: None #number of [measurements for gaussian, kept pixel locations for fourier/inpainting]
- fourier_mask_type: 'random' #[radial, horizontal, vertical, random] pattern for Fourier subsampling mask
- #downsample_factor: 16 #factor to downsample each side of the image
- #inpaint_size: 20 #masked region side length for inpainting. Only relevant if inpaint_random=false
- #inpaint_random: false #whether to use random inpainting instead of a centered box. Uses num_measurements if true.
- #efficient_inp: true #use binary mask instead of A matrix to get inpaint measurements. Only relevant when measurement_type='inpaint'
-
- add_noise: false #whether to add noise after measuring
-#  noise_type: "gaussian_nonwhite" #[gaussian, gaussian_nonwhite]
-#  noise_std: 0.1
-
- add_dependent_noise: false #whether to add noise before measuring
- dependent_noise_type: "gaussian" #[gaussian, uniform]
- dependent_noise_std: 1
-
  R: 4
  orientation: vertical
  pattern: random
-
