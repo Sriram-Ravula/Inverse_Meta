@@ -69,8 +69,8 @@ diffusion:
 
 data:
  dataset: 'Brain-Multicoil'
- input_dir: "/csiNAS/brett/sites_new/Training/site5/ksp"
- maps_dir: "/csiNAS/brett/sites_new/Training/site5/maps"
+ input_dir: "/csiNAS/mridata/fastmri_brain/brain_multicoil_val/multicoil_val/multicoil_val"
+ maps_dir: "/csiNAS/mridata/fastmri_brain/multicoil_val_espiritWc0_mvue_ALL"
  centered: True
 
  num_train: 128

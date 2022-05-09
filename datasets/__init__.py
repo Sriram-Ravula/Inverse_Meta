@@ -14,7 +14,7 @@ def get_all_files(folder, pattern='*'):
 
 def get_dataset(config):
     if config.data.dataset == 'Brain-Multicoil':
-        files = get_all_files(config.data.input_dir, pattern='*.h5')
+        files = get_all_files(config.data.input_dir, pattern='*T2*.h5')
 
         dataset = None
         test_dataset = BrainMultiCoil(files,

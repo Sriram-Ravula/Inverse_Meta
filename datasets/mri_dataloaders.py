@@ -30,18 +30,19 @@ class BrainMultiCoil(Dataset):
         self.pattern      = pattern
         self.orientation  = orientation
 
-        # Access meta-data of each scan to get number of slices
-        self.num_slices = np.zeros((len(self.file_list,)), dtype=int)
-        for idx, file in enumerate(self.file_list):
-            input_file = os.path.join(self.input_dir, os.path.basename(file))
-            with h5py.File(input_file, 'r') as data:
-                self.num_slices[idx] = int(np.array(data['kspace']).shape[0])
+        # # Access meta-data of each scan to get number of slices
+        # self.num_slices = np.zeros((len(self.file_list,)), dtype=int)
+        # for idx, file in enumerate(self.file_list):
+        #     input_file = os.path.join(self.input_dir, os.path.basename(file))
+        #     with h5py.File(input_file, 'r') as data:
+        #         self.num_slices[idx] = int(np.array(data['kspace']).shape[0])
 
         # Create cumulative index for mapping
-        self.slice_mapper = np.cumsum(self.num_slices) - 1 # Counts from '0'
+        # self.slice_mapper = np.cumsum(self.num_slices) - 1 # Counts from '0'
 
     def __len__(self):
-        return int(np.sum(self.num_slices)) # Total number of slices from all scans
+        # return int(np.sum(self.num_slices)) # Total number of slices from all scans
+        return int(len(self.file_list) * 5) 
 
     # Phase encode random mask generator
     def _get_mask(self, acs_lines=30, total_lines=384, R=1, pattern='random'):
@@ -86,26 +87,39 @@ class BrainMultiCoil(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
+        # # Get scan and slice index
+        # # First scan for which index is in the valid cumulative range
+        # scan_idx = int(np.where((self.slice_mapper - idx) >= 0)[0][0])
+        # # Offset from cumulative range
+        # slice_idx = int(idx) if scan_idx == 0 else \
+        #     int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
+
         # Get scan and slice index
-        # First scan for which index is in the valid cumulative range
-        scan_idx = int(np.where((self.slice_mapper - idx) >= 0)[0][0])
+        # we only use the 5 central slices
+        scan_idx = idx // 5 # int(np.where((self.slice_mapper - idx) >= 0)[0][0])
         # Offset from cumulative range
-        slice_idx = int(idx) if scan_idx == 0 else \
-            int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
+        slice_idx = idx % 5
+        # slice_idx = int(idx) if scan_idx == 0 else \
+        #     int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
 
         # Load maps for specific scan and slice
         maps_file = os.path.join(self.maps_dir,
                                  os.path.basename(self.file_list[scan_idx]))
         with h5py.File(maps_file, 'r') as data:
             # Get maps
-            s_maps = np.asarray(data['s_maps'][slice_idx])
+            num_slices = int(data['s_maps'].shape[0])
+            slice_idx_shifted = (num_slices // 2) - 2 + slice_idx
+            s_maps = np.asarray(data['s_maps'][slice_idx_shifted])
 
         # Load raw data for specific scan and slice
         raw_file = os.path.join(self.input_dir,
                                 os.path.basename(self.file_list[scan_idx]))
         with h5py.File(raw_file, 'r') as data:
             # Get maps
-            gt_ksp = np.asarray(data['kspace'][slice_idx])
+            num_slices = int(data['kspace'].shape[0])
+            slice_idx_shifted = (num_slices // 2) - 2 + slice_idx
+            gt_ksp = np.asarray(data['kspace'][slice_idx_shifted])
+
         # Crop extra lines and reduce FoV in phase-encode
         gt_ksp = sp.resize(gt_ksp, (gt_ksp.shape[0], gt_ksp.shape[1], self.image_size))
 
