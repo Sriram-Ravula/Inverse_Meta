@@ -127,14 +127,19 @@ class DDRM(torch.nn.Module):
         model = NCSNpp(self.hparams)
         model = model.to(self.device)
         model = torch.nn.DataParallel(model)
-        for param in model.parameters():
-            param.requires_grad = False
-        model.eval()
+        
         ema = ExponentialMovingAverage(model.parameters(), decay=self.hparams.model.ema_rate)
         state = dict(model=model, ema=ema)
 
         ckpt = os.path.join(self.hparams.net.checkpoint_dir, f'checkpoint_{self.hparams.net.checkpoint}.pth')
         state = restore_checkpoint(ckpt, state, self.device)
+
+        with torch.no_grad():
+            ema.copy_to(model.parameters())
+
+        for param in model.parameters():
+            param.requires_grad = False
+        model.eval()
 
         if self.hparams.gpu_num == -1:
             self.model = model
