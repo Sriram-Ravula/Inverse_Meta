@@ -1,5 +1,5 @@
 use_gpu: true
-gpu_num: 4 #-1 means use all (DP mode)
+gpu_num: -1 #-1 means use all (DP mode)
 
 verbose: true
 debug: false #true won't save anything
