@@ -108,7 +108,7 @@ opt:
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 

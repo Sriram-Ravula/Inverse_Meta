@@ -92,7 +92,7 @@ outer:
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ reg_hyperparam_scale: 0.01 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
   num_iters: 200 #number of meta iterations to run
@@ -108,7 +108,7 @@ opt:
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'vertical' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 

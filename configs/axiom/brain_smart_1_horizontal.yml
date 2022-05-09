@@ -4,13 +4,13 @@ gpu_num: -1 #-1 means use all (DP mode)
 verbose: true
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "/scratch1/04703/sravula/meta_outs" #root of folder to save run information
+save_dir: "/home/sravula/meta_outs" #root of folder to save run information
 
 seed: 2022
 
 net:
  model: 'ncsnpp'
- checkpoint_dir: "/scratch1/04703/sravula/meta_exp/checkpoints/DDRM_brain/"
+ checkpoint_dir: "/home/sravula/meta_exp/checkpoints/DDRM_brain/"
  checkpoint: 14
 
 model:
@@ -69,11 +69,11 @@ diffusion:
 
 data:
  dataset: 'Brain-Multicoil'
- input_dir: "/scratch1/04703/sravula/meta_exp/datasets/brain/brain_T2"
- maps_dir: "/scratch1/04703/sravula/meta_exp/datasets/brain/brain_T2_maps"
+ input_dir: "/csiNAS/brett/sites_new/Training/site5/ksp"
+ maps_dir: "/csiNAS/brett/sites_new/Training/site5/maps"
  centered: True
 
- num_train: 32
+ num_train: 128
  num_val:   16
  num_test:  64
 
@@ -95,7 +95,7 @@ outer:
  reg_hyperparam_scale: 1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 500 #number of meta iterations to run
+  num_iters: 200 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.01 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
@@ -103,7 +103,7 @@ opt:
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 2 #validate every n iterations
+  val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
 problem:
