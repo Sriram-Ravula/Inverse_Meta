@@ -13,14 +13,8 @@ def get_all_files(folder, pattern='*'):
     return sorted(files)
 
 def get_dataset(config):
-    num_train = config.data.num_train
-    num_val = config.data.num_val
-    num_test = config.data.num_test
-    total_samples = num_train + num_val + num_test
-
     if config.data.dataset == 'Brain-Multicoil':
         files = get_all_files(config.data.input_dir, pattern='*.h5')
-        files = np.random.choice(files, size=total_samples, replace=False)
 
         dataset = None
         test_dataset = BrainMultiCoil(files,
@@ -33,7 +27,6 @@ def get_dataset(config):
 
     elif config.data.dataset == 'Knee-Multicoil':
         files = get_all_files(config.data.input_dir, pattern='*.h5')
-        files = np.random.choice(files, size=total_samples, replace=False)
 
         dataset = None
         test_dataset = KneesMultiCoil(files,
@@ -46,7 +39,6 @@ def get_dataset(config):
 
     elif config.data.dataset == 'Knees-Singlecoil':
         files = get_all_files(config.data.input_dir, pattern='*.h5')
-        files = np.random.choice(files, size=total_samples, replace=False)
 
         dataset = None
         test_dataset = KneesSingleCoil(files,
