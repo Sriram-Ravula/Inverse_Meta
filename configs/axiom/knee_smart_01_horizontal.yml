@@ -1,5 +1,5 @@
 use_gpu: true
-gpu_num: 0 #-1 means use all (DP mode)
+gpu_num: 3 #-1 means use all (DP mode)
 
 verbose: true
 debug: false #true won't save anything
@@ -10,8 +10,8 @@ seed: 2022
 
 net:
  model: 'ncsnpp'
- checkpoint_dir: "/home/sravula/meta_exp/checkpoints/DDRM_brain/"
- checkpoint: 14
+ checkpoint_dir: "/home/sravula/meta_exp/checkpoints/DDRM_knee"
+ checkpoint: 34
 
 model:
  type: "simple"
@@ -68,20 +68,20 @@ diffusion:
 
 
 data:
- dataset: 'Brain-Multicoil'
- input_dir: "/csiNAS/mridata/fastmri_brain/brain_multicoil_val/multicoil_val/multicoil_val"
- maps_dir: "/csiNAS/mridata/fastmri_brain/multicoil_val_espiritWc0_mvue_ALL"
+ dataset: 'Knee-Multicoil'
+ input_dir: "/csiNAS/mridata/fastmri_knee/multicoil_val"
+ maps_dir:  "/csiNAS/mridata/fastmri_knee/knee_multicoil_val_espiritWc0_maps"
  centered: True
 
  num_train: 128
  num_val:   16
  num_test:  64
 
- train_batch_size: 1
- val_batch_size:   1
- test_batch_size:  1
+ train_batch_size: 4
+ val_batch_size:   4
+ test_batch_size:  4
 
- image_size: 384
+ image_size: 320
  num_channels: 2
 
 outer:
@@ -92,7 +92,7 @@ outer:
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
   num_iters: 200 #number of meta iterations to run
