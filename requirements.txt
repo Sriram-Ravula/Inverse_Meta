@@ -45,3 +45,4 @@ zipp
 ninja==1.10.2.3
 sigpy==0.1.23
 gdown
+matplotlib
