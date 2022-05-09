@@ -37,7 +37,7 @@ class GBML:
         self.c_list = [self.c.detach().clone().cpu()]
 
         c_shaped = self._shape_c(self.c) #properly re-shape c before giving to DDRM
-        self.langevin_runner = DDRM(self.hparams, self.args, c_shaped).to(self.device)
+        self.langevin_runner = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
 
         if self.hparams.gpu_num == -1:
             self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
