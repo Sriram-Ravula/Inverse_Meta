@@ -61,6 +61,8 @@ def split_dataset(base_dataset, hparams):
 
     indices = list(range(len(base_dataset)))
 
+    print("Dataset Size: ", len(base_dataset))
+
     random_state = np.random.get_state()
     np.random.seed(hparams.seed)
     np.random.shuffle(indices)
