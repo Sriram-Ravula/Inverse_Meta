@@ -86,7 +86,7 @@ def get_all_metrics(x_hat, x, range = 1.):
 
     metrics = {}
 
-    metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
+    #metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
     metrics['ssim'] = get_ssim(x_hat_vis, x_vis, range=range)
     metrics['nmse'] = get_nmse(x_hat_vis, x_vis)
     metrics['psnr'] = get_psnr(x_hat_vis, x_vis, range=range)
