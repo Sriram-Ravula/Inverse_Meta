@@ -135,4 +135,8 @@ class DDRM(torch.nn.Module):
 
         ckpt = os.path.join(self.hparams.net.checkpoint_dir, f'checkpoint_{self.hparams.net.checkpoint}.pth')
         state = restore_checkpoint(ckpt, state, self.device)
-        self.model = model
+
+        if self.hparams.gpu_num == -1:
+            self.model = model
+        else:
+            self.model = model.module
