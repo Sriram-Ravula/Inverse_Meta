@@ -174,7 +174,10 @@ class GBML:
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
 
         #set coil maps and forward operator including current coil maps
-        self.langevin_runner.module.H_funcs.s_maps = s_maps
+        if self.hparams.gpu_num != -1:
+            self.langevin_runner.H_funcs.s_maps = s_maps
+        else:  
+            self.langevin_runner.module.H_funcs.s_maps = s_maps
         self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
         #Get the reconstruction and log batch metrics
