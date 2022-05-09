@@ -144,4 +144,4 @@ class DDRM(torch.nn.Module):
         if self.hparams.gpu_num == -1:
             self.model = model
         else:
-            self.model = model.module
+            self.model = model.module.to(self.device)
