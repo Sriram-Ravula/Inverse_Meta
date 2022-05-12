@@ -122,7 +122,7 @@ class GBML:
                 self._opt_step(meta_grad)
 
                 #put in the proper shape before giving to DDRM (ensures proper singular vals)
-                c_shaped = self._shape_c(self.c) 
+                c_shaped = self._shape_c(self.c)
                 if self.hparams.gpu_num != -1:
                     self.langevin_runner.set_c(c_shaped)
                 else:
@@ -172,17 +172,22 @@ class GBML:
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
+        scale_factor = item['scale_factor'].to(self.device)
+
 
         #set coil maps and forward operator including current coil maps
         if self.hparams.gpu_num != -1:
             self.langevin_runner.H_funcs.s_maps = s_maps
-        else:  
+        else:
             self.langevin_runner.module.H_funcs.s_maps = s_maps
         self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
         #Get the reconstruction and log batch metrics
         x_mod = torch.rand_like(x)
         x_hat = self.langevin_runner(x_mod, y)
+        x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
+        x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
+        x_hat /= x_hat_scale[:, None, None, None]
 
         #Y (k-space meas) is acting weirdly - comes in as 2-channel complex float
         #each channel has all real entries
@@ -240,7 +245,7 @@ class GBML:
         """
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
-        
+
         #(1) Save samping masks
         if iter_type == "train":
             c_shaped = torch.abs(self._shape_c(self.c))
@@ -266,7 +271,7 @@ class GBML:
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
-        
+
         fake_maps = torch.ones_like(x)[:,0,:,:].unsqueeze(1) #[N, 1, H, W]
         recon_meas = MulticoilForwardMRINoMask()(torch.complex(x_hat[:,0], x_hat[:,1]), fake_maps)
         recon_meas = torch.abs(recon_meas)
@@ -308,13 +313,13 @@ class GBML:
         if type(self.c.grad) == type(None):
             dummy_loss = torch.sum(self.c)
             dummy_loss.backward()
-        
+
         self.c.grad.copy_(meta_grad)
         self.opt.step()
         self.c.requires_grad_(False)
 
         if self.hparams.outer.reg_hyperparam:
-            #the scale parameter in soft is lambda for soft thresholding with the 
+            #the scale parameter in soft is lambda for soft thresholding with the
             #   proximal l1-sparsity operator
             if self.hparams.outer.reg_hyperparam_type == "soft":
                 over_idx = (self.c > self.hparams.outer.reg_hyperparam_scale)
@@ -324,20 +329,20 @@ class GBML:
                 self.c[over_idx] -= self.hparams.outer.reg_hyperparam_scale
                 self.c[mid_idx] *= 0
                 self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
-            
+
             #the scale parameter in hard thresholding means keep <scale> highest values
-            #   and zero the (1 - <scale>) remaining 
+            #   and zero the (1 - <scale>) remaining
             elif self.hparams.outer.reg_hyperparam_type == "hard":
                 k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
                 smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
                 under_idx = torch.abs(self.c) < smallest_kept_val
                 self.c[under_idx] *= 0
-            
+
             elif self.hparams.outer.reg_hyperparam_type != "l1":
                 raise NotImplementedError("This meta regularizer has not been implemented yet!")
-            
+
             self.c.clamp_(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
-        
+
         #finally check to see if we want to keep the center
         if self.hparams.problem.measurement_selection and self.hparams.outer.keep_center:
             num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
@@ -347,12 +352,12 @@ class GBML:
             if self.hparams.problem.sample_pattern == 'random':
                 center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
                 self.c = self.c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-                self.c[center_line_idx] = 1. 
+                self.c[center_line_idx] = 1.
                 self.c = self.c.flatten()
 
             elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 self.c[center_line_idx] = 1.
-        
+
         self.c_list.append(self.c.detach().clone().cpu())
 
         if self.scheduler is not None and self.hparams.opt.decay:
@@ -407,7 +412,7 @@ class GBML:
                                 num_workers=1, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
                                 num_workers=1, drop_last=True)
-    
+
     def _shape_c(self, c):
         """
         Function for properly shaping c to broadcast with images and measurements
@@ -424,10 +429,10 @@ class GBML:
 
             elif self.hparams.problem.sample_pattern == 'vertical':
                 c_shaped = c.unsqueeze(0).repeat(self.hparams.data.image_size, 1)
-            
+
             else:
                 raise NotImplementedError("This sample pattern is not supported!")
-            
+
         return c_shaped
 
     def _init_c(self):
@@ -438,13 +443,13 @@ class GBML:
         (3) Check for any smart initialization
         """
 
-        problem_check = sum([self.hparams.problem.measurement_weighting, 
+        problem_check = sum([self.hparams.problem.measurement_weighting,
                              self.hparams.problem.measurement_selection])
         assert problem_check == 1, "Must choose exactly one of measurement weighting and selection!"
 
         if self.hparams.problem.measurement_weighting:
             c = torch.tensor(1.)
-            
+
         elif self.hparams.problem.measurement_selection:
             #define the number of parameters
             if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
@@ -470,7 +475,7 @@ class GBML:
                                           seed=self.hparams.seed)
                     c = torch.tensor(c)
                     c = torch.view_as_real(c)[:,:,0].type(torch.float)
-                    c = c.flatten() 
+                    c = c.flatten()
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                     num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
@@ -480,8 +485,8 @@ class GBML:
                     random_line_idx = outer_line_idx[::int(self.hparams.problem.R)]
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
-                    c[random_line_idx] = 1. 
-            
+                    c[random_line_idx] = 1.
+
             #finally check to see if we want to keep the center
             if self.hparams.outer.keep_center:
                 num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
@@ -491,12 +496,12 @@ class GBML:
                 if self.hparams.problem.sample_pattern == 'random':
                     center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
                     c = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-                    c[center_line_idx] = 1. 
+                    c[center_line_idx] = 1.
                     c = c.flatten()
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                     c[center_line_idx] = 1.
-            
+
         self.c = c.to(self.device)
         return
 

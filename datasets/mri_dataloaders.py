@@ -42,7 +42,7 @@ class BrainMultiCoil(Dataset):
 
     def __len__(self):
         # return int(np.sum(self.num_slices)) # Total number of slices from all scans
-        return int(len(self.file_list) * 5) 
+        return int(len(self.file_list) * 5)
 
     # Phase encode random mask generator
     def _get_mask(self, acs_lines=30, total_lines=384, R=1, pattern='random'):
@@ -168,19 +168,18 @@ class BrainMultiCoil(Dataset):
         # find mvue image
         aliased_mvue = get_mvue(ksp, s_maps)
 
-        scale_factor = np.percentile(np.abs(aliased_mvue), 99)
-        ksp /= scale_factor
-        aliased_mvue /= scale_factor
-
+        # scale_factor = np.percentile(np.abs(aliased_mvue), 99)
         gt_mvue_scale_factor = np.percentile(np.abs(gt_mvue),99)
+        ksp /= gt_mvue_scale_factor
+        aliased_mvue /= gt_mvue_scale_factor
         gt_mvue /= gt_mvue_scale_factor
 
-        s_maps_scale = np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
-        # print(s_maps_scale)
-        ksp /= s_maps_scale
-        aliased_mvue /= s_maps_scale
-        gt_mvue /= s_maps_scale
-        s_maps /= s_maps_scale
+        # s_maps_scale = np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
+        # # print(s_maps_scale)
+        # ksp /= s_maps_scale
+        # aliased_mvue /= s_maps_scale
+        # gt_mvue /= s_maps_scale
+        # s_maps /= s_maps_scale
 
         # Apply ACS-based instance scaling
         aliased_mvue_two_channel = np.float16(np.zeros((2,) + aliased_mvue.shape))
@@ -199,7 +198,7 @@ class BrainMultiCoil(Dataset):
                   # 'mask': mask,
                   'aliased_image': aliased_mvue_two_channel.astype(np.float32),
                   'gt_image': gt_mvue_two_channel.astype(np.float32),
-                  'scale_factor': scale_factor.astype(np.float32),
+                  'scale_factor': gt_mvue_scale_factor.astype(np.float32),
                   # Just for feedback
                   'scan_idx': scan_idx,
                   'slice_idx': slice_idx}
