@@ -347,7 +347,7 @@ class Metrics:
 
         for metric_type, metric_value in raw_dict[iterkey].items():
             for i, val in enumerate(metric_value):
-                tb_logger.add_scalars("raw " + metric_type, {iter_type: val}, i)
+                tb_logger.add_scalars("raw " + metric_type, {iter_type: val}, step*len(metric_value) + i)
 
         for metric_type, metric_value in agg_dict[iterkey].items():
             tb_logger.add_scalars(metric_type, {iter_type: metric_value}, step)
