@@ -69,8 +69,8 @@ diffusion:
 
 data:
  dataset: 'Knee-Multicoil'
- input_dir: "/csiNAS/mridata/fastmri_knee/multicoil_val/"
- maps_dir:  "/csiNAS/mridata/fastmri_knee/knee_multicoil_val_espiritWc0_maps/"
+ input_dir: "/csiNAS2/slow/mridata/fastmri_knee/multicoil_val/"
+ maps_dir:  "/csiNAS2/slow/mridata/fastmri_knee/multicoil_val_Wc0_Espirit_maps/"
 
  centered: True
 
