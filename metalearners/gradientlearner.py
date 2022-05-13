@@ -400,8 +400,8 @@ class GBML:
         return out_grad
 
     def _init_dataset(self):
-        _, base_dataset = get_dataset(self.hparams)
-        split_dict = split_dataset(base_dataset, self.hparams)
+        train_set, test_set = get_dataset(self.hparams)
+        split_dict = split_dataset(train_set, test_set, self.hparams)
         train_dataset = split_dict['train']
         val_dataset = split_dict['val']
         test_dataset = split_dict['test']

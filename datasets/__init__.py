@@ -14,34 +14,56 @@ def get_all_files(folder, pattern='*'):
 
 def get_dataset(config):
     if config.data.dataset == 'Brain-Multicoil':
-        files = get_all_files(config.data.input_dir, pattern='*T2*.h5')
+        train_files = get_all_files(config.data.train_input_dir, pattern='*T2*.h5')
+        test_files = get_all_files(config.data.test_input_dir, pattern='*T2*.h5')
 
-        dataset = None
-        test_dataset = BrainMultiCoil(files,
-                                input_dir=config.data.input_dir,
-                                maps_dir=config.data.maps_dir,
+        dataset = BrainMultiCoil(train_files,
+                                input_dir=config.data.train_input_dir,
+                                maps_dir=config.data.train_maps_dir,
+                                image_size = config.data.image_size,
+                                R=config.problem.R,
+                                pattern=config.problem.pattern,
+                                orientation=config.problem.orientation)
+
+        test_dataset = BrainMultiCoil(test_files,
+                                input_dir=config.data.test_input_dir,
+                                maps_dir=config.data.test_maps_dir,
                                 image_size = config.data.image_size,
                                 R=config.problem.R,
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation)
 
     elif config.data.dataset == 'Knee-Multicoil':
-        files = get_all_files(config.data.input_dir, pattern='*.h5')
+        train_files = get_all_files(config.data.train_input_dir, pattern='*.h5')
+        test_files = get_all_files(config.data.test_input_dir, pattern='*.h5')
 
-        dataset = None
-        test_dataset = KneesMultiCoil(files,
-                                input_dir=config.data.input_dir,
-                                maps_dir=config.data.maps_dir,
+        dataset = KneesMultiCoil(train_files,
+                                input_dir=config.data.train_input_dir,
+                                maps_dir=config.data.train_maps_dir,
+                                image_size = config.data.image_size,
+                                R=config.problem.R,
+                                pattern=config.problem.pattern,
+                                orientation=config.problem.orientation)
+
+        test_dataset = KneesMultiCoil(test_files,
+                                input_dir=config.data.test_input_dir,
+                                maps_dir=config.data.test_maps_dir,
                                 image_size = config.data.image_size,
                                 R=config.problem.R,
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation)
 
     elif config.data.dataset == 'Knees-Singlecoil':
-        files = get_all_files(config.data.input_dir, pattern='*.h5')
+        train_files = get_all_files(config.data.train_input_dir, pattern='*.h5')
+        test_files = get_all_files(config.data.test_input_dir, pattern='*.h5')
 
-        dataset = None
-        test_dataset = KneesSingleCoil(files,
+        dataset = KneesSingleCoil(train_files,
+                                image_size = config.data.image_size,
+                                R=config.data.R,
+                                pattern=config.data.pattern,
+                                orientation=config.data.orientation)
+
+        test_dataset = KneesSingleCoil(test_files,
                                 image_size = config.data.image_size,
                                 R=config.data.R,
                                 pattern=config.data.pattern,
@@ -52,7 +74,7 @@ def get_dataset(config):
 
     return dataset, test_dataset
 
-def split_dataset(base_dataset, hparams):
+def split_dataset(train_set, test_set, hparams):
     """
     Split a given dataset into train, val, and test sets.
     """
@@ -60,25 +82,30 @@ def split_dataset(base_dataset, hparams):
     num_val = hparams.data.num_val
     num_test = hparams.data.num_test
 
-    indices = list(range(len(base_dataset)))
+    tr_indices = list(range(len(train_set)))
+    te_indices = list(range(len(test_set)))
 
-    print("Dataset Size: ", len(base_dataset))
+    print("Train Dataset Size: ", len(train_set))
+    print("Test Dataset Size: ", len(test_set))
 
     random_state = np.random.get_state()
     np.random.seed(hparams.seed)
-    np.random.shuffle(indices)
+    np.random.shuffle(tr_indices)
+    np.random.seed(hparams.seed)
+    np.random.shuffle(te_indices)
     np.random.set_state(random_state)
 
-    train_indices = indices[:num_train]
-    val_indices = indices[num_train:num_train+num_val]
-    test_indices = indices[num_train+num_val:num_train+num_val+num_test]
+    train_indices = tr_indices[:num_train]
+    val_indices = tr_indices[num_train:num_train+num_val]
+    test_indices = te_indices[:num_test]
 
-    train_dataset = torch.utils.data.Subset(base_dataset, train_indices)
-    val_dataset = torch.utils.data.Subset(base_dataset, val_indices)
-    test_dataset = torch.utils.data.Subset(base_dataset, test_indices)
+    train_dataset = torch.utils.data.Subset(train_set, train_indices)
+    val_dataset = torch.utils.data.Subset(train_set, val_indices)
+    test_dataset = torch.utils.data.Subset(test_set, test_indices)
 
     out_dict = {'train': train_dataset,
             'val': val_dataset,
             'test': test_dataset}
+    
 
     return out_dict
