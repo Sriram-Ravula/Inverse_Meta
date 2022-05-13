@@ -252,6 +252,10 @@ class GBML:
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
 
+            #invert black and white
+            c_shaped = 1 - c_shaped
+            c_shaped_binary = 1 - c_shaped_binary
+
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
