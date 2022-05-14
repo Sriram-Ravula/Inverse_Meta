@@ -130,6 +130,19 @@ class Metrics:
 
         self.range = range
         self.hparams = hparams
+    
+    def resume(self, checkpoint):
+        self.train_metrics = checkpoint['train_metrics']
+        self.val_metrics = checkpoint['val_metrics']
+        self.test_metrics = checkpoint['test_metrics']
+        self.train_metrics_aggregate = checkpoint['train_metrics_aggregate']
+        self.val_metrics_aggregate = checkpoint['val_metrics_aggregate']
+        self.test_metrics_aggregate = checkpoint['test_metrics_aggregate']
+        self.best_train_metrics = checkpoint['best_train_metrics']
+        self.best_val_metrics = checkpoint['best_val_metrics']
+        self.best_test_metrics = checkpoint['best_test_metrics']
+
+        return
 
     def __init_iter_dict(self, cur_dict, iter_num, should_exist=False):
         """

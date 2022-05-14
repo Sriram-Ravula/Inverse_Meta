@@ -15,7 +15,7 @@ from algorithms.ddrm import DDRM
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
 
-from utils_new.exp_utils import save_images, save_to_pickle
+from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
 from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.meta_loss_utils import meta_loss, get_meta_grad
 from utils_new.inner_loss_utils import get_likelihood_grad, log_cond_likelihood_loss
@@ -26,6 +26,10 @@ class GBML:
         self.hparams = hparams
         self.args = args
         self.device = self.hparams.device
+
+        if self.args.resume:
+            self._resume()
+            return
 
         #running parameters
         self._init_c()
@@ -69,6 +73,78 @@ class GBML:
 
             sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
             self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
+
+    def test(self):
+        """
+        Run through the test set with a given acceleration and center value.
+        We want to save the metrics for each individual sample here!
+        We also want to save images of every sample, reconstruction, measurement, recon_meas,
+            and the c.
+        """
+        R = self.args.R
+        keep_center = self.args.keep_center
+
+        self._print_if_verbose("TESTING R="+str(R)+", KEEP CENTER="+str(keep_center))
+
+        #make c right
+        c = self.c.detach().clone()
+        if R > 1:
+            k = int(c.numel() * (1. - 1. / R))
+            smallest_kept_val = torch.kthvalue(torch.abs(c), k)[0]
+            under_idx = torch.abs(c) < smallest_kept_val
+            c[under_idx] *= 0
+        if keep_center:
+            num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+            center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
+                                (self.hparams.data.image_size + num_center_lines) // 2)
+
+            if self.hparams.problem.sample_pattern == 'random':
+                center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
+                c = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
+                c[center_line_idx] = 1.
+                c = c.flatten()
+
+            elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                c[center_line_idx] = 1.
+        c[c > 0] = 1.
+        self.c = c.to(self.device)
+
+        c_shaped = self._shape_c(self.c)
+        if self.hparams.gpu_num != -1:
+            self.langevin_runner.set_c(c_shaped)
+        else:
+            self.langevin_runner.module.set_c(c_shaped)
+
+        self.global_epoch += 1 #for logging and metrics purposes; avoids collisions with existing test
+
+        #take a snap of the initialization
+        if not self.hparams.debug and self.hparams.save_imgs:
+            c_path = os.path.join(self.image_root, "learned_masks")
+
+            c_out = c_shaped.unsqueeze(0).unsqueeze(0).cpu()
+            self._add_tb_images(c_out, "Test Mask R="+str(R)+", keep_center="+str(keep_center))
+            if not os.path.exists(c_path):
+                os.makedirs(c_path)
+            self._save_images(c_out, ["TEST_R"+str(R)+"_CENTER-"+str(keep_center)], c_path)
+
+            sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
+            self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
+        
+        #Test
+        for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
+            x_hat, x, y = self._shared_step(item)
+            self._add_batch_metrics(x_hat, x, y, "test")
+            #logging and saving
+            self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
+        
+        self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
+        self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
+
+        #grab the raw metrics dictionary and save it
+        test_metrics = self.metrics.test_metrics['iter_'+str(self.global_epoch)]
+        save_to_pickle(test_metrics, os.path.join(self.log_dir, "test_R"+str(R)+"_CENTER-"+str(keep_center)+".pkl"))
+
+        return
 
     def run_meta_opt(self):
         for iter in tqdm(range(self.hparams.opt.num_iters)):
@@ -174,7 +250,6 @@ class GBML:
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
         scale_factor = item['scale_factor'].to(self.device)
 
-
         #set coil maps and forward operator including current coil maps
         if self.hparams.gpu_num != -1:
             self.langevin_runner.H_funcs.s_maps = s_maps
@@ -252,6 +327,10 @@ class GBML:
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
 
+            #invert black and white
+            c_shaped = 1 - c_shaped
+            c_shaped_binary = 1 - c_shaped_binary
+
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
@@ -282,7 +361,7 @@ class GBML:
         self._save_images(recon_meas, x_idx, meas_recovered_path)
 
         #(3) Save ground truth only once
-        if iter_type == "test" or self.global_epoch == 0:
+        if "test" in iter_type or self.global_epoch == 0:
             true_path = os.path.join(self.image_root, iter_type)
             meas_path = os.path.join(self.image_root, iter_type + "_meas")
 
@@ -400,8 +479,8 @@ class GBML:
         return out_grad
 
     def _init_dataset(self):
-        _, base_dataset = get_dataset(self.hparams)
-        split_dict = split_dataset(base_dataset, self.hparams)
+        train_set, test_set = get_dataset(self.hparams)
+        split_dict = split_dataset(train_set, test_set, self.hparams)
         train_dataset = split_dict['train']
         val_dataset = split_dict['val']
         test_dataset = split_dict['test']
@@ -550,6 +629,41 @@ class GBML:
             }
             save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
             save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
+
+    def _resume(self):
+        self._print_if_verbose("RESUMING FROM CHECKPOINT")
+
+        self.log_dir = os.path.join(self.hparams.save_dir, self.args.doc)
+        self.image_root = os.path.join(self.log_dir, 'images')
+        self.tb_root = os.path.join(self.log_dir, 'tensorboard')
+
+        checkpoint = load_if_pickled(os.path.join(self.log_dir, "checkpoint.pkl"))
+        metrics = load_if_pickled(os.path.join(self.log_dir, "metrics.pkl"))
+
+        self.c = checkpoint['c'].detach().clone().to(self.device)
+
+        self._init_meta_optimizer()
+        self.opt.load_state_dict(checkpoint['opt_state'])
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state'])
+        
+        self._init_dataset()
+        self.A = None
+
+        self.global_epoch = checkpoint['global_epoch']
+        self.c_list = checkpoint['c_list']
+
+        c_shaped = self._shape_c(self.c) #properly re-shape c before giving to DDRM
+        self.langevin_runner = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        if self.hparams.gpu_num == -1:
+            self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
+        
+        self.metrics = Metrics(hparams=self.hparams)
+        self.metrics.resume(metrics)
+
+        self.tb_logger = tb.SummaryWriter(log_dir=self.tb_root)
+
+        self._print_if_verbose("RESUMING FROM EPOCH " + str(self.global_epoch))
 
     def _make_log_folder(self):
         if not self.hparams.debug:
