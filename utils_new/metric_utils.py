@@ -6,7 +6,9 @@ import lpips
 import torch
 import torch.nn.functional as F
 import numpy as np
-from pytorch_msssim import ssim
+# from pytorch_msssim import ssim
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import peak_signal_noise_ratio as psnr
 
 @torch.no_grad()
 def get_lpips(x_hat, x):
@@ -26,13 +28,17 @@ def get_lpips(x_hat, x):
     return lpips_loss.cpu().numpy().flatten()
 
 @torch.no_grad()
-def get_ssim(x_hat, x, range=1.):
+def get_ssim(x_hat, x, data_range=1.):
     """
     Calculates SSIM(x_hat, x)
     """
-    ssim_val = ssim(x_hat, x, data_range=range, size_average=False)
+    ssim_vals = []
+    for i in range(x_hat.shape[0]):
+        im1, im2, range_ = x_hat[i,0].detach().cpu().numpy(), x[i,0].detach().cpu().numpy(), data_range[i].detach().cpu().numpy()
+        ssim_val = ssim(im1, im2, data_range=range_)
+        ssim_vals.append(ssim_val)
 
-    return ssim_val.cpu().numpy().flatten()
+    return np.array(ssim_vals)
 
 @torch.no_grad()
 def get_nmse(x_hat, x):
@@ -47,16 +53,18 @@ def get_nmse(x_hat, x):
     return nmse_val.cpu().numpy().flatten()
 
 @torch.no_grad()
-def get_psnr(x_hat, x, range=1.):
+def get_psnr(x_hat, x, data_range=1.):
     """
     Calculate 20 * log_10(range / sqrt(mse(x_hat, x))) for each image in the batch dimension.
         range is the range between high and low possible pixel values.
     """
-    mse = torch.sum((x_hat - x)**2, dim=[1,2,3]) / np.prod(x_hat.shape[1:]) #shape [N]
+    psnr_vals = []
+    for i in range(x_hat.shape[0]):
+        im1, im2, range_ = x_hat[i,0].detach().cpu().numpy(), x[i,0].detach().cpu().numpy(), data_range[i].detach().cpu().numpy()
+        psnr_val = psnr(im2, im1, data_range=range_)
+        psnr_vals.append(psnr_val)
 
-    psnr_val = 20 * torch.log10(range / torch.sqrt(mse))
-
-    return psnr_val.cpu().numpy().flatten() #shape [N] - per-image psnr
+    return np.array(psnr_vals)
 
 @torch.no_grad()
 def get_sse(x_hat, x):
@@ -87,9 +95,9 @@ def get_all_metrics(x_hat, x, range = 1.):
     metrics = {}
 
     #metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
-    metrics['ssim'] = get_ssim(x_hat_vis, x_vis, range=range)
+    metrics['ssim'] = get_ssim(x_hat_vis, x_vis, range)
     metrics['nmse'] = get_nmse(x_hat_vis, x_vis)
-    metrics['psnr'] = get_psnr(x_hat_vis, x_vis, range=range)
+    metrics['psnr'] = get_psnr(x_hat_vis, x_vis, range)
     metrics['sse'] = get_sse(x_hat_vis, x_vis)
     metrics['mse'] = get_mse(x_hat_vis, x_vis)
 
@@ -240,14 +248,14 @@ class Metrics:
         cur_dict = self.__retrieve_dict(iter_type) #validate and retrieve the right dict
 
         if x_hat.shape[1] == 2:
-            x_hat_ = torch.norm(x_hat, dim=1)
-            x_ = torch.norm(x, dim=1)
-            range = x_.max() - x_.min()
+            x_hat_ = torch.norm(x_hat, dim=-3).unsqueeze(-3)
+            x_ = torch.norm(x, dim=-3).unsqueeze(-3)
+            range = torch.max(x_.view(x_.size(0),-1), 1)[0] - torch.min(x_.view(x_.size(0),-1), 1)[0]
         else:
             x_hat_ = x_hat.clone()
             x_ = x.clone()
             range = self.range
-        iter_metrics = get_all_metrics(x_hat, x, range=range) #calc the metrics
+        iter_metrics = get_all_metrics(x_hat_, x_, range=range) #calc the metrics
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
 
