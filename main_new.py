@@ -12,7 +12,11 @@ def main():
     set_all_seeds(hparams.seed)
 
     learner = GBML(hparams, args)
-    learner.run_meta_opt()
+
+    if args.test:
+        learner.test()
+    else:
+        learner.run_meta_opt()
 
     return 0
 
