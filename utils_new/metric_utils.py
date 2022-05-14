@@ -89,17 +89,18 @@ def get_all_metrics(x_hat, x, range = 1.):
     """
     function for getting all image reference metrics and returning in a dict
     """
-    x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
-    x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
+    #NOTE the normalization occurs in the function that calls this in Metrics
+    # x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
+    # x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
     metrics = {}
 
     #metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
-    metrics['ssim'] = get_ssim(x_hat_vis, x_vis, range)
-    metrics['nmse'] = get_nmse(x_hat_vis, x_vis)
-    metrics['psnr'] = get_psnr(x_hat_vis, x_vis, range)
-    metrics['sse'] = get_sse(x_hat_vis, x_vis)
-    metrics['mse'] = get_mse(x_hat_vis, x_vis)
+    metrics['ssim'] = get_ssim(x_hat, x, range)
+    metrics['nmse'] = get_nmse(x_hat, x)
+    metrics['psnr'] = get_psnr(x_hat, x, range)
+    metrics['sse'] = get_sse(x_hat, x)
+    metrics['mse'] = get_mse(x_hat, x)
 
     return metrics
 
