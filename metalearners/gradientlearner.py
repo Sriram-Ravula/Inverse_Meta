@@ -122,6 +122,7 @@ class GBML:
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = c_shaped.unsqueeze(0).unsqueeze(0).cpu()
+            c_out = 1 - c_out
             self._add_tb_images(c_out, "Test Mask R="+str(R)+", keep_center="+str(keep_center))
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
