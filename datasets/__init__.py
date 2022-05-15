@@ -34,8 +34,12 @@ def get_dataset(config):
                                 orientation=config.problem.orientation)
 
     elif config.data.dataset == 'Knee-Multicoil':
+        bad_slices = ['file1001022.h5', 'file1000262.h5', 'file1000633.h5', 'file1000794.h5', 'file1000882.h5']
+
         train_files = get_all_files(config.data.train_input_dir, pattern='*.h5')
         test_files = get_all_files(config.data.test_input_dir, pattern='*.h5')
+
+        train_files = [f for f in train_files if os.path.basename(f) not in bad_slices]
 
         dataset = KneesMultiCoil(train_files,
                                 input_dir=config.data.train_input_dir,
