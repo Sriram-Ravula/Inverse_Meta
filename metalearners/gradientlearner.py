@@ -138,6 +138,7 @@ class GBML:
             self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
         
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
+        self._add_metrics_to_tb("test")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
 
         #grab the raw metrics dictionary and save it
