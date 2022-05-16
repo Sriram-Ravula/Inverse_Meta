@@ -62,6 +62,6 @@ problem:
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 2.2
+ R: 55
  orientation: vertical
  pattern: random
