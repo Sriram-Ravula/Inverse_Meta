@@ -69,8 +69,10 @@ diffusion:
 
 data:
  dataset: 'Knee-Multicoil'
- input_dir: "/csiNAS2/slow/mridata/fastmri_knee/multicoil_val/"
- maps_dir:  "/csiNAS2/slow/mridata/fastmri_knee/multicoil_val_Wc0_Espirit_maps/"
+ train_input_dir: '/csiNAS/brett/sites_new/Training/site3/ksp'
+ train_maps_dir: '/csiNAS/brett/sites_new/Training/site3/maps'
+ test_input_dir: '/csiNAS/brett/sites_new/Validation/site3/ksp'
+ test_maps_dir: '/csiNAS/brett/sites_new/Validation/site3/maps'
 
  centered: True
 
@@ -88,28 +90,28 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: 0 #[float, "smart", "random"]
- keep_center: True
+ hyperparam_init: 1. #[float, "smart", "random"]
+ keep_center: true
 
  reg_hyperparam: true
- reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: .5 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ reg_hyperparam_type: 'soft' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
+ reg_hyperparam_scale: 0.5 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
   num_iters: 20 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.05 #meta learning rate
+  lr: 0.01 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
-  lr_decay: 0.95 #exponential weight decay rate.
+  lr_decay: 0.99 #exponential weight decay rate.
 
   val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 

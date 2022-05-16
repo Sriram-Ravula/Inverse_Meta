@@ -138,14 +138,14 @@ class GBML:
 
             sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
             self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
-        
+
         #Test
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
             #logging and saving
             self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
-        
+
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
         self._add_metrics_to_tb("test")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
@@ -656,7 +656,7 @@ class GBML:
         self.opt.load_state_dict(checkpoint['opt_state'])
         if self.scheduler is not None:
             self.scheduler.load_state_dict(checkpoint['scheduler_state'])
-        
+
         self._init_dataset()
         self.A = None
 
@@ -671,7 +671,7 @@ class GBML:
 
         if self.hparams.gpu_num == -1:
             self.recon_alg = torch.nn.DataParallel(self.recon_alg)
-        
+
         self.metrics = Metrics(hparams=self.hparams)
         self.metrics.resume(metrics)
 
