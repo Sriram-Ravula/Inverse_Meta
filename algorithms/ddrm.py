@@ -49,7 +49,7 @@ class DDRM(torch.nn.Module):
         betas = self.betas = torch.from_numpy(betas).float().to(self.device)
 
         start = 0
-        end = self.betas.shape[0]//2
+        end = self.betas.shape[0]
         skip = (end - start)// self.args.timesteps
         self.seq = np.array(range(start, end, skip))
         self.register_buffer('used_levels', torch.from_numpy(self.seq))
