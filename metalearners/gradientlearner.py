@@ -12,6 +12,7 @@ import yaml
 import sigpy.mri
 
 from algorithms.ddrm import DDRM
+from algorithms.wavelet import L1_wavelet
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
 
@@ -41,10 +42,14 @@ class GBML:
         self.c_list = [self.c.detach().clone().cpu()]
 
         c_shaped = self._shape_c(self.c) #properly re-shape c before giving to DDRM
-        self.langevin_runner = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
+
+        if self.hparams.net.model == 'ncsnpp':
+            self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        elif self.hparams.net.model == 'l1':
+            self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
 
         if self.hparams.gpu_num == -1:
-            self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
+            self.recon_alg = torch.nn.DataParallel(self.recon_alg)
 
         #logging and metrics
         self.metrics = Metrics(hparams=self.hparams)
@@ -111,9 +116,9 @@ class GBML:
 
         c_shaped = self._shape_c(self.c)
         if self.hparams.gpu_num != -1:
-            self.langevin_runner.set_c(c_shaped)
+            self.recon_alg.set_c(c_shaped)
         else:
-            self.langevin_runner.module.set_c(c_shaped)
+            self.recon_alg.module.set_c(c_shaped)
 
         self.global_epoch += 1 #for logging and metrics purposes; avoids collisions with existing test
 
@@ -202,9 +207,9 @@ class GBML:
                 #put in the proper shape before giving to DDRM (ensures proper singular vals)
                 c_shaped = self._shape_c(self.c)
                 if self.hparams.gpu_num != -1:
-                    self.langevin_runner.set_c(c_shaped)
+                    self.recon_alg.set_c(c_shaped)
                 else:
-                    self.langevin_runner.module.set_c(c_shaped)
+                    self.recon_alg.module.set_c(c_shaped)
 
                 meta_grad = 0.0
                 n_samples = 0
@@ -254,14 +259,14 @@ class GBML:
 
         #set coil maps and forward operator including current coil maps
         if self.hparams.gpu_num != -1:
-            self.langevin_runner.H_funcs.s_maps = s_maps
+            self.recon_alg.H_funcs.s_maps = s_maps
         else:
-            self.langevin_runner.module.H_funcs.s_maps = s_maps
+            self.recon_alg.module.H_funcs.s_maps = s_maps
         self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
         #Get the reconstruction and log batch metrics
         x_mod = torch.rand_like(x)
-        x_hat = self.langevin_runner(x_mod, y)
+        x_hat = self.recon_alg(x_mod, y)
         x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
         x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
         x_hat /= x_hat_scale[:, None, None, None]
@@ -655,10 +660,14 @@ class GBML:
         self.global_epoch = checkpoint['global_epoch']
         self.c_list = checkpoint['c_list']
 
-        c_shaped = self._shape_c(self.c) #properly re-shape c before giving to DDRM
-        self.langevin_runner = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        c_shaped = self._shape_c(self.c)
+        if self.hparams.net.model == 'ncsnpp':
+            self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        elif self.hparams.net.model == 'l1':
+            self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
+
         if self.hparams.gpu_num == -1:
-            self.langevin_runner = torch.nn.DataParallel(self.langevin_runner)
+            self.recon_alg = torch.nn.DataParallel(self.recon_alg)
         
         self.metrics = Metrics(hparams=self.hparams)
         self.metrics.resume(metrics)

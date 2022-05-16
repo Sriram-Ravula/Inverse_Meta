@@ -77,7 +77,7 @@ data:
 
  centered: True
 
- num_train: 300
+ num_train: 950
  num_val:   20
  num_test:  150
 
@@ -99,10 +99,10 @@ outer:
  reg_hyperparam_scale: 0.0001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 10 #number of meta iterations to run
+  num_iters: 25 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
-  batches_per_iter: 4 #number of training batches to use per meta update. -1 means all batches
+  batches_per_iter: 8 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
