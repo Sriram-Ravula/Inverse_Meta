@@ -10,8 +10,8 @@ seed: 2022
 
 net:
  model: 'ncsnpp'
- checkpoint_dir: "/home/sravula/meta_exp/checkpoints/DDRM_brain/"
- checkpoint: 14
+ checkpoint_dir: "/home/sravula/meta_exp/checkpoints/DDRM_knee"
+ checkpoint: 34
 
 model:
  type: "simple"
@@ -68,12 +68,12 @@ diffusion:
 
 
 data:
- dataset: 'Brain-Multicoil'
+ dataset: 'Knee-Multicoil'
 
- train_input_dir: '/csiNAS/brett/sites_new/Training/site5/ksp'
- train_maps_dir: '/csiNAS/brett/sites_new/Training/site5/maps'
- test_input_dir: '/csiNAS/brett/sites_new/Validation/site5/ksp'
- test_maps_dir: '/csiNAS/brett/sites_new/Validation/site5/maps'
+ train_input_dir: '/csiNAS/brett/sites_new/Training/site3/ksp'
+ train_maps_dir: '/csiNAS/brett/sites_new/Training/site3/maps'
+ test_input_dir: '/csiNAS/brett/sites_new/Validation/site3/ksp'
+ test_maps_dir: '/csiNAS/brett/sites_new/Validation/site3/maps'
 
  centered: True
 
@@ -83,26 +83,26 @@ data:
 
  train_batch_size: 1
  val_batch_size:   1
- test_batch_size:  1
+ test_batch_size:  5
 
- image_size: 384
+ image_size: 320
  num_channels: 2
 
 outer:
  meta_loss_type: 'l2' #["l2"]
 
  hyperparam_init: "smart" #[float, "smart", "random"]
- keep_center: True
+ keep_center: true
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
  reg_hyperparam_scale: 0.0001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 10 #number of meta iterations to run
+  num_iters: 25 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
-  batches_per_iter: 4 #number of training batches to use per meta update. -1 means all batches
+  batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
@@ -112,11 +112,11 @@ opt:
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'vertical' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 2.03
+ R: 11
  orientation: vertical
  pattern: random
