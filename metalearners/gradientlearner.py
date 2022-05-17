@@ -114,7 +114,7 @@ class GBML:
 
             elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 c[center_line_idx] = 1.
-        c[c > 0] = 1.
+        #c[c > 0] = 1.
         self.c = c.to(self.device)
 
         c_shaped = self._shape_c(self.c)
