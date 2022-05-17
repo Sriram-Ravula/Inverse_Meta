@@ -510,10 +510,10 @@ class GBML:
             if self.hparams.problem.sample_pattern == 'random':
                 c_shaped = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
 
-            elif self.hparams.problem.sample_pattern == 'horizontal':
+            elif self.hparams.problem.sample_pattern == 'vertical':
                 c_shaped = c.unsqueeze(1).repeat(1, self.hparams.data.image_size)
 
-            elif self.hparams.problem.sample_pattern == 'vertical':
+            elif self.hparams.problem.sample_pattern == 'horizontal':
                 c_shaped = c.unsqueeze(0).repeat(self.hparams.data.image_size, 1)
 
             else:
