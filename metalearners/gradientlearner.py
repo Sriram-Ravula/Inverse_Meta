@@ -68,6 +68,9 @@ class GBML:
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
 
+            c_shaped = 1 - c_shaped
+            c_shaped_binary = 1 - c_shaped_binary
+
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
@@ -111,7 +114,7 @@ class GBML:
 
             elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 c[center_line_idx] = 1.
-        c[c > 0] = 1.
+        #c[c > 0] = 1.
         self.c = c.to(self.device)
 
         c_shaped = self._shape_c(self.c)

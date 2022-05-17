@@ -13,16 +13,16 @@ net:
  reg_param: 0.01
 
 data:
- dataset: 'Brain-Multicoil'
+ dataset: 'Knee-Multicoil'
 
- train_input_dir: '/csiNAS/brett/sites_new/Training/site5/ksp'
- train_maps_dir: '/csiNAS/brett/sites_new/Training/site5/maps'
- test_input_dir: '/csiNAS/brett/sites_new/Validation/site5/ksp'
- test_maps_dir: '/csiNAS/brett/sites_new/Validation/site5/maps'
+ train_input_dir: '/csiNAS/brett/sites_new/Training/site3/ksp'
+ train_maps_dir: '/csiNAS/brett/sites_new/Training/site3/maps'
+ test_input_dir: '/csiNAS/brett/sites_new/Validation/site3/ksp'
+ test_maps_dir: '/csiNAS/brett/sites_new/Validation/site3/maps'
 
  centered: True
 
- num_train: 300
+ num_train: 450
  num_val:   20
  num_test:  30
 
@@ -30,7 +30,7 @@ data:
  val_batch_size:   1
  test_batch_size:  1
 
- image_size: 384
+ image_size: 320
  num_channels: 2
 
 outer:
@@ -62,6 +62,6 @@ problem:
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 2.2
+ R: 11
  orientation: vertical
  pattern: random

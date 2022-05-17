@@ -79,7 +79,7 @@ data:
 
  num_train: 950
  num_val:   20
- num_test:  150
+ num_test:  30
 
  train_batch_size: 1
  val_batch_size:   1

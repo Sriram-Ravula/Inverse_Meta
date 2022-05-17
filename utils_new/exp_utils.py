@@ -135,7 +135,7 @@ def parse_args(docstring="", manual=False, config=None, doc=None, eta=None, etaB
 
     parser.add_argument('--test', action='store_true', help='set to run a test')
     parser.add_argument('--R', type=int, default=1, help='acceleration factor for testing')
-    parser.add_argument('--keep_center', action='store_true', help='whether to keep the sentern fully sampled for test')
+    parser.add_argument('--keep_center', action='store_true', help='whether to keep the center fully sampled for test')
 
     parser.add_argument('--resume', action='store_true', help="whether to resume from the last checkpoint")
 
