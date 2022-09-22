@@ -81,7 +81,7 @@ data:
  num_val:   20
  num_test:  150
 
- train_batch_size: 8
+ train_batch_size: 4
  val_batch_size:   4
  test_batch_size:  4
 
