@@ -36,7 +36,7 @@ class GBML:
         self._init_c()
         self._init_meta_optimizer()
         self._init_dataset()
-        self.A = None
+        self.A = None #placeholder for forward operator - None since each sample has different coil map
 
         self.global_epoch = 0
         self.c_list = [self.c.detach().clone().cpu()]
