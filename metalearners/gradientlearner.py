@@ -41,14 +41,14 @@ class GBML:
         self.global_epoch = 0
         self.c_list = [self.c.detach().clone().cpu()]
 
-        c_shaped = self._shape_c(self.c) #properly re-shape c before giving to DDRM
+        c_shaped = self._shape_c(self.c) #properly re-shape c before giving to algorithm
 
         if self.hparams.net.model == 'ncsnpp':
             self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
 
-        if self.hparams.gpu_num == -1:
+        if self.hparams.gpu_num == -1 and self.hparams.net.model == 'ncsnpp':
             self.recon_alg = torch.nn.DataParallel(self.recon_alg)
 
         #logging and metrics
