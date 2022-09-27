@@ -1,4 +1,5 @@
 import torch
+import torchvision
 import random
 import numpy as np
 import argparse
@@ -12,15 +13,22 @@ def save_image(image, path):
     """
     Save a pytorch image as a png file.
     """
-    image = image.detach().cpu().numpy() #image comes in as an [C, H, W] torch tensor
-    print(image.shape)
-    x_png = image.transpose(1,2,0)
-    if x_png.shape[-1] == 1:
-        x_png = x_png[:,:,0]
-    elif x_png.shape[-1] == 2:
-        x_png = np.linalg.norm(x_png, axis=-1)
-    x_png = np.uint8(np.clip(x_png*256,0,255))
-    x_png = Image.fromarray(x_png).save(path)
+    x_png = image.detach().cpu()
+
+    if x_png.shape[0] == 2:
+        x_png = torch.linalg.norm(x_png, dim=0, keepdim=True)
+    
+    torchvision.utils.save_image(x_png, path)
+
+    # image = image.detach().cpu().numpy() #image comes in as an [C, H, W] torch tensor
+    # print(image.shape)
+    # x_png = image.transpose(1,2,0)
+    # if x_png.shape[-1] == 1:
+    #     x_png = x_png[:,:,0]
+    # elif x_png.shape[-1] == 2:
+    #     x_png = np.linalg.norm(x_png, axis=-1)
+    # x_png = np.uint8(np.clip(x_png*256,0,255))
+    # x_png = Image.fromarray(x_png).save(path)
 
 def save_images(images, labels, save_prefix):
     """
