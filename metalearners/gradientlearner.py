@@ -132,12 +132,13 @@ class GBML:
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = c_shaped.unsqueeze(0).unsqueeze(0).cpu()
-            c_out = 1 - c_out
+            # c_out = 1 - c_out
             self._add_tb_images(c_out, "Test Mask R="+str(R)+", keep_center="+str(keep_center))
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
             self._save_images(c_out, ["TEST_R"+str(R)+"_CENTER-"+str(keep_center)], c_path)
 
+            #NOTE sparsity level is the proportion of zeros in the image
             sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
             self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
 
