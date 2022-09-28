@@ -68,8 +68,8 @@ class GBML:
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
 
-            c_shaped = 1 - c_shaped
-            c_shaped_binary = 1 - c_shaped_binary
+            # c_shaped = 1 - c_shaped
+            # c_shaped_binary = 1 - c_shaped_binary
 
             c_path = os.path.join(self.image_root, "learned_masks")
 
@@ -79,6 +79,7 @@ class GBML:
                 os.makedirs(c_path)
             self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
 
+            #NOTE sparsity level is the proportion of zeros in the image
             sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
             self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
 
@@ -338,8 +339,8 @@ class GBML:
             c_shaped_binary[c_shaped > 0] = 1
 
             #invert black and white
-            c_shaped = 1 - c_shaped
-            c_shaped_binary = 1 - c_shaped_binary
+            # c_shaped = 1 - c_shaped
+            # c_shaped_binary = 1 - c_shaped_binary
 
             c_path = os.path.join(self.image_root, "learned_masks")
 
