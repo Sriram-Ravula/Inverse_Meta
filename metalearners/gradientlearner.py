@@ -95,7 +95,7 @@ class GBML:
 
         self._print_if_verbose("TESTING R="+str(R)+", KEEP CENTER="+str(keep_center))
 
-        #make c right
+        #make c the right acceleration and sample center if needed
         c = self.c.detach().clone()
         if R > 1:
             k = int(c.numel() * (1. - 1. / R))
@@ -115,14 +115,15 @@ class GBML:
 
             elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 c[center_line_idx] = 1.
-        #c[c > 0] = 1.
+        #c[c > 0] = 1. #binarize the learned mask
         self.c = c.to(self.device)
 
         c_shaped = self._shape_c(self.c)
-        if self.hparams.gpu_num != -1:
-            self.recon_alg.set_c(c_shaped)
-        else:
-            self.recon_alg.module.set_c(c_shaped)
+        self.recon_alg.set_c(c_shaped)
+        # if self.hparams.gpu_num != -1:
+        #     self.recon_alg.set_c(c_shaped)
+        # else:
+        #     self.recon_alg.module.set_c(c_shaped)
 
         self.global_epoch += 1 #for logging and metrics purposes; avoids collisions with existing test
 
@@ -210,10 +211,11 @@ class GBML:
 
                 #put in the proper shape before giving to DDRM (ensures proper singular vals)
                 c_shaped = self._shape_c(self.c)
-                if self.hparams.gpu_num != -1:
-                    self.recon_alg.set_c(c_shaped)
-                else:
-                    self.recon_alg.module.set_c(c_shaped)
+                self.recon_alg.set_c(c_shaped)
+                # if self.hparams.gpu_num != -1:
+                #     self.recon_alg.set_c(c_shaped)
+                # else:
+                #     self.recon_alg.module.set_c(c_shaped)
 
                 meta_grad = 0.0
                 n_samples = 0
@@ -262,10 +264,11 @@ class GBML:
         scale_factor = item['scale_factor'].to(self.device)
 
         #set coil maps and forward operator including current coil maps
-        if self.hparams.gpu_num != -1:
-            self.recon_alg.H_funcs.s_maps = s_maps
-        else:
-            self.recon_alg.module.H_funcs.s_maps = s_maps
+        self.recon_alg.H_funcs.s_maps = s_maps
+        # if self.hparams.gpu_num != -1:
+        #     self.recon_alg.H_funcs.s_maps = s_maps
+        # else:
+        #     self.recon_alg.module.H_funcs.s_maps = s_maps
         self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
         #Get the reconstruction and log batch metrics
