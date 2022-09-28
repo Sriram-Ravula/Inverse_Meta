@@ -48,8 +48,8 @@ class GBML:
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
 
-        if self.hparams.gpu_num == -1 and self.hparams.net.model == 'ncsnpp':
-            self.recon_alg = torch.nn.DataParallel(self.recon_alg)
+        # if self.hparams.gpu_num == -1 and self.hparams.net.model == 'ncsnpp':
+        #     self.recon_alg = torch.nn.DataParallel(self.recon_alg)
 
         #logging and metrics
         self.metrics = Metrics(hparams=self.hparams)
@@ -669,8 +669,8 @@ class GBML:
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
 
-        if self.hparams.gpu_num == -1:
-            self.recon_alg = torch.nn.DataParallel(self.recon_alg)
+        # if self.hparams.gpu_num == -1:
+        #     self.recon_alg = torch.nn.DataParallel(self.recon_alg)
 
         self.metrics = Metrics(hparams=self.hparams)
         self.metrics.resume(metrics)
