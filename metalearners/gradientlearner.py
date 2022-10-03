@@ -252,7 +252,7 @@ class GBML:
 
         #set coil maps and forward operator including current coil maps
         self.recon_alg.H_funcs.s_maps = s_maps
-        self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
+        self.A = MulticoilForwardMRINoMask(s_maps)
 
         #Get the reconstruction and log batch metrics
         x_mod = torch.rand_like(x)

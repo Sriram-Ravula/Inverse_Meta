@@ -54,9 +54,14 @@ class MulticoilForwardMRI(nn.Module):
 
 # without mask
 class MulticoilForwardMRINoMask(nn.Module):
-    def __init__(self):
+    def __init__(self, s_maps):
+        """
+        Args:
+            s_maps: [N, C, H, W] complex
+        """
         super(MulticoilForwardMRINoMask, self).__init__()
-        return
+
+        self.s_maps = s_maps
 
     # Centered, orthogonal ifft in torch >= 1.7
     def _ifft(self, x):
@@ -72,16 +77,19 @@ class MulticoilForwardMRINoMask(nn.Module):
         x = torch_fft.ifftshift(x, dim=(-2, -1))
         return x
 
-    '''
-    Inputs:
-     - image = [B, H, W] torch.complex64/128    in image domain
-     - maps  = [B, C, H, W] torch.complex64/128 in image domain
-    Outputs:
-     - ksp_coils = [B, C, H, W] torch.complex64/128 in kspace domain
-    '''
-    def forward(self, image, maps):
+    def forward(self, image):
+        """
+        Args:
+            image:  [N, 2, H, W] float second channel is (Re, Im)
+
+        Returns:
+            ksp_coils: [N, C, H, W] torch.complex64/128 in kspace domain
+        """
+        #convert to a complex tensor
+        x = torch.complex(image[:,0], image[:,1])
+
         # Broadcast pointwise multiply
-        coils = image[:, None] * maps
+        coils = x[:, None] * self.s_maps
 
         # Convert to k-space data
         ksp_coils = self._fft(coils)
