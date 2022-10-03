@@ -48,9 +48,6 @@ class GBML:
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
 
-        # if self.hparams.gpu_num == -1 and self.hparams.net.model == 'ncsnpp':
-        #     self.recon_alg = torch.nn.DataParallel(self.recon_alg)
-
         #logging and metrics
         self.metrics = Metrics(hparams=self.hparams)
         self.log_dir = os.path.join(self.hparams.save_dir, self.args.doc)
@@ -67,9 +64,6 @@ class GBML:
             c_shaped = torch.abs(self._shape_c(self.c))
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
-
-            # c_shaped = 1 - c_shaped
-            # c_shaped_binary = 1 - c_shaped_binary
 
             c_path = os.path.join(self.image_root, "learned_masks")
 
@@ -120,10 +114,6 @@ class GBML:
 
         c_shaped = self._shape_c(self.c)
         self.recon_alg.set_c(c_shaped)
-        # if self.hparams.gpu_num != -1:
-        #     self.recon_alg.set_c(c_shaped)
-        # else:
-        #     self.recon_alg.module.set_c(c_shaped)
 
         self.global_epoch += 1 #for logging and metrics purposes; avoids collisions with existing test
 
@@ -213,10 +203,6 @@ class GBML:
                 #put in the proper shape before giving to DDRM (ensures proper singular vals)
                 c_shaped = self._shape_c(self.c)
                 self.recon_alg.set_c(c_shaped)
-                # if self.hparams.gpu_num != -1:
-                #     self.recon_alg.set_c(c_shaped)
-                # else:
-                #     self.recon_alg.module.set_c(c_shaped)
 
                 meta_grad = 0.0
                 n_samples = 0
