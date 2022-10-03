@@ -252,10 +252,6 @@ class GBML:
 
         #set coil maps and forward operator including current coil maps
         self.recon_alg.H_funcs.s_maps = s_maps
-        # if self.hparams.gpu_num != -1:
-        #     self.recon_alg.H_funcs.s_maps = s_maps
-        # else:
-        #     self.recon_alg.module.H_funcs.s_maps = s_maps
         self.A = lambda x: MulticoilForwardMRINoMask()(torch.complex(x[:,0], x[:,1]), s_maps)
 
         #Get the reconstruction and log batch metrics
@@ -327,10 +323,6 @@ class GBML:
             c_shaped = torch.abs(self._shape_c(self.c))
             c_shaped_binary = torch.zeros_like(c_shaped)
             c_shaped_binary[c_shaped > 0] = 1
-
-            #invert black and white
-            # c_shaped = 1 - c_shaped
-            # c_shaped_binary = 1 - c_shaped_binary
 
             c_path = os.path.join(self.image_root, "learned_masks")
 
