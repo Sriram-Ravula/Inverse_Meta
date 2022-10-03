@@ -1,0 +1,122 @@
+use_gpu: false
+gpu_num: 1 #-1 means use all (DP mode)
+
+verbose: true
+debug: false #true won't save anything
+save_imgs: true
+save_dir: "/home/sravula/meta_outs_new" #root of folder to save run information
+
+seed: 2022
+
+net:
+ model: 'ncsnpp'
+ checkpoint_dir: "/home/sravula/meta_exp/checkpoints/DDRM_brain/"
+ checkpoint: 14
+
+model:
+ type: "simple"
+ fir: True
+ fir_kernel: [1, 3, 3, 1]
+ skip_rescale: True
+ resblock_type: 'biggan'
+ progressive: 'none'
+ progressive_input: 'residual'
+ init_scale: 0
+ attention_type: 'ddpm'
+ progressive_combine: 'sum'
+ in_channels: 2
+ out_ch: 2
+ ch: 128
+ attn_resolutions: [16, ]
+ dropout: 0.0
+ var_type: fixedsmall
+ ema: True
+ resamp_with_conv: True
+ checkpoint: 7
+ name: 'ncsnpp'
+ scale_by_sigma: False
+ ema_rate: 0.9999
+ normalization: 'GroupNorm'
+ nonlinearity: 'swish'
+ nf: 128
+ conditional: True
+ ch_mult: [1, 1, 2, 2, 4, 4]
+ num_res_blocks: 2
+ sigma_max: 378
+ sigma_min: 0.01
+ num_scales: 1000
+ beta_min: 0.1
+ beta_max: 20.
+ dropout: 0.
+ # ch_mult: [1, 2, 2, 2]
+ # num_res_blocks: 4
+ # sigma_min: 0.01
+ # sigma_max: 50
+ # num_scales: 1000
+ # beta_min: 0.1
+ # beta_max: 20.
+ # dropout: 0.1
+ # embedding_type: 'fourier'
+ embedding_type: 'positional'
+
+
+diffusion:
+ beta_schedule: linear
+ beta_start: 0.0001
+ beta_end: 0.02
+ num_diffusion_timesteps: 1000
+
+
+data:
+ dataset: 'Brain-Multicoil'
+
+ train_input_dir: '/csiNAS/brett/sites_new/Training/site5/ksp'
+ train_maps_dir: '/csiNAS/brett/sites_new/Training/site5/maps'
+ test_input_dir: '/csiNAS/brett/sites_new/Validation/site5/ksp'
+ test_maps_dir: '/csiNAS/brett/sites_new/Validation/site5/maps'
+
+ centered: True
+
+ num_train: 10
+ num_val:   10
+ num_test:  10
+
+ train_batch_size: 1
+ val_batch_size:   1
+ test_batch_size:  1
+
+ image_size: 384
+ num_channels: 2
+
+outer:
+ meta_loss_type: 'l2' #["l2"]
+
+ hyperparam_init: "smart" #[float, "smart", "random"]
+ keep_center: True
+
+ reg_hyperparam: true
+ reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
+ reg_hyperparam_scale: 0.0001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+
+opt:
+  num_iters: 1 #number of meta iterations to run
+  optimizer: 'adam' #[adam, sgd]
+  lr: 0.001 #meta learning rate
+  batches_per_iter: 4 #number of training batches to use per meta update. -1 means all batches
+
+  decay: false
+  lr_decay: 0.95 #exponential weight decay rate.
+
+  val_iters: 1 #validate every n iterations
+  checkpoint_iters: 1 #checkpoint every n iterations
+
+problem:
+ measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
+ sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
+ measurement_selection: true
+ measurement_weighting: false
+
+ #This stuff is for ddrm
+ R: 4
+ orientation: random
+ pattern: random
