@@ -77,9 +77,9 @@ data:
 
  centered: True
 
- num_train: 10
- num_val:   10
- num_test:  10
+ num_train: 5
+ num_val:   5
+ num_test:  5
 
  train_batch_size: 1
  val_batch_size:   1
