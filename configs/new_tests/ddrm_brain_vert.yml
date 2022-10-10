@@ -1,4 +1,4 @@
-use_gpu: false
+use_gpu: true
 gpu_num: 1 #-1 means use all (DP mode)
 
 verbose: true
