@@ -22,9 +22,9 @@ data:
 
  centered: True
 
- num_train: 5
- num_val:   5
- num_test:  5
+ num_train: 1
+ num_val:   1
+ num_test:  1
 
  train_batch_size: 1
  val_batch_size:   1
