@@ -675,6 +675,9 @@ class GBML:
         if not self.hparams.debug:
             with open(os.path.join(self.log_dir, 'config.yml'), 'w') as f:
                 yaml.dump(self.hparams, f, default_flow_style=False)
+            
+            with open(os.path.join(self.log_dir, 'args.yml'), 'w') as f:
+                yaml.dump(self.args, f, default_flow_style=False)
 
     def _add_tb_images(self, images, tag):
         if not self.hparams.debug and self.hparams.save_imgs:
