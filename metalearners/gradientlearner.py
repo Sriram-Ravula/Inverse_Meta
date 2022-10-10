@@ -546,7 +546,7 @@ class GBML:
                                           accel=self.hparams.problem.R,
                                           seed=self.hparams.seed)
                     c = torch.tensor(c)
-                    c = torch.view_as_real(c)[:,:,0].type(torch.float)
+                    c = torch.view_as_real(c)[:,:,0]
                     c = c.flatten()
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
@@ -574,7 +574,7 @@ class GBML:
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                     c[center_line_idx] = 1.
 
-        self.c = c.to(self.device)
+        self.c = c.to(self.device).type(torch.float)
         return
 
     def _init_meta_optimizer(self):
