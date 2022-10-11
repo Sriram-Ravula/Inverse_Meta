@@ -32,15 +32,18 @@ def save_image(image, path):
 
 def save_images(images, labels, save_prefix):
     """
-    Save a batch of images (in a dictionary) to png files.
+    Save a batch of images (in a dictionary) to png files and .pt files.
     """
     for image_num, image in zip(labels, images):
         if isinstance(image_num, torch.Tensor):
             save_image(image, os.path.join(save_prefix, str(image_num.item())+'.png'))
+            torch.save(image, os.path.join(save_prefix, str(image_num.item())+'.pt'))
         elif isinstance(image_num, int):
             save_image(image, os.path.join(save_prefix, str(image_num)+'.png'))
+            torch.save(image, os.path.join(save_prefix, str(image_num)+'.pt'))
         elif isinstance(image_num, str):
-            save_image(image, os.path.join(save_prefix, image_num+'.png'))
+            save_image(image, os.path.join(save_prefix, image_num +'.png'))
+            torch.save(image, os.path.join(save_prefix, image_num +'.pt'))
         else:
             raise NotImplementedError("Bad type given to save_images for labels.")
 
