@@ -536,9 +536,15 @@ class GBML:
             #now check for any smart initializations
             if self.hparams.outer.hyperparam_init == "random":
                 c = torch.rand(m)
+                num_trash_inds = int(m * (1. - 1./self.hparams.problem.R))
+                trash_inds = np.random.randint(low=0, high=m, size=num_trash_inds)
+                c[trash_inds] = 0.
 
             elif isinstance(self.hparams.outer.hyperparam_init, (int, float)):
                 c = torch.ones(m) * float(self.hparams.outer.hyperparam_init)
+                num_trash_inds = int(m * (1. - 1./self.hparams.problem.R))
+                trash_inds = np.random.randint(low=0, high=m, size=num_trash_inds)
+                c[trash_inds] = 0.
 
             elif self.hparams.outer.hyperparam_init == "smart":
                 if self.hparams.problem.sample_pattern == 'random':
