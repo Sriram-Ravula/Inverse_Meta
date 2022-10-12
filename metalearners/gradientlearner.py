@@ -546,7 +546,7 @@ class GBML:
                 trash_inds = np.random.choice(a=m, size=num_trash_inds, replace=False)
                 c[trash_inds] = 0.
 
-            elif self.hparams.outer.hyperparam_init == "smart":
+            elif "smart" in self.hparams.outer.hyperparam_init:
                 if self.hparams.problem.sample_pattern == 'random':
                     c = sigpy.mri.poisson(img_shape=(self.hparams.data.image_size, self.hparams.data.image_size),
                                           accel=self.hparams.problem.R,
@@ -564,6 +564,10 @@ class GBML:
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
                     c[random_line_idx] = 1.
+                
+                #if we want a soft operator, multiply with random
+                if self.hparams.outer.hyperparam_init == "soft_smart":
+                    c = c * torch.rand_like(c)
 
             #finally check to see if we want to keep the center
             if self.hparams.outer.keep_center:
