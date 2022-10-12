@@ -16,6 +16,16 @@ python3 main_new.py --config configs/new_tests/ddrm_brain_vert.yml --doc TEST_dd
 python3 main_new.py --config configs/new_tests/ddrm_brain_hor_lowR.yml --doc TEST_ddrm_brain_hor_lowR --eta 0.8 --etaB 0.9 --timesteps 1000
 
 python3 main_new.py --config configs/new_tests/ddrm_brain_rand_highR.yml --doc TEST_ddrm_brain_rand_highR --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config configs/new_tests/ddrm_brain_rand_lowR.yml --doc TEST_ddrm_brain_rand_lowR --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config configs/new_tests/ddrm_brain_rand_soft_lowR.yml --doc TEST_ddrm_brain_rand_soft_lowR --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config configs/new_tests/ddrm_brain_rand_soft_highR.yml --doc TEST_ddrm_brain_rand_soft_highR --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/ddrm_brain_hor_soft_highR.yml --doc TEST_ddrm_brain_hor_soft_highR --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/ddrm_brain_hor_soft_lowR.yml --doc TEST_ddrm_brain_hor_soft_lowR --eta 0.8 --etaB 0.9 --timesteps 1000
 #new tests here
 
 
