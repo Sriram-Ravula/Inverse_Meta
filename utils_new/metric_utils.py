@@ -2,7 +2,7 @@
 Class for calculating metrics for a proposed image and the original.
 NOTE: all methods return per-image metrics, i.e. the number of returned values is equal to batch dimension.
 """
-import lpips
+
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -11,81 +11,40 @@ from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 
 @torch.no_grad()
-def get_lpips(x_hat, x):
-    """
-    Calculates LPIPS(x_hat, x).
-    Assumes given images are in range [0, 1].
-    """
-    x_hat_vis = x_hat.repeat(1,3,1,1) #[N, 3, H, W]
-    x_vis = x.repeat(1,3,1,1) #[N, 3, H, W]
-
-    x_hat_rescaled = (x_hat_vis * 2.) - 1.
-    x_rescaled = (x_vis * 2.) - 1.
-
-    loss_fn = lpips.LPIPS(net='alex').to(x_hat.device)
-    lpips_loss = loss_fn.forward(x_hat_rescaled, x_rescaled)
-
-    return lpips_loss.cpu().numpy().flatten()
-
-@torch.no_grad()
-def get_ssim(x_hat, x, data_range=1.):
+def get_ssim(x_hat, x):
     """
     Calculates SSIM(x_hat, x)
     """
     ssim_vals = []
     for i in range(x_hat.shape[0]):
-        im1, im2, range_ = x_hat[i,0].detach().cpu().numpy(), x[i,0].detach().cpu().numpy(), data_range[i].detach().cpu().numpy()
+        im1 = x_hat[i,0].detach().cpu().numpy()
+        im2 = x[i,0].detach().cpu().numpy()
+        range_ = np.amax(im2) - np.amin(im2)
+        
         ssim_val = ssim(im1, im2, data_range=range_)
         ssim_vals.append(ssim_val)
 
     return np.array(ssim_vals)
 
 @torch.no_grad()
-def get_nmse(x_hat, x):
-    """
-    Calculate ||x_hat - x|| / ||x||
-    """
-    sse = torch.sum((x_hat - x)**2, dim=[1,2,3]) #shape [N] - sse per image
-    denom = torch.sum(x**2, dim=[1,2,3]) #shape [N] - squared l2 norm per ground truth image
-
-    nmse_val = sse / denom
-
-    return nmse_val.cpu().numpy().flatten()
-
-@torch.no_grad()
-def get_psnr(x_hat, x, data_range=1.):
+def get_psnr(x_hat, x):
     """
     Calculate 20 * log_10(range / sqrt(mse(x_hat, x))) for each image in the batch dimension.
         range is the range between high and low possible pixel values.
     """
     psnr_vals = []
     for i in range(x_hat.shape[0]):
-        im1, im2, range_ = x_hat[i,0].detach().cpu().numpy(), x[i,0].detach().cpu().numpy(), data_range[i].detach().cpu().numpy()
+        im1 = x_hat[i,0].detach().cpu().numpy()
+        im2 = x[i,0].detach().cpu().numpy()
+        range_ = np.amax(im2) - np.amin(im2)
+        
         psnr_val = psnr(im2, im1, data_range=range_)
         psnr_vals.append(psnr_val)
 
     return np.array(psnr_vals)
 
 @torch.no_grad()
-def get_sse(x_hat, x):
-    """
-    Calculates ||x_hat - x||^2 for each image in the batch dimension
-    """
-    sse_val = torch.sum((x_hat - x)**2, dim=[1,2,3])
-
-    return sse_val.cpu().numpy().flatten() #shape [N] - sse per image
-
-@torch.no_grad()
-def get_mse(x_hat, x):
-    """
-    Calculates (1 / C*H*W)||x_hat - x||^2 for each image in the batch dimension
-    """
-    mse_val = torch.sum((x_hat - x)**2, dim=[1,2,3])
-
-    return mse_val.cpu().numpy().flatten() / np.prod(x_hat.shape[1:])
-
-@torch.no_grad()
-def get_all_metrics(x_hat, x, range_ = 1.):
+def get_all_metrics(x_hat, x):
     """
     function for getting all image reference metrics and returning in a dict
     """
@@ -96,11 +55,8 @@ def get_all_metrics(x_hat, x, range_ = 1.):
     metrics = {}
 
     #metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
-    metrics['ssim'] = get_ssim(x_hat, x, range_)
-    metrics['nmse'] = get_nmse(x_hat, x)
-    metrics['psnr'] = get_psnr(x_hat, x, range_)
-    metrics['sse'] = get_sse(x_hat, x)
-    metrics['mse'] = get_mse(x_hat, x)
+    metrics['ssim'] = get_ssim(x_hat, x)
+    metrics['psnr'] = get_psnr(x_hat, x)
 
     return metrics
 
@@ -109,7 +65,7 @@ class Metrics:
     A class for storing and aggregating metrics during a run.
     Metrics are stored as numpy arrays.
     """
-    def __init__(self, hparams, range_=1.0):
+    def __init__(self, hparams):
         #dicts for olding raw, image-by-image stats for each iteration.
         #e.g. self.train_metrics['iter_0']['psnr'] = [0.9, 0.1, 0.3] means that at train iteration 0, the images had psnrs of 0.9, 0.1, 0.3
         self.train_metrics = {}
@@ -129,7 +85,6 @@ class Metrics:
         self.best_val_metrics = {}
         self.best_test_metrics = {}
 
-        self.range_ = range_
         self.hparams = hparams
     
     def resume(self, checkpoint):
@@ -264,12 +219,10 @@ class Metrics:
         if x_hat.shape[1] == 2:
             x_hat_ = torch.norm(x_hat, dim=-3).unsqueeze(-3)
             x_ = torch.norm(x, dim=-3).unsqueeze(-3)
-            range_ = torch.max(x_.view(x_.size(0),-1), 1)[0] - torch.min(x_.view(x_.size(0),-1), 1)[0]
         else:
             x_hat_ = x_hat.clone()
             x_ = x.clone()
-            range_ = self.range_
-        iter_metrics = get_all_metrics(x_hat_, x_, range_=range_) #calc the metrics
+        iter_metrics = get_all_metrics(x_hat_, x_) #calc the metrics
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
 
