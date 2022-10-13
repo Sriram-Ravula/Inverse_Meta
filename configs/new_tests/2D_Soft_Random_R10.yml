@@ -91,7 +91,7 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: "soft_smart" #[float, "smart", "random"]
+ hyperparam_init: "random" #[float, "smart", "random"]
  keep_center: True
 
  reg_hyperparam: true
@@ -117,6 +117,6 @@ problem:
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 4
+ R: 10
  orientation: random
  pattern: random

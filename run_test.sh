@@ -38,6 +38,13 @@ python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/2D_Har
 python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/2D_Hard_Random_R10.yml --doc TEST_2D_Hard_Random_R10 --eta 0.8 --etaB 0.9 --timesteps 1000
 
 
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/2D_Soft_Poisson_R4.yml --doc TEST_2D_Soft_Poisson_R4 --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/2D_Soft_Poisson_R10.yml --doc TEST_2D_Soft_Poisson_R10 --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/2D_Soft_Random_R4.yml --doc TEST_2D_Soft_Random_R4 --eta 0.8 --etaB 0.9 --timesteps 1000
+
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/2D_Soft_Random_R10.yml --doc TEST_2D_Soft_Random_R10 --eta 0.8 --etaB 0.9 --timesteps 1000
 #NOTE LATEST TESTS
 
 

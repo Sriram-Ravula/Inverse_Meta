@@ -91,7 +91,7 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: "soft_smart" #[float, "smart", "random"]
+ hyperparam_init: "random" #[float, "smart", "random"]
  keep_center: True
 
  reg_hyperparam: true
