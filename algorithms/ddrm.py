@@ -83,8 +83,8 @@ class DDRM(torch.nn.Module):
 
     def forward(self, x_mod, y, sigma_0=0):
         # for some reason y is a two-channel float. convert to complex
-        print("DDRM Y Shape: ", y.shape)
-        print("DDRM Y Type: ", y.dtype)
+        # print("DDRM Y Shape: ", y.shape)
+        # print("DDRM Y Type: ", y.dtype)
         if len(y.shape) > 4:
             y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
 
@@ -94,11 +94,11 @@ class DDRM(torch.nn.Module):
         singulars = singulars.repeat(y.shape[-3], 1, 1)
         c = self.c.clone().view(y.shape[2:])
         # c = torch.ones_like(self.c).view(y.shape[2:])
-        print(c[None, None, :, :].shape)
+        # print(c[None, None, :, :].shape)
         y_ = torch.sqrt(torch.abs(c[None, None, :, :])) * y
         # print(singulars.shape, x_mod.shape, y.shape)
         self.H_funcs._singulars = torch.sqrt(torch.abs(singulars)).reshape(-1)
-        print(self.H_funcs._singulars)
+        # print(self.H_funcs._singulars)
 
         # TODO: make sigma_0 non-zero
         # patch = gt_image[0,:,:5,:5]

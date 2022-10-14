@@ -305,8 +305,6 @@ class GBML:
             extra_metrics_dict["c_mean"] = np.array([torch.mean(self.c).item()] * x.shape[0])
             extra_metrics_dict["c_std"] = np.array([torch.std(self.c).item()] * x.shape[0])
 
-            self._add_histogram_to_tb(self.c, "C values")
-
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
 
@@ -381,7 +379,7 @@ class GBML:
         self.opt.zero_grad()
         self.c.requires_grad_()
 
-        #dummy update to make sure grad is initialized
+        # dummy update to make sure grad is initialized
         if type(self.c.grad) == type(None):
             dummy_loss = torch.sum(self.c)
             dummy_loss.backward()
@@ -687,17 +685,13 @@ class GBML:
                 yaml.dump(self.args, f, default_flow_style=False)
 
     # def _add_tb_images(self, images, tag):
-        if not self.hparams.debug and self.hparams.save_imgs:
-            grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
-            self.tb_logger.add_image(tag, grid_img, global_step=self.global_epoch)
+    #     if not self.hparams.debug and self.hparams.save_imgs:
+    #         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
+    #         self.tb_logger.add_image(tag, grid_img, global_step=self.global_epoch)
 
     def _add_metrics_to_tb(self, iter_type):
         if not self.hparams.debug:
             self.metrics.add_metrics_to_tb(self.tb_logger, self.global_epoch, iter_type)
-
-    def _add_histogram_to_tb(self, values, tag):
-        if not self.hparams.debug:
-            self.tb_logger.add_histogram(tag, values, global_step=self.global_epoch)
 
     def _save_images(self, images, img_indices, save_path):
         if not self.hparams.debug and self.hparams.save_imgs:

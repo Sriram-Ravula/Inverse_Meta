@@ -21,3 +21,6 @@ python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/1D_Har
 #REMOVED BEST METRICS
 python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/1D_Hard_Poisson_R4.yml --doc FIX_BEST --eta 0.8 --etaB 0.9 --timesteps 100
 
+#Removed istograms, image loggigng in TB
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_tests/1D_Hard_Poisson_R4.yml --doc FIX_VARIOUS --eta 0.8 --etaB 0.9 --timesteps 100
+
