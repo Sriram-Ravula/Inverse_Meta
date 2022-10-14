@@ -68,7 +68,7 @@ class GBML:
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-            self._add_tb_images(c_out, "Mask Initialization")
+            # self._add_tb_images(c_out, "Mask Initialization")
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
             self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
@@ -123,7 +123,7 @@ class GBML:
 
             c_out = c_shaped.unsqueeze(0).unsqueeze(0).cpu()
             # c_out = 1 - c_out
-            self._add_tb_images(c_out, "Test Mask R="+str(R)+", keep_center="+str(keep_center))
+            # self._add_tb_images(c_out, "Test Mask R="+str(R)+", keep_center="+str(keep_center))
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
             self._save_images(c_out, ["TEST_R"+str(R)+"_CENTER-"+str(keep_center)], c_path)
@@ -327,7 +327,7 @@ class GBML:
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-            self._add_tb_images(c_out, "Learned Mask")
+            # self._add_tb_images(c_out, "Learned Mask")
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
             self._save_images(c_out, ["Actual_" + str(self.global_epoch),
@@ -339,7 +339,7 @@ class GBML:
 
         x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
 
-        self._add_tb_images(x_hat_vis, "recovered " + iter_type + " images")
+        # self._add_tb_images(x_hat_vis, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
@@ -348,7 +348,7 @@ class GBML:
         recon_meas = MulticoilForwardMRINoMask(fake_maps)(x_hat)
         recon_meas = torch.abs(recon_meas)
 
-        self._add_tb_images(recon_meas, "recovered " + iter_type + " meas")
+        # self._add_tb_images(recon_meas, "recovered " + iter_type + " meas")
         if not os.path.exists(meas_recovered_path):
             os.makedirs(meas_recovered_path)
         self._save_images(recon_meas, x_idx, meas_recovered_path)
@@ -360,7 +360,7 @@ class GBML:
 
             x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
-            self._add_tb_images(x_vis, iter_type + " images")
+            # self._add_tb_images(x_vis, iter_type + " images")
             if not os.path.exists(true_path):
                 os.makedirs(true_path)
             self._save_images(x_vis, x_idx, true_path)
@@ -368,7 +368,7 @@ class GBML:
             gt_meas = MulticoilForwardMRINoMask(fake_maps)(x)
             gt_meas = torch.abs(gt_meas)
 
-            self._add_tb_images(gt_meas, iter_type + " meas")
+            # self._add_tb_images(gt_meas, iter_type + " meas")
             if not os.path.exists(meas_path):
                 os.makedirs(meas_path)
             self._save_images(gt_meas, x_idx, meas_path)
@@ -686,7 +686,7 @@ class GBML:
             with open(os.path.join(self.log_dir, 'args.yml'), 'w') as f:
                 yaml.dump(self.args, f, default_flow_style=False)
 
-    def _add_tb_images(self, images, tag):
+    # def _add_tb_images(self, images, tag):
         if not self.hparams.debug and self.hparams.save_imgs:
             grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
             self.tb_logger.add_image(tag, grid_img, global_step=self.global_epoch)
