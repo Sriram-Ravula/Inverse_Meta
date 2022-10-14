@@ -139,7 +139,7 @@ class GBML:
             #logging and saving
             self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
 
-        self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
+        self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._add_metrics_to_tb("test")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
 
@@ -214,7 +214,7 @@ class GBML:
             if i == 0:
                 self._save_all_images(x_hat, x, y, x_idx, "train")
 
-        self.metrics.aggregate_iter_metrics(self.global_epoch, "train", False)
+        self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
 
     def _run_validation(self):
@@ -228,7 +228,7 @@ class GBML:
             if i == 0:
                 self._save_all_images(x_hat, x, y, x_idx, "val")
 
-        self.metrics.aggregate_iter_metrics(self.global_epoch, "val", False)
+        self.metrics.aggregate_iter_metrics(self.global_epoch, "val")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "val"), "\n")
 
     def _run_test(self):
@@ -241,7 +241,7 @@ class GBML:
             #logging and saving
             self._save_all_images(x_hat, x, y, x_idx, "test")
 
-        self.metrics.aggregate_iter_metrics(self.global_epoch, "test", False)
+        self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
 
     def _shared_step(self, item):
