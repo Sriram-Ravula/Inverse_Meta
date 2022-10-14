@@ -626,9 +626,6 @@ class GBML:
                 'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
                 'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
                 'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
-                'best_train_metrics': self.metrics.best_train_metrics,
-                'best_val_metrics': self.metrics.best_val_metrics,
-                'best_test_metrics': self.metrics.best_test_metrics
             }
             save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
             save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))

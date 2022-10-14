@@ -78,13 +78,6 @@ class Metrics:
         self.val_metrics_aggregate = {}
         self.test_metrics_aggregate = {}
 
-        #dicts for holding the best summary stats
-        #the entries have keys named after the metrics and values that are tuples of the best iteration and best value
-        #e.g.  self.best_train_metrics['psnr'] = (10, 0.99) means that training psnr had its best value at iter 10, and that value is 0.99
-        self.best_train_metrics = {}
-        self.best_val_metrics = {}
-        self.best_test_metrics = {}
-
         self.hparams = hparams
     
     def resume(self, checkpoint):
@@ -94,9 +87,6 @@ class Metrics:
         self.train_metrics_aggregate = checkpoint['train_metrics_aggregate']
         self.val_metrics_aggregate = checkpoint['val_metrics_aggregate']
         self.test_metrics_aggregate = checkpoint['test_metrics_aggregate']
-        self.best_train_metrics = checkpoint['best_train_metrics']
-        self.best_val_metrics = checkpoint['best_val_metrics']
-        self.best_test_metrics = checkpoint['best_test_metrics']
 
         return
 
@@ -131,7 +121,7 @@ class Metrics:
         Helper method for validating and retrieving the correct dictionary (train, val, or test)
         """
         assert iter_type in ['train', 'val', 'test']
-        assert dict_type in ['raw', 'aggregate', 'best']
+        assert dict_type in ['raw', 'aggregate']
 
         if dict_type == 'raw':
             if iter_type == 'train':
@@ -149,31 +139,11 @@ class Metrics:
             elif iter_type == 'test':
                 cur_dict = self.test_metrics_aggregate
 
-        elif dict_type == 'best':
-            if iter_type == 'train':
-                cur_dict = self.best_train_metrics
-            elif iter_type == 'val':
-                cur_dict = self.best_val_metrics
-            elif iter_type == 'test':
-                cur_dict = self.best_test_metrics
-
         return cur_dict
 
     def get_dict(self, iter_type, dict_type='raw'):
         """Public-facing getter than calls retrieve_dict"""
         return self.__retrieve_dict(iter_type, dict_type)
-
-    def get_best(self, iter_type, metric_key):
-        """
-        Getter method for retrieving the best iter and value for a given metric.
-        If the best doesn't exist yet, return None.
-        """
-        cur_dict = self.__retrieve_dict(iter_type, dict_type='best')
-
-        if metric_key not in cur_dict:
-            cur_dict[metric_key] = None
-
-        return cur_dict[metric_key]
 
     def get_metric(self, iter_num, iter_type, metric_key):
         """
@@ -242,15 +212,12 @@ class Metrics:
 
         return
 
-    def aggregate_iter_metrics(self, iter_num, iter_type='train', return_best=False):
+    def aggregate_iter_metrics(self, iter_num, iter_type='train'):
         """
         Called at the end of an iteration/epoch to find summary stats for all the metrics.
-        If desired, returns a dict with the name and value of each metric from the iteration that
-            achieved their best value. If no metric had its best value, return None.
         """
         agg_dict = self.__retrieve_dict(iter_type, dict_type='aggregate') #validate and retrieve the right dicts
         raw_dict = self.__retrieve_dict(iter_type, dict_type='raw')
-        best_dict = self.__retrieve_dict(iter_type, dict_type='best')
 
         self.__init_iter_dict(agg_dict, iter_num) #check that the iter dict is initialized
         self.__init_iter_dict(raw_dict, iter_num, should_exist=True) #make sure the corresponding dict exists in the raw
@@ -265,42 +232,7 @@ class Metrics:
             agg_dict[iterkey][mean_key] = mean_value
             # agg_dict[iterkey][std_key] = std_value
 
-        if return_best:
-            out_dict = None
-
-        #aggregation is done, now we check if the aggregates values contain any bests
-        for key, value in agg_dict[iterkey].items():
-            if 'mean' not in key: #we are only interested in the mean values
-                continue
-
-            metric_key = key[5:] #strip "mean_" from the front of the key
-
-            best = self.get_best(iter_type, metric_key)
-
-            if best is None:
-                best_dict[metric_key] = (iter_num, value)
-            else:
-                _, best_value = best
-                best_flag = False
-
-                if metric_key in ['psnr', 'ssim']:
-                    if best_value < value:
-                        best_dict[metric_key] = (iter_num, value)
-                        best_flag = True
-                else:
-                    if best_value > value:
-                        best_dict[metric_key] = (iter_num, value)
-                        best_flag = True
-
-                if return_best and best_flag:
-                    if out_dict is None:
-                        out_dict = {}
-                    out_dict[metric_key] = value
-
-        if return_best:
-            return out_dict
-        else:
-            return
+        return
 
     def add_metrics_to_tb(self, tb_logger, step, iter_type='train'):
         """
@@ -312,7 +244,6 @@ class Metrics:
 
         raw_dict = self.__retrieve_dict(iter_type, dict_type='raw')
         agg_dict = self.__retrieve_dict(iter_type, dict_type='aggregate')
-        best_dict = self.__retrieve_dict(iter_type, dict_type='best')
 
         iterkey ='iter_' + str(step)
 
@@ -326,9 +257,5 @@ class Metrics:
 
         for metric_type, metric_value in agg_dict[iterkey].items():
             tb_logger.add_scalars(metric_type, {iter_type: metric_value}, step)
-
-        for metric_type, metric_value in best_dict.items():
-            tb_logger.add_scalars("best " + metric_type + " iter", {iter_type: metric_value[0]}, step)
-            tb_logger.add_scalars("best " + metric_type + " value", {iter_type: metric_value[1]}, step)
 
         return
