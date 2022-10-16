@@ -255,7 +255,7 @@ class GBML:
         self.A = MulticoilForwardMRINoMask(s_maps)
 
         #Get the reconstruction and log batch metrics
-        x_mod = torch.rand_like(x)
+        x_mod = torch.randn_like(x)
         x_hat = self.recon_alg(x_mod, y)
         x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
         x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
@@ -468,10 +468,10 @@ class GBML:
         self.c.requires_grad_(False)
 
         #Log the metrics for each gradient
-        grad_metrics_dict = {"total_grad_norm": torch.norm(out_grad),
-                             "meta_loss_grad_norm": torch.norm(grad_x_meta_loss),
-                             "meta_reg_grad_norm": torch.norm(grad_c_meta_loss),
-                             "inner_grad_norm": torch.norm(cond_log_grad)}
+        grad_metrics_dict = {"total_grad_norm": np.array([torch.norm(out_grad).item()] * x.shape[0]),
+                             "meta_loss_grad_norm": np.array([torch.norm(grad_x_meta_loss).item()] * x.shape[0]),
+                             "meta_reg_grad_norm": np.array([torch.norm(grad_c_meta_loss).item()] * x.shape[0]),
+                             "inner_grad_norm": np.array([torch.norm(cond_log_grad).item()] * x.shape[0])}
         self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
 
         return out_grad

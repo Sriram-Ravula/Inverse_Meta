@@ -36,24 +36,24 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: "random" #[float, "smart", "random"]
- keep_center: True
+ hyperparam_init: 0.0 #[float, "smart", "random"]
+ keep_center: False
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.001 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 200 #number of meta iterations to run
+  num_iters: 500 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.001 #meta learning rate
+  lr: 0.01 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
   val_iters: 50 #validate every n iterations
-  checkpoint_iters: 1 #checkpoint every n iterations
+  checkpoint_iters: 5 #checkpoint every n iterations
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
