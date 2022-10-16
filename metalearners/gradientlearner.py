@@ -315,6 +315,8 @@ class GBML:
         """
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
+        elif iter_type == "train" and self.global_epoch % self.hparams.opt.checkpoint_iters != 0:
+            return
 
         #(1) Save samping masks
         if iter_type == "train":
