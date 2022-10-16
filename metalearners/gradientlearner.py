@@ -467,6 +467,13 @@ class GBML:
 
         self.c.requires_grad_(False)
 
+        #Log the metrics for each gradient
+        grad_metrics_dict = {"total_grad_norm": torch.norm(out_grad),
+                             "meta_loss_grad_norm": torch.norm(grad_x_meta_loss),
+                             "meta_reg_grad_norm": torch.norm(grad_c_meta_loss),
+                             "inner_grad_norm": torch.norm(cond_log_grad)}
+        self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
+
         return out_grad
 
     def _init_dataset(self):
