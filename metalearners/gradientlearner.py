@@ -281,18 +281,23 @@ class GBML:
         """
         Adds metrics for a single batch to the metrics object.
         """
-        real_meas_loss = log_cond_likelihood_loss(torch.tensor(1.), y, self.A, x_hat, 2., reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise MSE
+        resid = self.A(x_hat) - y
+
+        real_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE
+
         c_shaped = self._shape_c(self.c)
-        weighted_meas_loss = log_cond_likelihood_loss(c_shaped, y, self.A, x_hat, 2.,
-                                                      reduce_dims=tuple(np.arange(y.dim())[1:])) #get element-wise MSE with mask
+        resid = c_shaped[None, None, :, :] * resid
+
+        weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
+                                                      
         all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
                                     reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
                                     reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
 
-        extra_metrics_dict = {"real_meas_loss": torch.abs(real_meas_loss).cpu().numpy().flatten(),
-                              "weighted_meas_loss": torch.abs(weighted_meas_loss).cpu().numpy().flatten(),
+        extra_metrics_dict = {"real_meas_loss": real_meas_loss.cpu().numpy().flatten(),
+                              "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
                               "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
                               "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
                               "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
