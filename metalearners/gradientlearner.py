@@ -481,6 +481,16 @@ class GBML:
                              "inner_grad_norm": np.array([torch.norm(cond_log_grad).item()] * x.shape[0])}
         self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
 
+        #NOTE TESTING MANUAL GRADS
+        with torch.no_grad():
+            x_meta_grad = x_hat - x
+
+            c_meta_grad = torch.sign(self.c) if self.hparams.outer.reg_hyperparam_type == 'l1' else torch.zeros_like(self.c)
+            c_meta_grad *= self.hparams.outer.reg_hyperparam_scale
+
+            resid = c_shaped[None, None, :, :] * (self.A(x_hat) - y)
+            inner_x_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
+
         return out_grad
 
     def _init_dataset(self):

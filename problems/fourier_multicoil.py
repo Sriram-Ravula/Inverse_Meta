@@ -62,6 +62,9 @@ class MulticoilForwardMRINoMask(nn.Module):
         super(MulticoilForwardMRINoMask, self).__init__()
 
         self.s_maps = s_maps
+    
+    def ifft(self, x):
+        return self._ifft(x)
 
     # Centered, orthogonal ifft in torch >= 1.7
     def _ifft(self, x):
