@@ -16,7 +16,7 @@ class L1_wavelet:
 
         self.reg = self.hparams.net.reg_param
 
-        self.c = c.clone().cpu().numpy().astype(complex)  #[H, W] float
+        self.c = c.clone().cpu().numpy()#.astype(complex)  #[H, W] float
         self.H_funcs = Dummy()
 
     def __call__(self, x_mod, y):
@@ -25,13 +25,16 @@ class L1_wavelet:
             y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
 
         #get rid of batch dimension
-        y = y.squeeze().clone().cpu().numpy() 
-        maps = self.H_funcs.s_maps.squeeze().clone().cpu().numpy()
+        y = y[0].clone().cpu().numpy() 
+        maps = self.H_funcs.s_maps[0].clone().cpu().numpy()
+
+        #make the proper measurements
+        y = self.c[None, :, :] * y
 
         l1_solver = sigpy.mri.app.L1WaveletRecon(y=y,
                                                  mps=maps,
-                                                 lamda=self.reg,
-                                                 weights=self.c)
+                                                 lamda=self.reg)
+                                                 #weights=self.c)
         x_hat = l1_solver.run() #[H, W] complex
 
         x_hat = torch.tensor(x_hat) #[H, W] complex tensor
@@ -42,5 +45,5 @@ class L1_wavelet:
         return x_hat.to(x_mod.device)
 
     def set_c(self, c):
-        self.c = c.clone().cpu().numpy().astype(complex) 
+        self.c = c.clone().cpu().numpy()#.astype(complex) 
         
