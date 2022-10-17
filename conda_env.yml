@@ -234,7 +234,4 @@ dependencies:
   - zipp=3.8.1=pyhd8ed1ab_0
   - zlib=1.2.12=h5eee18b_3
   - zstd=1.5.2=ha4553b6_0
-  - pip:
-    - lpips==0.1.4
-    - numpy==1.22.4
 prefix: /home/sravula/anaconda3/envs/inverse_meta
