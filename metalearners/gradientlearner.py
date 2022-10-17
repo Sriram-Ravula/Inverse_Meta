@@ -290,6 +290,7 @@ class GBML:
 
         weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
                                                       
+        #TODO change this to a manual meta loss computation that includes spare loss even for soft and hard!
         all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
                                     meta_loss_type=self.hparams.outer.meta_loss_type,
                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
@@ -482,11 +483,12 @@ class GBML:
         self.c.requires_grad_(False)
 
         #Log the metrics for each gradient
-        grad_metrics_dict = {"total_grad_norm": np.array([torch.norm(out_grad).item()] * x.shape[0]),
-                             "meta_loss_grad_norm": np.array([torch.norm(grad_x_meta_loss).item()] * x.shape[0]),
-                             "meta_reg_grad_norm": np.array([torch.norm(grad_c_meta_loss).item()] * x.shape[0]),
-                             "inner_grad_norm": np.array([torch.norm(cond_log_grad).item()] * x.shape[0])}
-        self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
+        with torch.no_grad():
+            grad_metrics_dict = {"total_grad_norm": np.array([torch.norm(out_grad).item()] * x.shape[0]),
+                                "meta_loss_grad_norm": np.array([torch.norm(grad_x_meta_loss).item()] * x.shape[0]),
+                                "meta_reg_grad_norm": np.array([torch.norm(grad_c_meta_loss).item()] * x.shape[0]),
+                                "inner_grad_norm": np.array([torch.norm(cond_log_grad).item()] * x.shape[0])}
+            self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
 
         return out_grad
 
