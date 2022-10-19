@@ -116,7 +116,10 @@ class GBML:
         c_shaped = self._shape_c(self.c)
         self.recon_alg.set_c(c_shaped)
 
-        self.global_epoch = self.hparams.opt.num_iters + R #for logging and metrics purposes; avoids collisions with existing test
+        #for logging and metrics purposes; avoids collisions with existing test
+        self.global_epoch = self.hparams.opt.num_iters + R 
+        if keep_center:
+            self.global_epoch += 1
 
         #take a snap of the initialization
         if not self.hparams.debug and self.hparams.save_imgs:
