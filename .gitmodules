@@ -1,3 +1,6 @@
 [submodule "ddrm_mri"]
 	path = ddrm_mri
 	url = git@github.com:Sriram-Ravula/ddrm-mri.git
+[submodule "ncsnv2"]
+	path = ncsnv2
+	url = https://github.com/ajiljalal/ncsnv2.git
