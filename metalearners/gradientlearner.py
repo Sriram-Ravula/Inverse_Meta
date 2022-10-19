@@ -95,7 +95,7 @@ class GBML:
             k = int(c.numel() * (1. - 1. / R))
             smallest_kept_val = torch.kthvalue(torch.abs(c), k)[0]
             under_idx = torch.abs(c) < smallest_kept_val
-            c[under_idx] *= 0
+            c[under_idx] = 0.
         if keep_center:
             num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
             center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
@@ -109,13 +109,14 @@ class GBML:
 
             elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
                 c[center_line_idx] = 1.
-        #c[c > 0] = 1. #binarize the learned mask
+
+        c[c > 0] = 1. #binarize the learned mask
         self.c = c.to(self.device)
 
         c_shaped = self._shape_c(self.c)
         self.recon_alg.set_c(c_shaped)
 
-        self.global_epoch += 1 #for logging and metrics purposes; avoids collisions with existing test
+        self.global_epoch = self.hparams.opt.num_iters + R #for logging and metrics purposes; avoids collisions with existing test
 
         #take a snap of the initialization
         if not self.hparams.debug and self.hparams.save_imgs:
@@ -679,9 +680,6 @@ class GBML:
             self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
-
-        # if self.hparams.gpu_num == -1:
-        #     self.recon_alg = torch.nn.DataParallel(self.recon_alg)
 
         self.metrics = Metrics(hparams=self.hparams)
         self.metrics.resume(metrics)
