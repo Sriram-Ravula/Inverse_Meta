@@ -1,12 +1,10 @@
 #HERE GO THE NEWEST TETSST
-python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets/baseline_2d_r2.yml --doc BASE_2D_R2_FIX
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets_hor/BASE_R4.yml --doc HOR_BASE_R4 --test
 
-python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets/baseline_2d_r4.yml --doc BASE_2D_R4_FIX
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets_hor/BASE_R6.yml --doc HOR_BASE_R6 --test
 
-python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets/baseline_2d_r6.yml --doc BASE_2D_R6_FIX
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets_hor/BASE_R8.yml --doc HOR_BASE_R8 --test
 
-python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets/baseline_2d_r8.yml --doc BASE_2D_R8_FIX
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets_hor/BASE_R10.yml --doc HOR_BASE_R10 --test
 
-python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets/baseline_2d_r10.yml --doc BASE_2D_R10_FIX
-
-python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets/baseline_2d_r12.yml --doc BASE_2D_R12_FIX
+python3 main_new.py --config /home/sravula/Inverse_Meta/configs/new_wavelets_hor/BASE_R12.yml --doc HOR_BASE_R12 --test
