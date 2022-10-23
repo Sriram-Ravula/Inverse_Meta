@@ -13,7 +13,7 @@ net:
  checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
  config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
  start_iter: 1155
- mse: 1.
+ mse: 10.
 
 data:
  dataset: 'Brain-Multicoil'
@@ -25,9 +25,9 @@ data:
 
  centered: True
 
- num_train: 100
- num_val:   10
- num_test:  30
+ num_train: 1
+ num_val:   1
+ num_test:  1
 
  train_batch_size: 1
  val_batch_size:   1
@@ -40,17 +40,17 @@ outer:
  meta_loss_type: 'l2' #["l2"]
 
  hyperparam_init: "smart" #[float, "smart", "random"]
- keep_center: false
+ keep_center: true
 
  reg_hyperparam: true
  reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.05 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ reg_hyperparam_scale: 0.005 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 20 #number of meta iterations to run
+  num_iters: 1 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.005 #meta learning rate
-  batches_per_iter: 5 #number of training batches to use per meta update. -1 means all batches
+  lr: 0.001 #meta learning rate
+  batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
@@ -65,6 +65,6 @@ problem:
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 8
+ R: 4
  orientation: random
  pattern: random

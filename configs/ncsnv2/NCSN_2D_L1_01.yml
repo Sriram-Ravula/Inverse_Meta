@@ -13,7 +13,7 @@ net:
  checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
  config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
  start_iter: 1155
- mse: 5.
+ mse: 1.
 
 data:
  dataset: 'Brain-Multicoil'
@@ -39,7 +39,7 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: "random" #[float, "smart", "random"]
+ hyperparam_init: "smart" #[float, "smart", "random"]
  keep_center: false
 
  reg_hyperparam: true
@@ -47,9 +47,9 @@ outer:
  reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
 
 opt:
-  num_iters: 25 #number of meta iterations to run
+  num_iters: 20 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.01 #meta learning rate
+  lr: 0.005 #meta learning rate
   batches_per_iter: 5 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
@@ -65,6 +65,6 @@ problem:
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 1
+ R: 10
  orientation: random
  pattern: random

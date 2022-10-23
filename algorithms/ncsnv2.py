@@ -14,8 +14,23 @@ from ncsnv2.models import get_sigmas
 from ncsnv2.models.ema import EMAHelper
 from ncsnv2.models.ncsnv2 import NCSNv2Deepest
 
+from datasets.mri_dataloaders import get_mvue
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from utils_new.exp_utils import dict2namespace
+
+def normalize(gen_img, estimated_mvue):
+    '''
+        Estimate mvue from coils and normalize with 99% percentile.
+    '''
+    scaling = torch.quantile(estimated_mvue.abs(), 0.99)
+    return gen_img * scaling
+
+def unnormalize(gen_img, estimated_mvue):
+    '''
+        Estimate mvue from coils and normalize with 99% percentile.
+    '''
+    scaling = torch.quantile(estimated_mvue.abs(), 0.99)
+    return gen_img / scaling
 
 class Dummy:
     def __init__(self):
@@ -55,6 +70,10 @@ class NCSNv2(torch.nn.Module):
 
         ref = mask[None, None, :, :] * y
 
+        estimated_mvue = torch.tensor(
+                    get_mvue(ref.cpu().numpy(),
+                    maps.cpu().numpy()), device=ref.device)
+
         pbar = tqdm(range(self.langevin_config.model.num_classes))
         pbar_labels = ['class', 'step_size', 'error', 'mean', 'max']
 
@@ -80,11 +99,12 @@ class NCSNv2(torch.nn.Module):
 
                     p_grad = self.score(samples, labels)
 
-                    meas = forward_operator(samples)
+                    meas = forward_operator(normalize(samples, estimated_mvue))
                     meas = mask[None, None, :, :] * meas
 
                     meas_grad = torch.view_as_real(torch.sum(self._ifft(meas-ref) * torch.conj(maps), axis=1) ).permute(0,3,1,2)
 
+                    meas_grad = unnormalize(meas_grad, estimated_mvue)
                     meas_grad = meas_grad.type(torch.cuda.FloatTensor)
                     meas_grad /= torch.norm( meas_grad )
                     meas_grad *= torch.norm( p_grad )
@@ -97,9 +117,9 @@ class NCSNv2(torch.nn.Module):
                     self.update_pbar_desc(pbar, metrics, pbar_labels)
                     # if nan, break
                     if np.isnan((meas - ref).norm().cpu().numpy()):
-                        return samples
+                        return normalize(samples, estimated_mvue)
 
-        return samples
+        return normalize(samples, estimated_mvue)
 
     # Centered, orthogonal ifft in torch >= 1.7
     def _ifft(self, x):
