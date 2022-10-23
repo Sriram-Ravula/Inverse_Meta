@@ -10,7 +10,7 @@ seed: 2022
 
 net:
  model: 'l1'
- reg_param: 0.01
+ reg_param: 0.005
 
 data:
  dataset: 'Brain-Multicoil'
