@@ -1,0 +1,70 @@
+use_gpu: true
+gpu_num: 0 #-1 means use all (DP mode)
+
+verbose: true
+debug: false #true won't save anything
+save_imgs: true
+save_dir: "/home/sravula/meta_outs_new" #root of folder to save run information
+
+seed: 2022
+
+net:
+ model: 'ncsnv2'
+ checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
+ config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
+ start_iter: 1155
+ mse: 1.
+
+data:
+ dataset: 'Brain-Multicoil'
+
+ train_input_dir: '/csiNAS/brett/sites_new/Training/site5/ksp'
+ train_maps_dir: '/csiNAS/brett/sites_new/Training/site5/maps'
+ test_input_dir: '/csiNAS/brett/sites_new/Validation/site5/ksp'
+ test_maps_dir: '/csiNAS/brett/sites_new/Validation/site5/maps'
+
+ centered: True
+
+ num_train: 100
+ num_val:   10
+ num_test:  30
+
+ train_batch_size: 1
+ val_batch_size:   1
+ test_batch_size:  1
+
+ image_size: 384
+ num_channels: 2
+
+outer:
+ meta_loss_type: 'l2' #["l2"]
+
+ hyperparam_init: "smart" #[float, "smart", "random"]
+ keep_center: true
+
+ reg_hyperparam: true
+ reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
+ reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+
+opt:
+  num_iters: 1 #number of meta iterations to run
+  optimizer: 'adam' #[adam, sgd]
+  lr: 0.005 #meta learning rate
+  batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
+
+  decay: false
+  lr_decay: 0.95 #exponential weight decay rate.
+
+  val_iters: 1 #validate every n iterations
+  checkpoint_iters: 1 #checkpoint every n iterations
+
+problem:
+ measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
+ sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
+ measurement_selection: true
+ measurement_weighting: false
+
+ #This stuff is for ddrm
+ R: 10
+ orientation: random
+ pattern: random
