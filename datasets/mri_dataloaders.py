@@ -42,6 +42,8 @@ class BrainMultiCoil(Dataset):
 
     def __len__(self):
         # return int(np.sum(self.num_slices)) # Total number of slices from all scans
+
+        #Uncomment this return block if we only want the central five slices
         return int(len(self.file_list) * 5)
 
     # Phase encode random mask generator
