@@ -25,8 +25,8 @@ data:
  test_num_slices_path: '/home/sravula/meta_exp/brain_site5_test_numslices.npy'
  test_slice_mapper_path: '/home/sravula/meta_exp/brain_site5_test_slicemapper.npy'
 
- load_slice_info: false
- save_slice_info: true
+ load_slice_info: true
+ save_slice_info: false
 
  centered: True
 
