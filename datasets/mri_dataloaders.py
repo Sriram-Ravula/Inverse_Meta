@@ -100,14 +100,17 @@ class BrainMultiCoil(Dataset):
         slice_idx = int(idx) if scan_idx == 0 else \
             int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
 
+        #NOTE this is a test - trying to fix indexing stuff here
+        scan_idx = int(np.where((self.slice_mapper - idx) > 0)[0][0]) #strict inequality handles upper bound of bin
+        slice_idx = int(idx) if scan_idx == 0 else \
+            int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx]) #no -1 anymore 
+
         # # Uncomment this block if we want only central 5 slices
         # # Get scan and slice index
         # # we only use the 5 central slices
-        # scan_idx = idx // 5 # int(np.where((self.slice_mapper - idx) >= 0)[0][0])
+        # scan_idx = idx // 5 
         # # Offset from cumulative range
         # slice_idx = idx % 5
-        # # slice_idx = int(idx) if scan_idx == 0 else \
-        # #     int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
 
         # Load maps for specific scan and slice
         maps_file = os.path.join(self.maps_dir,
