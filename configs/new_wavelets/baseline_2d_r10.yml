@@ -20,6 +20,14 @@ data:
  test_input_dir: '/csiNAS/brett/sites_new/Validation/site5/ksp'
  test_maps_dir: '/csiNAS/brett/sites_new/Validation/site5/maps'
 
+ train_num_slices_path: '/home/sravula/meta_exp/brain_site5_train_numslices.npy'
+ train_slice_mapper_path: '/home/sravula/meta_exp/brain_site5_train_slicemapper.npy'
+ test_num_slices_path: '/home/sravula/meta_exp/brain_site5_test_numslices.npy'
+ test_slice_mapper_path: '/home/sravula/meta_exp/brain_site5_test_slicemapper.npy'
+
+ load_slice_info: false
+ save_slice_info: true
+
  centered: True
 
  num_train: 100

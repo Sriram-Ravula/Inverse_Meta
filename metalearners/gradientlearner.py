@@ -146,7 +146,7 @@ class GBML:
             #logging and saving
             scan_idxs = item['scan_idx']
             slice_idxs = item['slice_idx']
-            x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
+            x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
             self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
@@ -224,7 +224,7 @@ class GBML:
             if i == 0:
                 scan_idxs = item['scan_idx']
                 slice_idxs = item['slice_idx']
-                x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
+                x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
                 self._save_all_images(x_hat, x, y, x_idx, "train")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
@@ -241,7 +241,7 @@ class GBML:
             if i == 0:
                 scan_idxs = item['scan_idx']
                 slice_idxs = item['slice_idx']
-                x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
+                x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
                 self._save_all_images(x_hat, x, y, x_idx, "val")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "val")
@@ -257,7 +257,7 @@ class GBML:
             #logging and saving
             scan_idxs = item['scan_idx']
             slice_idxs = item['slice_idx']
-            x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
+            x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
             self._save_all_images(x_hat, x, y, x_idx, "test")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
