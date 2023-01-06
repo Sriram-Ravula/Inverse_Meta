@@ -32,8 +32,9 @@ class BrainMultiCoil(Dataset):
 
         # Comment next two blocks if we only want central 5 slices
         # Access meta-data of each scan to get number of slices
+        print("Reading " + str(len(self.file_list)) + " Scans")
         self.num_slices = np.zeros((len(self.file_list,)), dtype=int)
-        for idx, file in enumerate(self.file_list):
+        for idx, file in tqdm(enumerate(self.file_list)):
             input_file = os.path.join(self.input_dir, os.path.basename(file))
             with h5py.File(input_file, 'r') as data:
                 self.num_slices[idx] = int(np.array(data['kspace']).shape[0])
