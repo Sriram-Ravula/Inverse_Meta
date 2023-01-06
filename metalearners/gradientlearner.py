@@ -144,6 +144,9 @@ class GBML:
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
             #logging and saving
+            scan_idxs = item['scan_idx']
+            slice_idxs = item['slice_idx']
+            x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
             self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
@@ -219,6 +222,9 @@ class GBML:
 
             #logging and saving
             if i == 0:
+                scan_idxs = item['scan_idx']
+                slice_idxs = item['slice_idx']
+                x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
                 self._save_all_images(x_hat, x, y, x_idx, "train")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
@@ -233,6 +239,9 @@ class GBML:
 
             #logging and saving
             if i == 0:
+                scan_idxs = item['scan_idx']
+                slice_idxs = item['slice_idx']
+                x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
                 self._save_all_images(x_hat, x, y, x_idx, "val")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "val")
@@ -246,6 +255,9 @@ class GBML:
             self._add_batch_metrics(x_hat, x, y, "test")
 
             #logging and saving
+            scan_idxs = item['scan_idx']
+            slice_idxs = item['slice_idx']
+            x_idx = [str(scan_id)+"_"+str(slice_id) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
             self._save_all_images(x_hat, x, y, x_idx, "test")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
