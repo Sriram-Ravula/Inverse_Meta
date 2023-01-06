@@ -24,6 +24,9 @@ def get_dataset(config):
         test_num_slices = getattr(config.data, 'test_num_slices_path', None)
         test_slice_mapper = getattr(config.data, 'test_slice_mapper_path', None)
 
+        load_slice_info = getattr(config.data, 'load_slice_info', False)
+        save_slice_info = getattr(config.data, 'save_slice_info', False)
+
         dataset = BrainMultiCoil(train_files,
                                 input_dir=config.data.train_input_dir,
                                 maps_dir=config.data.train_maps_dir,
@@ -32,7 +35,9 @@ def get_dataset(config):
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation,
                                 num_slices=train_num_slices,
-                                slice_mapper=train_slice_mapper)
+                                slice_mapper=train_slice_mapper,
+                                load_slice_info=load_slice_info,
+                                save_slice_info=save_slice_info)
 
         test_dataset = BrainMultiCoil(test_files,
                                 input_dir=config.data.test_input_dir,
@@ -42,7 +47,9 @@ def get_dataset(config):
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation,
                                 num_slices=test_num_slices,
-                                slice_mapper=test_slice_mapper)
+                                slice_mapper=test_slice_mapper,
+                                load_slice_info=load_slice_info,
+                                save_slice_info=save_slice_info)
 
     elif config.data.dataset == 'Knee-Multicoil':
         bad_slices = ['file1001022.h5', 'file1000262.h5', 'file1000633.h5', 'file1000794.h5', 'file1000882.h5']
@@ -59,6 +66,9 @@ def get_dataset(config):
         test_num_slices = getattr(config.data, 'test_num_slices_path', None)
         test_slice_mapper = getattr(config.data, 'test_slice_mapper_path', None)
 
+        load_slice_info = getattr(config.data, 'load_slice_info', False)
+        save_slice_info = getattr(config.data, 'save_slice_info', False)
+
         dataset = KneesMultiCoil(train_files,
                                 input_dir=config.data.train_input_dir,
                                 maps_dir=config.data.train_maps_dir,
@@ -67,7 +77,9 @@ def get_dataset(config):
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation,
                                 num_slices=train_num_slices,
-                                slice_mapper=train_slice_mapper)
+                                slice_mapper=train_slice_mapper,
+                                load_slice_info=load_slice_info,
+                                save_slice_info=save_slice_info)
 
         test_dataset = KneesMultiCoil(test_files,
                                 input_dir=config.data.test_input_dir,
@@ -77,34 +89,25 @@ def get_dataset(config):
                                 pattern=config.problem.pattern,
                                 orientation=config.problem.orientation,
                                 num_slices=test_num_slices,
-                                slice_mapper=test_slice_mapper)
+                                slice_mapper=test_slice_mapper,
+                                load_slice_info=load_slice_info,
+                                save_slice_info=save_slice_info)
 
     elif config.data.dataset == 'Knees-Singlecoil':
         train_files = get_all_files(config.data.train_input_dir, pattern='*.h5')
         test_files = get_all_files(config.data.test_input_dir, pattern='*.h5')
 
-        #grab the slice maps and slice counts if they are available
-        train_num_slices = getattr(config.data, 'train_num_slices_path', None)
-        train_slice_mapper = getattr(config.data, 'train_slice_mapper_path', None)
-
-        test_num_slices = getattr(config.data, 'test_num_slices_path', None)
-        test_slice_mapper = getattr(config.data, 'test_slice_mapper_path', None)
-
         dataset = KneesSingleCoil(train_files,
                                 image_size = config.data.image_size,
                                 R=config.data.R,
                                 pattern=config.data.pattern,
-                                orientation=config.data.orientation,
-                                num_slices=train_num_slices,
-                                slice_mapper=train_slice_mapper)
+                                orientation=config.data.orientation)
 
         test_dataset = KneesSingleCoil(test_files,
                                 image_size = config.data.image_size,
                                 R=config.data.R,
                                 pattern=config.data.pattern,
-                                orientation=config.data.orientation,
-                                num_slices=test_num_slices,
-                                slice_mapper=test_slice_mapper)
+                                orientation=config.data.orientation)
 
     else:
         raise NotImplementedError("Dataset not supported!")

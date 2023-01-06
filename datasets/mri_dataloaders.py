@@ -20,7 +20,11 @@ class BrainMultiCoil(Dataset):
                  image_size=384,
                  acs_size=26,
                  pattern='equispaced',
-                 orientation='vertical'):
+                 orientation='vertical',
+                 num_slices=None,
+                 slice_mapper=None,
+                 load_slice_info=False,
+                 save_slice_info=False):
         # Attributes
         self.file_list    = file_list
         self.maps_dir     = maps_dir
@@ -30,17 +34,27 @@ class BrainMultiCoil(Dataset):
         self.pattern      = pattern
         self.orientation  = orientation
 
-        # Comment next two blocks if we only want central 5 slices
-        # Access meta-data of each scan to get number of slices
-        print("Reading " + str(len(self.file_list)) + " Scans")
-        self.num_slices = np.zeros((len(self.file_list,)), dtype=int)
-        for idx, file in tqdm(enumerate(self.file_list)):
-            input_file = os.path.join(self.input_dir, os.path.basename(file))
-            with h5py.File(input_file, 'r') as data:
-                self.num_slices[idx] = int(np.array(data['kspace']).shape[0])
+        if not load_slice_info:
+            # Comment next two blocks if we only want central 5 slices
+            # Access meta-data of each scan to get number of slices
+            print("Reading " + str(len(self.file_list)) + " Scans")
+            self.num_slices = np.zeros((len(self.file_list,)), dtype=int)
+            for idx, file in tqdm(enumerate(self.file_list)):
+                input_file = os.path.join(self.input_dir, os.path.basename(file))
+                with h5py.File(input_file, 'r') as data:
+                    self.num_slices[idx] = int(np.array(data['kspace']).shape[0])
 
-        # Create cumulative index for mapping
-        self.slice_mapper = np.cumsum(self.num_slices) - 1 # Counts from '0'
+            # Create cumulative index for mapping
+            self.slice_mapper = np.cumsum(self.num_slices) - 1 # Counts from '0'
+        else:
+            print("Loading available scan information\n")
+            self.num_slices = np.load(num_slices)
+            self.slice_mapper = np.load(slice_mapper)
+        
+        if save_slice_info:
+            print("Saving compiled scan information!\n")
+            np.save(num_slices, self.num_slices)
+            np.save(slice_mapper, self.slice_mapper)
 
     def __len__(self):
         #Comment this block if we only want central 5 slices
@@ -226,10 +240,15 @@ class KneesMultiCoil(BrainMultiCoil):
                  image_size=320,
                  acs_size=26,
                  pattern='random',
-                 orientation='vertical'):
+                 orientation='vertical',
+                 num_slices=None,
+                 slice_mapper=None,
+                 load_slice_info=False,
+                 save_slice_info=False):
         super(KneesMultiCoil, self).__init__(file_list, maps_dir, input_dir, R,
                                              image_size, acs_size, pattern,
-                                             orientation)
+                                             orientation, num_slices, slice_mapper, 
+                                             load_slice_info, save_slice_info)
 
 class KneesSingleCoil(Dataset):
     def __init__(self,
@@ -237,8 +256,8 @@ class KneesSingleCoil(Dataset):
                  image_size,
                  R,
                  pattern,
-                 orientation
-    ):
+                 orientation):
+                 
         self.file_list = sorted(files)
         self.image_size = image_size
         self.R = R
