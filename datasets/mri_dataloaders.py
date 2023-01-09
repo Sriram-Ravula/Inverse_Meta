@@ -24,7 +24,8 @@ class BrainMultiCoil(Dataset):
                  num_slices=None,
                  slice_mapper=None,
                  load_slice_info=False,
-                 save_slice_info=False):
+                 save_slice_info=False,
+                 kspace_pad=28):
         # Attributes
         self.file_list    = file_list
         self.maps_dir     = maps_dir
@@ -33,6 +34,8 @@ class BrainMultiCoil(Dataset):
         self.R            = R
         self.pattern      = pattern
         self.orientation  = orientation
+
+        self.kspace_pad = kspace_pad
 
         if not load_slice_info:
             # Comment next two blocks if we only want central 5 slices
@@ -219,11 +222,18 @@ class BrainMultiCoil(Dataset):
         gt_mvue_two_channel[0] = np.float16(np.real(gt_mvue))
         gt_mvue_two_channel[1] = np.float16(np.imag(gt_mvue))
 
+        #Apply optional K-space padding
+        #This allows us to make the non-batch dimensions of all the samples homogenous,
+        #   and allows for batch size > 1
+        if self.kspace_pad:
+            if (ksp.shape[0] < self.kspace_pad) and (s_maps.shape[0] < self.kspace_pad):
+                ksp = np.pad(ksp, ((0,self.kspace_pad - ksp.shape[0]), (0,0), (0,0)))
+                s_maps = np.pad(s_maps, ((0,self.kspace_pad - s_maps.shape[0]), (0,0), (0,0)))
 
         # Output
         sample = {
-                  'ksp': ksp,
-                  's_maps': s_maps,
+                  'ksp': ksp, #[C, H, W] complex64 numpy array
+                  's_maps': s_maps, #[C, H, W] complex64 numpy array
                   # 'mask': mask,
                   'aliased_image': aliased_mvue_two_channel.astype(np.float32),
                   'gt_image': gt_mvue_two_channel.astype(np.float32),
@@ -244,11 +254,12 @@ class KneesMultiCoil(BrainMultiCoil):
                  num_slices=None,
                  slice_mapper=None,
                  load_slice_info=False,
-                 save_slice_info=False):
+                 save_slice_info=False,
+                 kspace_pad=False):
         super(KneesMultiCoil, self).__init__(file_list, maps_dir, input_dir, R,
                                              image_size, acs_size, pattern,
                                              orientation, num_slices, slice_mapper, 
-                                             load_slice_info, save_slice_info)
+                                             load_slice_info, save_slice_info, kspace_pad)
 
 class KneesSingleCoil(Dataset):
     def __init__(self,

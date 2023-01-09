@@ -20,6 +20,7 @@ class L1_wavelet:
         self.H_funcs = Dummy()
 
     def __call__(self, x_mod, y):
+        #TODO change this to take batch of N
         #out [1, Coils, H, W]
         if len(y.shape) > 4:
             y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
