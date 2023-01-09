@@ -20,30 +20,35 @@ class L1_wavelet:
         self.H_funcs = Dummy()
 
     def __call__(self, x_mod, y):
-        #TODO change this to take batch of N
-        #out [1, Coils, H, W]
+        #out [N, Coils, H, W]
         if len(y.shape) > 4:
             y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
 
-        #get rid of batch dimension
-        y = y[0].clone().cpu().numpy() 
-        maps = self.H_funcs.s_maps[0].clone().cpu().numpy()
+        #convert to numpy
+        y = y.clone().cpu().numpy() 
+        maps = self.H_funcs.s_maps.clone().cpu().numpy()
 
         #make the proper measurements
-        y = self.c[None, :, :] * y
+        y = self.c[None, None, :, :] * y
 
-        l1_solver = sigpy.mri.app.L1WaveletRecon(y=y,
-                                                 mps=maps,
-                                                 lamda=self.reg)
-                                                 #weights=self.c)
-        x_hat = l1_solver.run() #[H, W] complex
+        #make a container for the final solutions
+        x_out = torch.zeros_like(x_mod)
 
-        x_hat = torch.tensor(x_hat) #[H, W] complex tensor
-        x_hat = torch.view_as_real(x_hat) #[H, W, 2] float tensor
-        x_hat = torch.permute(x_hat, (2, 0, 1)) #[2, H, W] float tensor
-        x_hat = x_hat.unsqueeze(0) #[1, 2, H, W] float tensor
+        for i in range(y.shape[0]):
+            y_i = y[i]
+            maps_i = maps[i]
 
-        return x_hat.to(x_mod.device)
+            l1_solver = sigpy.mri.app.L1WaveletRecon(y=y_i,
+                                                    mps=maps_i,
+                                                    lamda=self.reg)
+            x_hat = l1_solver.run() #[H, W] complex
+
+            x_hat = torch.tensor(x_hat) #[H, W] complex tensor
+            x_hat = torch.view_as_real(x_hat) #[H, W, 2] float tensor
+            x_hat = torch.permute(x_hat, (2, 0, 1)) #[2, H, W] float tensor
+            x_out[i] = x_hat.to(x_out.device)
+
+        return x_out
 
     def set_c(self, c):
         self.c = c.clone().cpu().numpy()#.astype(complex) 
