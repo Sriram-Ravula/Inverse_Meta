@@ -273,12 +273,19 @@ class GBML:
         self.recon_alg.H_funcs.s_maps = s_maps
         self.A = MulticoilForwardMRINoMask(s_maps)
 
-        #Get the reconstruction and log batch metrics
+        #Get the reconstruction
         x_mod = torch.randn_like(x)
-        x_hat = self.recon_alg(x_mod, y)
+        x_hat = self.recon_alg(x_mod, y) #[N, 2, H, W] float
+
+        #scale the output appropriately
         x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
         x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
         x_hat /= x_hat_scale[:, None, None, None]
+
+        #NOTE new addition - test out
+        #Do a fully-sampled forward-->adjoint on the output 
+        x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
+        x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
 
         #Y (k-space meas) is acting weirdly - comes in as 2-channel complex float
         #each channel has all real entries
@@ -294,6 +301,13 @@ class GBML:
         print("Coil map dtype: ", s_maps.dtype)
 
         return x_hat, x, y
+
+    # Centered, orthogonal ifft in torch >= 1.7
+    def _ifft(self, x):
+        x = torch_fft.ifftshift(x, dim=(-2, -1))
+        x = torch_fft.ifft2(x, dim=(-2, -1), norm='ortho')
+        x = torch_fft.fftshift(x, dim=(-2, -1))
+        return x 
 
     @torch.no_grad()
     def _add_batch_metrics(self, x_hat, x, y, iter_type):
