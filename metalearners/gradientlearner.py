@@ -15,6 +15,7 @@ import sigpy.mri
 from algorithms.ddrm import DDRM
 from algorithms.wavelet import L1_wavelet
 from algorithms.ncsnv2 import NCSNv2
+from algorithms.mvue import MVUE_solution
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
 
@@ -51,6 +52,8 @@ class GBML:
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
         elif self.hparams.net.model == 'ncsnv2':
             self.recon_alg = NCSNv2(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        elif self.hparams.net.model == 'mvue':
+            self.recon_alg = MVUE_solution(self.hparams, self.args, c_shaped)
 
         #logging and metrics
         self.metrics = Metrics(hparams=self.hparams)
@@ -715,6 +718,8 @@ class GBML:
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
         elif self.hparams.net.model == 'ncsnv2':
             self.recon_alg = NCSNv2(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        elif self.hparams.net.model == 'mvue':
+            self.recon_alg = MVUE_solution(self.hparams, self.args, c_shaped)
 
         self.metrics = Metrics(hparams=self.hparams)
         self.metrics.resume(metrics)
