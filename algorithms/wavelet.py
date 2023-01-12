@@ -39,7 +39,8 @@ class L1_wavelet:
 
             l1_solver = sigpy.mri.app.L1WaveletRecon(y=y_i,
                                                     mps=maps_i,
-                                                    lamda=self.reg)
+                                                    lamda=self.reg,
+                                                    solver="GradientMethod" if self.reg > 0.0 else "ConjugateGradient")
             x_hat = l1_solver.run() #[H, W] complex
 
             x_hat = torch.tensor(x_hat) #[H, W] complex tensor
