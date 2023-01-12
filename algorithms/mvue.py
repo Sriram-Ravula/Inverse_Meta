@@ -30,7 +30,7 @@ class MVUE_solution:
         estimated_mvue = torch.tensor(get_mvue(y, maps), device=x_mod.device) #[N, H, W] complex
         estimated_mvue = torch.view_as_real(estimated_mvue) #[N, H, W, 2] float
         estimated_mvue = torch.permute(estimated_mvue, (0, 3, 1, 2)) #[N, 2, H, W] float
-        estimated_mvue = estimated_mvue.type_as(x_mod)
+        estimated_mvue = estimated_mvue.type_as(x_mod).contiguous() #call to contiguous stores tensor in one memory location 
 
         return estimated_mvue
     
