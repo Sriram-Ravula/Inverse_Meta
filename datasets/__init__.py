@@ -6,7 +6,7 @@ from torch.utils.data import Subset
 import numpy as np
 import glob
 
-from datasets.mri_dataloaders import BrainMultiCoil, KneesSingleCoil, KneesMultiCoil
+from datasets.mri_dataloaders import BrainMultiCoil, KneesMultiCoil
 
 def get_all_files(folder, pattern='*'):
     files = [x for x in glob.iglob(os.path.join(folder, pattern))]
@@ -31,9 +31,6 @@ def get_dataset(config):
                                 input_dir=config.data.train_input_dir,
                                 maps_dir=config.data.train_maps_dir,
                                 image_size = config.data.image_size,
-                                R=config.problem.R,
-                                pattern=config.problem.pattern,
-                                orientation=config.problem.orientation,
                                 num_slices=train_num_slices,
                                 slice_mapper=train_slice_mapper,
                                 load_slice_info=load_slice_info,
@@ -43,9 +40,6 @@ def get_dataset(config):
                                 input_dir=config.data.test_input_dir,
                                 maps_dir=config.data.test_maps_dir,
                                 image_size = config.data.image_size,
-                                R=config.problem.R,
-                                pattern=config.problem.pattern,
-                                orientation=config.problem.orientation,
                                 num_slices=test_num_slices,
                                 slice_mapper=test_slice_mapper,
                                 load_slice_info=load_slice_info,
@@ -73,9 +67,6 @@ def get_dataset(config):
                                 input_dir=config.data.train_input_dir,
                                 maps_dir=config.data.train_maps_dir,
                                 image_size = config.data.image_size,
-                                R=config.problem.R,
-                                pattern=config.problem.pattern,
-                                orientation=config.problem.orientation,
                                 num_slices=train_num_slices,
                                 slice_mapper=train_slice_mapper,
                                 load_slice_info=load_slice_info,
@@ -85,29 +76,10 @@ def get_dataset(config):
                                 input_dir=config.data.test_input_dir,
                                 maps_dir=config.data.test_maps_dir,
                                 image_size = config.data.image_size,
-                                R=config.problem.R,
-                                pattern=config.problem.pattern,
-                                orientation=config.problem.orientation,
                                 num_slices=test_num_slices,
                                 slice_mapper=test_slice_mapper,
                                 load_slice_info=load_slice_info,
                                 save_slice_info=save_slice_info)
-
-    elif config.data.dataset == 'Knees-Singlecoil':
-        train_files = get_all_files(config.data.train_input_dir, pattern='*.h5')
-        test_files = get_all_files(config.data.test_input_dir, pattern='*.h5')
-
-        dataset = KneesSingleCoil(train_files,
-                                image_size = config.data.image_size,
-                                R=config.data.R,
-                                pattern=config.data.pattern,
-                                orientation=config.data.orientation)
-
-        test_dataset = KneesSingleCoil(test_files,
-                                image_size = config.data.image_size,
-                                R=config.data.R,
-                                pattern=config.data.pattern,
-                                orientation=config.data.orientation)
 
     else:
         raise NotImplementedError("Dataset not supported!")
