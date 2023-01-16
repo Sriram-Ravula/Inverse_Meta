@@ -25,6 +25,8 @@ from utils_new.meta_loss_utils import meta_loss, get_meta_grad
 from utils_new.inner_loss_utils import get_likelihood_grad, log_cond_likelihood_loss
 from utils_new.metric_utils import Metrics
 
+from metalearners.probabilistic_mask import Probabilistic_Mask
+
 class GBML:
     def __init__(self, hparams, args):
         self.hparams = hparams
@@ -34,6 +36,11 @@ class GBML:
         if self.args.resume:
             self._resume()
             return
+
+        #check if we have a probabilistic c
+        self.prob_c = hasattr(self.hparams.outer, 'sample_pattern')
+        if self.prob_c:
+            self._print_if_verbose("USING PROBABILISTIC MASK!")
 
         #running parameters
         self._init_c()
@@ -562,7 +569,12 @@ class GBML:
         (1) Check for measurement_selection; False means c scalar, and we are done
         (2) Check for sample_pattern; resize accordingly
         (3) Check for any smart initialization
+
+        NOTE has been updated to work with probabilistic mask
         """
+        if self.prob_c:
+            self.c = Probabilistic_Mask(self.hparams, self.device)
+            return
 
         problem_check = sum([self.hparams.problem.measurement_weighting,
                              self.hparams.problem.measurement_selection])
@@ -639,17 +651,26 @@ class GBML:
     def _init_meta_optimizer(self):
         """
         Initializes the meta optmizer and scheduler.
-        """
 
+        NOTE has been optimized for probabilistic mask
+        """
         opt_type = self.hparams.opt.optimizer
         lr = self.hparams.opt.lr
 
-        if opt_type == 'adam':
-            meta_opt = torch.optim.Adam([{'params': self.c}], lr=lr)
-        elif opt_type == 'sgd':
-            meta_opt = torch.optim.SGD([{'params': self.c}], lr=lr)
+        if self.prob_c:
+            if opt_type == 'adam':
+                meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
+            elif opt_type == 'sgd':
+                meta_opt = torch.optim.SGD([{'params': self.c.weights}], lr=lr)
+            else:
+                raise NotImplementedError("Optimizer not supported!")
         else:
-            raise NotImplementedError("Optimizer not supported!")
+            if opt_type == 'adam':
+                meta_opt = torch.optim.Adam([{'params': self.c}], lr=lr)
+            elif opt_type == 'sgd':
+                meta_opt = torch.optim.SGD([{'params': self.c}], lr=lr)
+            else:
+                raise NotImplementedError("Optimizer not supported!")
 
         if self.hparams.opt.decay:
             meta_scheduler = torch.optim.lr_scheduler.ExponentialLR(meta_opt, self.hparams.opt.lr_decay)
@@ -735,11 +756,6 @@ class GBML:
             
             with open(os.path.join(self.log_dir, 'args.yml'), 'w') as f:
                 yaml.dump(self.args, f, default_flow_style=False)
-
-    # def _add_tb_images(self, images, tag):
-    #     if not self.hparams.debug and self.hparams.save_imgs:
-    #         grid_img = torchvision.utils.make_grid(images.cpu(), nrow=images.shape[0]//2)
-    #         self.tb_logger.add_image(tag, grid_img, global_step=self.global_epoch)
 
     def _add_metrics_to_tb(self, iter_type):
         if not self.hparams.debug:
