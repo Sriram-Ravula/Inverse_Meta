@@ -491,13 +491,6 @@ class GBML:
         Sets c.grad to True then False.
         """
         #(1) Get gradients of Meta loss w.r.t. image and hyperparams
-        # grad_x_meta_loss, grad_c_meta_loss = get_meta_grad(x_hat=x_hat,
-        #                                                     x_true=x,
-        #                                                     c = self.c,
-        #                                                     meta_loss_type=self.hparams.outer.meta_loss_type,
-        #                                                     reg_hyperparam=self.hparams.outer.reg_hyperparam,
-        #                                                     reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
-        #                                                     reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
         grad_x_meta_loss = x_hat - x
 
         grad_c_meta_loss = torch.sign(self.c) if self.hparams.outer.reg_hyperparam_type == 'l1' else torch.zeros_like(self.c)
@@ -507,9 +500,7 @@ class GBML:
         self.c.requires_grad_()
 
         c_shaped = self._shape_c(self.c)
-        # cond_log_grad = get_likelihood_grad(c_shaped, y, self.A, x_hat,
-        #                                     retain_graph=True,
-        #                                     create_graph=True)
+
         resid = c_shaped[None, None, :, :] * (self.A(x_hat) - y)
         cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
 
