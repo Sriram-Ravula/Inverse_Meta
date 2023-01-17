@@ -49,8 +49,8 @@ outer:
 
 opt:
   num_iters: 100 #number of meta iterations to run
-  optimizer: 'adam' #[adam, sgd]
-  lr: 0.001 #meta learning rate
+  optimizer: 'sgd' #[adam, sgd]
+  lr: 0.1 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false

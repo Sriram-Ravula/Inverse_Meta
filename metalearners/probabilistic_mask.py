@@ -111,7 +111,7 @@ class Probabilistic_Mask:
         """
         Samples a binary mask based on our learned logit values
         """
-        probs = F.sigmoid(self.weights)
+        probs = torch.sigmoid(self.weights)
         normed_probs = self._normalize_probs(probs)
         flat_sample = self._sample_mask(normed_probs, tau=tau)
         sampled_mask = self._reshape_mask(flat_sample)
@@ -123,7 +123,7 @@ class Probabilistic_Mask:
         """
         Returns a mask of re-normalized probabilities based on learned logits.
         """
-        probs = F.sigmoid(self.weights)
+        probs = torch.sigmoid(self.weights)
         normed_probs = self._normalize_probs(probs)
         prob_mask = self._reshape_mask(normed_probs)
 
