@@ -495,60 +495,74 @@ class GBML:
         """
         Will take an optimization step (and scheduler if applicable).
         Sets c.grad to True then False.
+        NOTE optimized for probabilistic C
         """
-        self.opt.zero_grad()
-        self.c.requires_grad_()
+        if self.prob_c:
+            self.opt.zero_grad()
 
-        # dummy update to make sure grad is initialized
-        if type(self.c.grad) == type(None):
-            dummy_loss = torch.sum(self.c)
-            dummy_loss.backward()
+            # dummy update to make sure grad is initialized
+            if type(self.c.weights.grad) == type(None):
+                dummy_loss = torch.sum(self.c.weights)
+                dummy_loss.backward()
+            
+            self.c.weights.grad.copy_(meta_grad)
+            self.opt.step()
 
-        self.c.grad.copy_(meta_grad)
-        self.opt.step()
-        self.c.requires_grad_(False)
+            self.c_list.append(self.c.weights.detach().clone().cpu())
+        else:
+            self.opt.zero_grad()
+            self.c.requires_grad_()
 
-        if self.hparams.outer.reg_hyperparam:
-            #the scale parameter in soft is lambda for soft thresholding with the
-            #   proximal l1-sparsity operator
-            if self.hparams.outer.reg_hyperparam_type == "soft":
-                over_idx = (self.c > self.hparams.outer.reg_hyperparam_scale)
-                mid_idx = (self.c >= -self.hparams.outer.reg_hyperparam_scale) & \
-                            (self.c <= self.hparams.outer.reg_hyperparam_scale)
-                under_idx = (self.c < -self.hparams.outer.reg_hyperparam_scale)
-                self.c[over_idx] -= self.hparams.outer.reg_hyperparam_scale
-                self.c[mid_idx] *= 0
-                self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
+            # dummy update to make sure grad is initialized
+            if type(self.c.grad) == type(None):
+                dummy_loss = torch.sum(self.c)
+                dummy_loss.backward()
 
-            #the scale parameter in hard thresholding means keep <scale> highest values
-            #   and zero the (1 - <scale>) remaining
-            elif self.hparams.outer.reg_hyperparam_type == "hard":
-                k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
-                smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
-                under_idx = torch.abs(self.c) < smallest_kept_val
-                self.c[under_idx] *= 0
+            self.c.grad.copy_(meta_grad)
+            self.opt.step()
+            self.c.requires_grad_(False)
 
-            elif self.hparams.outer.reg_hyperparam_type != "l1":
-                raise NotImplementedError("This meta regularizer has not been implemented yet!")
+            if self.hparams.outer.reg_hyperparam:
+                #the scale parameter in soft is lambda for soft thresholding with the
+                #   proximal l1-sparsity operator
+                if self.hparams.outer.reg_hyperparam_type == "soft":
+                    over_idx = (self.c > self.hparams.outer.reg_hyperparam_scale)
+                    mid_idx = (self.c >= -self.hparams.outer.reg_hyperparam_scale) & \
+                                (self.c <= self.hparams.outer.reg_hyperparam_scale)
+                    under_idx = (self.c < -self.hparams.outer.reg_hyperparam_scale)
+                    self.c[over_idx] -= self.hparams.outer.reg_hyperparam_scale
+                    self.c[mid_idx] *= 0
+                    self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
 
-            self.c.clamp_(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
+                #the scale parameter in hard thresholding means keep <scale> highest values
+                #   and zero the (1 - <scale>) remaining
+                elif self.hparams.outer.reg_hyperparam_type == "hard":
+                    k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
+                    smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
+                    under_idx = torch.abs(self.c) < smallest_kept_val
+                    self.c[under_idx] *= 0
 
-        #finally check to see if we want to keep the center
-        if self.hparams.problem.measurement_selection and self.hparams.outer.keep_center:
-            num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
-            center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
-                                (self.hparams.data.image_size + num_center_lines) // 2)
+                elif self.hparams.outer.reg_hyperparam_type != "l1":
+                    raise NotImplementedError("This meta regularizer has not been implemented yet!")
 
-            if self.hparams.problem.sample_pattern == 'random':
-                center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
-                self.c = self.c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-                self.c[center_line_idx] = 1.
-                self.c = self.c.flatten()
+                self.c.clamp_(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
 
-            elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                self.c[center_line_idx] = 1.
+            #finally check to see if we want to keep the center
+            if self.hparams.problem.measurement_selection and self.hparams.outer.keep_center:
+                num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+                center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
+                                    (self.hparams.data.image_size + num_center_lines) // 2)
 
-        self.c_list.append(self.c.detach().clone().cpu())
+                if self.hparams.problem.sample_pattern == 'random':
+                    center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
+                    self.c = self.c.view(self.hparams.data.image_size, self.hparams.data.image_size)
+                    self.c[center_line_idx] = 1.
+                    self.c = self.c.flatten()
+
+                elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
+                    self.c[center_line_idx] = 1.
+
+            self.c_list.append(self.c.detach().clone().cpu())
 
         if self.scheduler is not None and self.hparams.opt.decay:
             LR_OLD = self.opt.param_groups[0]['lr']
@@ -564,26 +578,38 @@ class GBML:
         (2) Get the HVP grad_x_c(recon_loss) * grad_x(meta_loss)
 
         Sets c.grad to True then False.
+        NOTE optimized for probabilistic c
         """
         #(1) Get gradients of Meta loss w.r.t. image and hyperparams
         grad_x_meta_loss = x_hat - x
 
-        grad_c_meta_loss = torch.sign(self.c) if self.hparams.outer.reg_hyperparam_type == 'l1' else torch.zeros_like(self.c)
-        grad_c_meta_loss *= self.hparams.outer.reg_hyperparam_scale
+        if self.prob_c:
+            grad_c_meta_loss = torch.zeros_like(self.c.weights)
 
-        #(2)
-        self.c.requires_grad_()
+            #(2)
+            resid = self.cur_mask_sample[None, None, :, :] * (self.A(x_hat) - y)
+            cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
 
-        c_shaped = self._shape_c(self.c)
+            out_grad = 0.0
+            out_grad -= hvp(self.c.weights, cond_log_grad, grad_x_meta_loss)
+            out_grad += grad_c_meta_loss
+        else:
+            grad_c_meta_loss = torch.sign(self.c) if self.hparams.outer.reg_hyperparam_type == 'l1' else torch.zeros_like(self.c)
+            grad_c_meta_loss *= self.hparams.outer.reg_hyperparam_scale
 
-        resid = c_shaped[None, None, :, :] * (self.A(x_hat) - y)
-        cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
+            #(2)
+            self.c.requires_grad_()
 
-        out_grad = 0.0
-        out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
-        out_grad += grad_c_meta_loss
+            c_shaped = self._shape_c(self.c)
 
-        self.c.requires_grad_(False)
+            resid = c_shaped[None, None, :, :] * (self.A(x_hat) - y)
+            cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
+
+            out_grad = 0.0
+            out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
+            out_grad += grad_c_meta_loss
+
+            self.c.requires_grad_(False)
 
         #Log the metrics for each gradient
         with torch.no_grad():
@@ -749,6 +775,7 @@ class GBML:
         self.scheduler = meta_scheduler
 
     def _checkpoint(self):
+        #NOTE not optimized for probabilistic c yet
         if not self.hparams.debug:
             save_dict = {
                 "c": self.c,
@@ -769,6 +796,7 @@ class GBML:
             save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
 
     def _resume(self):
+        #NOTE not optimized for probabilistic c yet
         self._print_if_verbose("RESUMING FROM CHECKPOINT")
 
         self.log_dir = os.path.join(self.hparams.save_dir, self.args.doc)
