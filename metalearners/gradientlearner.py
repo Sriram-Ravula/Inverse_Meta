@@ -281,6 +281,14 @@ class GBML:
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "val")
 
+            #draw a new sample for every validation image
+            if self.prob_c:
+                self.cur_mask_sample = self.c.sample_mask()
+                c_shaped = self.cur_mask_sample.detach().clone()
+            else:
+                c_shaped = self._shape_c(self.c)
+            self.recon_alg.set_c(c_shaped)
+
             #logging and saving
             if i == 0:
                 scan_idxs = item['scan_idx']
@@ -298,6 +306,14 @@ class GBML:
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
+
+            #draw a new sample for every test image
+            if self.prob_c:
+                self.cur_mask_sample = self.c.sample_mask()
+                c_shaped = self.cur_mask_sample.detach().clone()
+            else:
+                c_shaped = self._shape_c(self.c)
+            self.recon_alg.set_c(c_shaped)
 
             #logging and saving
             scan_idxs = item['scan_idx']
