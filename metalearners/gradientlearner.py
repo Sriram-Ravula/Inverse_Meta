@@ -29,6 +29,8 @@ from metalearners.probabilistic_mask import Probabilistic_Mask
 
 class GBML:
     def __init__(self, hparams, args):
+        #NOTE has been optimized for probabilistic mask
+
         self.hparams = hparams
         self.args = args
         self.device = self.hparams.device
@@ -49,9 +51,14 @@ class GBML:
         self.A = None #placeholder for forward operator - None since each sample has different coil map
 
         self.global_epoch = 0
-        self.c_list = [self.c.detach().clone().cpu()]
 
-        c_shaped = self._shape_c(self.c) #properly re-shape c before giving to algorithm
+        if self.prob_c:
+            self.c_list = [self.c.weights.detach().clone().cpu()]
+            self.cur_mask_sample = self.c.sample_mask() #draw a binary mask sample
+            c_shaped = self.cur_mask_sample.detach().clone()
+        else:
+            self.c_list = [self.c.detach().clone().cpu()]
+            c_shaped = self._shape_c(self.c) 
 
         if self.hparams.net.model == 'ncsnpp':
             self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
@@ -75,21 +82,40 @@ class GBML:
 
         #take a snap of the initialization
         if not self.hparams.debug and self.hparams.save_imgs:
-            c_shaped = torch.abs(self._shape_c(self.c))
-            c_shaped_binary = torch.zeros_like(c_shaped)
-            c_shaped_binary[c_shaped > 0] = 1
+            if self.prob_c:
+                c_shaped = self.c.get_prob_mask()
+                c_shaped_binary = self.cur_mask_sample.detach().clone()
+                c_shaped_max = self.c.get_max_mask()
 
-            c_path = os.path.join(self.image_root, "learned_masks")
+                c_path = os.path.join(self.image_root, "learned_masks")
+                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu(), c_shaped_max.unsqueeze(0).cpu()])
 
-            c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-            # self._add_tb_images(c_out, "Mask Initialization")
-            if not os.path.exists(c_path):
-                os.makedirs(c_path)
-            self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
+                if not os.path.exists(c_path):
+                    os.makedirs(c_path)
+                self._save_images(c_out, ["Prob_00", "Sample_00", "Max_00"], c_path)
 
-            #NOTE sparsity level is the proportion of zeros in the image
-            sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
-            self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
+                #NOTE sparsity level is the proportion of zeros in the image
+                sparsity_level = 1 - (c_shaped_binary.count_nonzero() / c_shaped_binary.numel())
+                self._print_if_verbose("INITIAL SPARSITY (SAMPLE MASK): " + str(sparsity_level.item()))
+
+                sparsity_level = 1 - (c_shaped_max.count_nonzero() / c_shaped_max.numel())
+                self._print_if_verbose("INITIAL SPARSITY (MAX MASK): " + str(sparsity_level.item()))
+            else:
+                c_shaped = torch.abs(self._shape_c(self.c))
+                c_shaped_binary = torch.zeros_like(c_shaped)
+                c_shaped_binary[c_shaped > 0] = 1
+
+                c_path = os.path.join(self.image_root, "learned_masks")
+
+                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
+                # self._add_tb_images(c_out, "Mask Initialization")
+                if not os.path.exists(c_path):
+                    os.makedirs(c_path)
+                self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
+
+                #NOTE sparsity level is the proportion of zeros in the image
+                sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
+                self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
 
     def test(self):
         """
@@ -97,6 +123,7 @@ class GBML:
         We want to save the metrics for each individual sample here!
         We also want to save images of every sample, reconstruction, measurement, recon_meas,
             and the c.
+        NOTE NOT optimized for probabilistic mask yet
         """
         R = self.args.R
         keep_center = self.args.keep_center
@@ -171,6 +198,7 @@ class GBML:
         return
 
     def run_meta_opt(self):
+        #NOTE doesn't need optimization for probabilistic mask
         for iter in tqdm(range(self.hparams.opt.num_iters)):
             #checkpoint
             if iter % self.hparams.opt.checkpoint_iters == 0:
@@ -196,6 +224,7 @@ class GBML:
     def _run_outer_step(self):
         """
         Runs one epoch of meta learning training.
+        NOTE has been optimized for probabilistic C
         """
         self._print_if_verbose("\nTRAINING\n")
 
@@ -221,8 +250,11 @@ class GBML:
                 meta_grad /= n_samples
                 self._opt_step(meta_grad)
 
-                #put in the proper shape before giving to DDRM (ensures proper singular vals)
-                c_shaped = self._shape_c(self.c)
+                if self.prob_c:
+                    self.cur_mask_sample = self.c.sample_mask()
+                    c_shaped = self.cur_mask_sample.detach().clone()
+                else:
+                    c_shaped = self._shape_c(self.c)
                 self.recon_alg.set_c(c_shaped)
 
                 meta_grad = 0.0
@@ -242,6 +274,7 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
 
     def _run_validation(self):
+        #NOTE doesn't need optimization for probabilistic mask
         self._print_if_verbose("\nVALIDATING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
@@ -259,6 +292,7 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "val"), "\n")
 
     def _run_test(self):
+        #NOTE doesn't need optimization for probabilistic mask
         self._print_if_verbose("\nTESTING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
@@ -275,6 +309,7 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
 
     def _shared_step(self, item):
+        #NOTE doesn't need optimization for probabilistic mask
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
@@ -293,14 +328,9 @@ class GBML:
         x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
         x_hat /= x_hat_scale[:, None, None, None]
 
-        #NOTE new addition - test out
         #Do a fully-sampled forward-->adjoint on the output 
         x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
         x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
-
-        #Y (k-space meas) is acting weirdly - comes in as 2-channel complex float
-        #each channel has all real entries
-        #But after Langevin, contains actual complex dtype with a single channel with (Re, Im)
 
         print("Image shape: ", x.shape)
         print("Image type: ", x.dtype)
@@ -324,36 +354,59 @@ class GBML:
     def _add_batch_metrics(self, x_hat, x, y, iter_type):
         """
         Adds metrics for a single batch to the metrics object.
+        NOTE optimized for probabilistic C
         """
         resid = self.A(x_hat) - y
 
         real_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE
-
-        c_shaped = self._shape_c(self.c)
-        resid = c_shaped[None, None, :, :] * resid
-
-        weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
                                                       
-        #TODO change this to a manual meta loss computation that includes spare loss even for soft and hard!
-        all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
-                                    meta_loss_type=self.hparams.outer.meta_loss_type,
-                                    reg_hyperparam=self.hparams.outer.reg_hyperparam,
-                                    reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
-                                    reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
+        if self.prob_c:
+            c_shaped = self.cur_mask_sample.detach().clone()
+            resid = c_shaped[None, None, :, :] * resid
+            weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
+
+            all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), c_shaped,
+                                        meta_loss_type=self.hparams.outer.meta_loss_type,
+                                        reg_hyperparam=False,
+                                        reg_hyperparam_type=None,
+                                        reg_hyperparam_scale=0)
+        else:
+            c_shaped = self._shape_c(self.c)
+            resid = c_shaped[None, None, :, :] * resid
+
+            weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
+
+            all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
+                                        meta_loss_type=self.hparams.outer.meta_loss_type,
+                                        reg_hyperparam=self.hparams.outer.reg_hyperparam,
+                                        reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
+                                        reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
 
         extra_metrics_dict = {"real_meas_loss": real_meas_loss.cpu().numpy().flatten(),
-                              "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
-                              "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
-                              "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
-                              "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
+                            "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
+                            "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
+                            "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
+                            "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
+        
+        if self.prob_c:
+            prob_mask = self.c.get_prob_mask()
+            extra_metrics_dict["mean_prob"] = np.array([torch.mean(prob_mask).item()] * x.shape[0])
 
-        if self.hparams.outer.reg_hyperparam:
-            sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
-            extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) #ugly artifact
-            extra_metrics_dict["c_min"] = np.array([torch.min(self.c).item()] * x.shape[0])
-            extra_metrics_dict["c_max"] = np.array([torch.max(self.c).item()] * x.shape[0])
-            extra_metrics_dict["c_mean"] = np.array([torch.mean(self.c).item()] * x.shape[0])
-            extra_metrics_dict["c_std"] = np.array([torch.std(self.c).item()] * x.shape[0])
+            max_mask = self.c.get_max_mask()
+            sparsity_level_max = 1 - (max_mask.count_nonzero() / max_mask.numel())
+            extra_metrics_dict["sparsity_level_max"] = np.array([sparsity_level_max.item()] * x.shape[0]) #ugly artifact
+
+            cur_mask = self.cur_mask_sample.detach().clone()
+            sparsity_level_sample = 1 - (cur_mask.count_nonzero() / cur_mask.numel())
+            extra_metrics_dict["sparsity_level_sample"] = np.array([sparsity_level_sample.item()] * x.shape[0]) #ugly artifact
+        else:
+            if self.hparams.outer.reg_hyperparam:
+                sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
+                extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) #ugly artifact
+                extra_metrics_dict["c_min"] = np.array([torch.min(self.c).item()] * x.shape[0])
+                extra_metrics_dict["c_max"] = np.array([torch.max(self.c).item()] * x.shape[0])
+                extra_metrics_dict["c_mean"] = np.array([torch.mean(self.c).item()] * x.shape[0])
+                extra_metrics_dict["c_std"] = np.array([torch.std(self.c).item()] * x.shape[0])
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
@@ -362,6 +415,7 @@ class GBML:
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
         """
         Given true, measurement, and recovered images, save to tensorboard and png.
+        #NOTE optimized for probabilistic C
         """
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
@@ -370,18 +424,32 @@ class GBML:
 
         #(1) Save samping masks
         if iter_type == "train":
-            c_shaped = torch.abs(self._shape_c(self.c))
-            c_shaped_binary = torch.zeros_like(c_shaped)
-            c_shaped_binary[c_shaped > 0] = 1
+            if self.prob_c:
+                c_shaped = self.c.get_prob_mask()
+                c_shaped_binary = self.cur_mask_sample.detach().clone()
+                c_shaped_max = self.c.get_max_mask()
 
-            c_path = os.path.join(self.image_root, "learned_masks")
+                c_path = os.path.join(self.image_root, "learned_masks")
+                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu(), c_shaped_max.unsqueeze(0).cpu()])
 
-            c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-            # self._add_tb_images(c_out, "Learned Mask")
-            if not os.path.exists(c_path):
-                os.makedirs(c_path)
-            self._save_images(c_out, ["Actual_" + str(self.global_epoch),
-                                      "Binary_" + str(self.global_epoch)], c_path)
+                if not os.path.exists(c_path):
+                    os.makedirs(c_path)
+                self._save_images(c_out, ["Prob_" + str(self.global_epoch), 
+                                          "Sample_" + str(self.global_epoch), 
+                                          "Max_" + str(self.global_epoch)], c_path)
+            else:
+                c_shaped = torch.abs(self._shape_c(self.c))
+                c_shaped_binary = torch.zeros_like(c_shaped)
+                c_shaped_binary[c_shaped > 0] = 1
+
+                c_path = os.path.join(self.image_root, "learned_masks")
+
+                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
+                # self._add_tb_images(c_out, "Learned Mask")
+                if not os.path.exists(c_path):
+                    os.makedirs(c_path)
+                self._save_images(c_out, ["Actual_" + str(self.global_epoch),
+                                        "Binary_" + str(self.global_epoch)], c_path)
 
         #(2) Save reconstructions at every iteration
         meas_recovered_path = os.path.join(self.image_root, iter_type + "_recon_meas", "epoch_"+str(self.global_epoch))

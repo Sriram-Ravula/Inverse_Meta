@@ -53,6 +53,7 @@ class Probabilistic_Mask:
         #Pick a distribution we like for the probabilistic mask, then 
         #   take the logits of the entries
         self.weights = torch.special.logit(torch.rand(self.m), eps=1e-3).to(self.device)
+        self.weights.requires_grad_()
 
         return
     
