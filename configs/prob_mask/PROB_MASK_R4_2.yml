@@ -30,9 +30,9 @@ data:
 
  centered: True
 
- num_train: 1
- num_val:   1
- num_test:  1
+ num_train: 100
+ num_val:   10
+ num_test:  40
 
  train_batch_size: 1
  val_batch_size:   1
@@ -48,13 +48,13 @@ outer:
  R: 4
 
 opt:
-  num_iters: 100 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 1. #meta learning rate
+  lr: 0.001 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 101 #validate every n iterations
+  val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations

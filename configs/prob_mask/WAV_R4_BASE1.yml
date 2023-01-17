@@ -30,8 +30,8 @@ data:
 
  centered: True
 
- num_train: 100
- num_val:   10
+ num_train: 1
+ num_val:   1
  num_test:  1
 
  train_batch_size: 1
