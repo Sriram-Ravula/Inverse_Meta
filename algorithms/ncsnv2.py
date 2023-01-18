@@ -85,7 +85,7 @@ class NCSNv2(torch.nn.Module):
                 if c <= self.hparams.net.start_iter:
                     continue
                 elif c <= 1800:
-                    n_steps_each = 3
+                    n_steps_each = max(self.langevin_config.sampling.n_steps_each-1, 1)
                 else:
                     n_steps_each = self.langevin_config.sampling.n_steps_each
                 
