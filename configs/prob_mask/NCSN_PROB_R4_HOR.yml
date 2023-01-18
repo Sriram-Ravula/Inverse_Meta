@@ -4,7 +4,7 @@ gpu_num: 0 #-1 means use all (DP mode)
 verbose: true
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "/home/sravula/inverse_meta_outputs" #root of folder to save run information
+save_dir: "/home/sravula/meta_outs_new" #root of folder to save run information
 
 seed: 2023
 
@@ -13,7 +13,7 @@ net:
  checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
  config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
  start_iter: 1155
- mse: 1.0
+ mse: 2.0
 
 data:
  dataset: 'Brain-Multicoil'
@@ -37,8 +37,8 @@ data:
  num_val:   10
  num_test:  40
 
- train_batch_size: 5
- val_batch_size:   5
+ train_batch_size: 10
+ val_batch_size:   10
  test_batch_size:  10
 
  image_size: 384
@@ -47,17 +47,13 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: "smart" #[float, "smart", "random"]
- keep_center: true
-
- reg_hyperparam: true
- reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
+ sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
+ R: 4
 
 opt:
-  num_iters: 1 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.005 #meta learning rate
+  lr: 1. #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
@@ -65,14 +61,3 @@ opt:
 
   val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
-
-problem:
- measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
- measurement_selection: true
- measurement_weighting: false
-
- #This stuff is for ddrm
- R: 4
- orientation: random
- pattern: random

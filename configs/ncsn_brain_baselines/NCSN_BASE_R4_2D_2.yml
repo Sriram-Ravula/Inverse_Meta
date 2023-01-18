@@ -39,7 +39,7 @@ data:
 
  train_batch_size: 5
  val_batch_size:   5
- test_batch_size:  20
+ test_batch_size:  10
 
  image_size: 384
  num_channels: 2

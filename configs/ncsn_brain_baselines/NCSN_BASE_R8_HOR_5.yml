@@ -13,7 +13,7 @@ net:
  checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
  config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
  start_iter: 1155
- mse: 1.0
+ mse: 5.
 
 data:
  dataset: 'Brain-Multicoil'
@@ -39,7 +39,7 @@ data:
 
  train_batch_size: 5
  val_batch_size:   5
- test_batch_size:  10
+ test_batch_size:  20
 
  image_size: 384
  num_channels: 2
@@ -68,11 +68,11 @@ opt:
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'horizontal' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 
  #This stuff is for ddrm
- R: 4
+ R: 22
  orientation: random
  pattern: random
