@@ -53,8 +53,10 @@ class GBML:
         self.global_epoch = 0
 
         if self.prob_c:
+            tau = getattr(config.outer, 'tau', 0.5)
+            self._print_if_verbose("TAU = ", tau)
             self.c_list = [self.c.weights.detach().clone().cpu()]
-            self.cur_mask_sample = self.c.sample_mask() #draw a binary mask sample
+            self.cur_mask_sample = self.c.sample_mask(tau) #draw a binary mask sample
             c_shaped = self.cur_mask_sample.detach().clone()
         else:
             self.c_list = [self.c.detach().clone().cpu()]
@@ -251,7 +253,8 @@ class GBML:
                 self._opt_step(meta_grad)
 
                 if self.prob_c:
-                    self.cur_mask_sample = self.c.sample_mask()
+                    tau = getattr(config.outer, 'tau', 0.5)
+                    self.cur_mask_sample = self.c.sample_mask(tau)
                     c_shaped = self.cur_mask_sample.detach().clone()
                 else:
                     c_shaped = self._shape_c(self.c)
@@ -283,7 +286,8 @@ class GBML:
 
             #draw a new sample for every validation image
             if self.prob_c:
-                self.cur_mask_sample = self.c.sample_mask()
+                tau = getattr(config.outer, 'tau', 0.5)
+                self.cur_mask_sample = self.c.sample_mask(tau)
                 c_shaped = self.cur_mask_sample.detach().clone()
             else:
                 c_shaped = self._shape_c(self.c)
@@ -309,7 +313,8 @@ class GBML:
 
             #draw a new sample for every test image
             if self.prob_c:
-                self.cur_mask_sample = self.c.sample_mask()
+                tau = getattr(config.outer, 'tau', 0.5)
+                self.cur_mask_sample = self.c.sample_mask(tau)
                 c_shaped = self.cur_mask_sample.detach().clone()
             else:
                 c_shaped = self._shape_c(self.c)
