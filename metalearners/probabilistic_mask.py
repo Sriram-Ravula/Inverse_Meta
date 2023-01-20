@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class Probabilistic_Mask:
-    def __init__(self, hparams, device, acs_ratio=(1/12)):
+    def __init__(self, hparams, device, num_acs_lines=20):
         super().__init__()
 
         #Expects all info to be in hparams.outer
@@ -13,7 +13,7 @@ class Probabilistic_Mask:
         self.hparams = hparams
         self.device = device
 
-        self.acs_ratio = acs_ratio #number of lines to keep for 1D, side length ratio of central square for 2D
+        self.num_acs_lines = num_acs_lines #number of lines to keep for 1D, side length ratio of central square for 2D
 
         self._init_mask()
 
@@ -25,26 +25,25 @@ class Probabilistic_Mask:
         R = self.hparams.outer.R
 
         #(1) set the number and location of acs lines
-        num_acs_lines = int(n * self.acs_ratio)
-        acs_idx = np.arange((n - num_acs_lines) // 2, (n + num_acs_lines) // 2)
+        acs_idx = np.arange((n - self.num_acs_lines) // 2, (n + self.num_acs_lines) // 2)
 
         #(2) set the number of learnable parameters and adjust sparsity for acs
         if self.hparams.outer.sample_pattern in ['horizontal', 'vertical']:
             #location in an n-sized array to insert our m-sized parameters
             self.insert_mask_idx = np.array([i for i in range(n) if i not in acs_idx])
 
-            self.m = n - num_acs_lines
+            self.m = n - self.num_acs_lines
 
-            self.sparsity_level = (n/R - num_acs_lines) / self.m
+            self.sparsity_level = (n/R - self.num_acs_lines) / self.m
 
         elif self.hparams.outer.sample_pattern == '2D':
             flat_n_inds = np.arange(n**2).reshape(n,n)
             acs_idx = flat_n_inds[acs_idx[:, None], acs_idx].flatten() #fancy indexing grabs a square from center
             self.insert_mask_idx = np.array([i for i in range(n**2) if i not in acs_idx])
 
-            self.m = n**2 - num_acs_lines**2
+            self.m = n**2 - self.num_acs_lines**2
 
-            self.sparsity_level = ((n**2)/R - num_acs_lines**2) / self.m
+            self.sparsity_level = ((n**2)/R - self.num_acs_lines**2) / self.m
 
         else:
             raise NotImplementedError("Fourier sampling pattern not supported!")

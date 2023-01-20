@@ -140,7 +140,8 @@ class GBML:
             under_idx = torch.abs(c) < smallest_kept_val
             c[under_idx] = 0.
         if keep_center:
-            num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+            num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
+            # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
             center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
                                 (self.hparams.data.image_size + num_center_lines) // 2)
 
@@ -169,8 +170,6 @@ class GBML:
             c_path = os.path.join(self.image_root, "learned_masks")
 
             c_out = c_shaped.unsqueeze(0).unsqueeze(0).cpu()
-            # c_out = 1 - c_out
-            # self._add_tb_images(c_out, "Test Mask R="+str(R)+", keep_center="+str(keep_center))
             if not os.path.exists(c_path):
                 os.makedirs(c_path)
             self._save_images(c_out, ["TEST_R"+str(R)+"_CENTER-"+str(keep_center)], c_path)
@@ -570,7 +569,8 @@ class GBML:
 
             #finally check to see if we want to keep the center
             if self.hparams.problem.measurement_selection and self.hparams.outer.keep_center:
-                num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+                num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
+                # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
                 center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
                                     (self.hparams.data.image_size + num_center_lines) // 2)
 
@@ -688,7 +688,9 @@ class GBML:
         NOTE has been updated to work with probabilistic mask
         """
         if self.prob_c:
-            self.c = Probabilistic_Mask(self.hparams, self.device)
+            num_acs_lines = getattr(self.hparams.outer, 'num_acs_lines', 20)
+            self._print_if_verbose("NUMBER OF ACS LINES = ", num_acs_lines)
+            self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
             return
 
         problem_check = sum([self.hparams.problem.measurement_weighting,
@@ -732,11 +734,15 @@ class GBML:
                     c = c.flatten()
 
                 elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                    num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+                    num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
+                    # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
                     center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
                                         (self.hparams.data.image_size + num_center_lines) // 2)
                     outer_line_idx = np.setdiff1d(np.arange(self.hparams.data.image_size), center_line_idx)
-                    random_line_idx = outer_line_idx[::int(self.hparams.problem.R)]
+
+                    #account for the center lines when sampling the rest of the equispaced to match proper R
+                    outer_R = np.round((m - num_center_lines) / (m/self.hparams.problem.R - num_center_lines))
+                    random_line_idx = outer_line_idx[::int(outer_R)]
                     c = torch.zeros(self.hparams.data.image_size)
                     c[center_line_idx] = 1.
                     c[random_line_idx] = 1.
@@ -747,7 +753,9 @@ class GBML:
 
             #finally check to see if we want to keep the center
             if self.hparams.outer.keep_center:
-                num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
+                num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
+                self._print_if_verbose("NUMBER OF ACS LINES = ", num_center_lines)
+                # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
                 center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
                                     (self.hparams.data.image_size + num_center_lines) // 2)
 
