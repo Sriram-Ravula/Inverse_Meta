@@ -10,7 +10,7 @@ seed: 2023
 
 net:
  model: 'l1'
- reg_param: 0.0
+ reg_param: 0.005
 
 data:
  dataset: 'Brain-Multicoil'
@@ -65,7 +65,7 @@ opt:
 
 problem:
  measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'vertical' #the type of pattern to sample [horizontal, vertical, random]
+ sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
  measurement_selection: true
  measurement_weighting: false
 
