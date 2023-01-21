@@ -1,4 +1,3 @@
-from scipy.ndimage.interpolation import rotate,zoom
 from torch.utils.data import Dataset, DataLoader
 import glob
 import os
