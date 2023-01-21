@@ -45,14 +45,14 @@ outer:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: 'vertical' #the type of pattern to sample [horizontal, vertical, random]
- R: 4
+ R: 8
  tau: 0.5
  num_acs_lines: 20
 
 opt:
-  num_iters: 20 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.01 #meta learning rate
+  lr: 0.1 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false

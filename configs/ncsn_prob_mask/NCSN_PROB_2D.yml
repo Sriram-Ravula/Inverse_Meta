@@ -1,4 +1,4 @@
-use_gpu: false
+use_gpu: true
 gpu_num: 0 #-1 means use all (DP mode)
 
 verbose: true
@@ -9,8 +9,11 @@ save_dir: "/home/sravula/inverse_meta_outputs" #root of folder to save run infor
 seed: 2023
 
 net:
- model: 'l1'
- reg_param: 0.005
+ model: 'ncsnv2'
+ checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
+ config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
+ start_iter: 1155
+ mse: 2.0
 
 data:
  dataset: 'Brain-Multicoil'
