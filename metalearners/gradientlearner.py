@@ -727,7 +727,7 @@ class GBML:
                 if self.hparams.problem.sample_pattern == 'random':
                     c = sigpy.mri.poisson(img_shape=(self.hparams.data.image_size, self.hparams.data.image_size),
                                           accel=self.hparams.problem.R,
-                                          seed=self.hparams.seed)
+                                          seed=self.hparams.seed-1) #NOTE function errors with seg fault for seed 2023. Using -1 to fix
                     c = torch.tensor(c)
                     c = torch.view_as_real(c)[:,:,0]
                     c = c.flatten()
