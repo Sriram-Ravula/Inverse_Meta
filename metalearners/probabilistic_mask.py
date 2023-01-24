@@ -51,7 +51,14 @@ class Probabilistic_Mask:
         #(3) initialize the weights - logits of a bernouli distribution
         #Pick a distribution we like for the probabilistic mask, then 
         #   take the logits of the entries
-        self.weights = torch.special.logit(torch.rand(self.m), eps=1e-3).to(self.device)
+        init_method = getattr(self.hparams.outer, 'mask_init', "random")
+        
+        if init_method == "uniform":
+            probs = torch.ones(self.m) * 0.5
+        else:
+            probs = torch.rand(self.m)
+
+        self.weights = torch.special.logit(probs, eps=1e-3).to(self.device)
         self.weights.requires_grad_()
 
         return
