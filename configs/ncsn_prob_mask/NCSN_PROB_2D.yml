@@ -13,7 +13,7 @@ net:
  checkpoint_dir: "/home/sravula/meta_exp/ncsnv2-mri-mvue/logs/mri-mvue/checkpoint_100000.pth"
  config_dir: "/home/sravula/Inverse_Meta/configs/ncsnv2_T2brain.yml"
  start_iter: 1155
- mse: 2.0
+ mse: 5.0
 
 data:
  dataset: 'Brain-Multicoil'
@@ -48,14 +48,15 @@ outer:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: '2D' #the type of pattern to sample [horizontal, vertical, random]
- R: 8
- tau: 0.5
+ R: 4
+ tau: 0.1
  num_acs_lines: 20
+ mask_init: "uniform"
 
 opt:
   num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.1 #meta learning rate
+  lr: 0.05 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
