@@ -48,8 +48,8 @@ outer:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: '2D' #the type of pattern to sample [horizontal, vertical, random]
- R: 4
- tau: 0.1
+ R: 8
+ tau: 0.5
  num_acs_lines: 20
  mask_init: "uniform"
 
