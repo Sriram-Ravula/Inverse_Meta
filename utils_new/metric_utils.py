@@ -44,7 +44,7 @@ def get_psnr(x_hat, x):
     return np.array(psnr_vals)
 
 @torch.no_grad()
-def get_all_metrics(x_hat, x):
+def get_all_metrics(x_hat, x, ROI=None):
     """
     function for getting all image reference metrics and returning in a dict
     """
@@ -57,6 +57,14 @@ def get_all_metrics(x_hat, x):
     #metrics['lpips'] = get_lpips(x_hat_vis, x_vis)
     metrics['ssim'] = get_ssim(x_hat, x)
     metrics['psnr'] = get_psnr(x_hat, x)
+
+    if ROI is not None:
+        H0, H1 = ROI[0]
+        W0, W1 = ROI[1]
+        x_hat_ROI = x_hat[..., H0:H1, W0:W1]
+        x_ROI = x[..., H0:H1, W0:W1]
+        metrics['ssim_ROI'] = get_ssim(x_hat_ROI, x_ROI)
+        metrics['psnr_ROI'] = get_psnr(x_hat_ROI, x_ROI)
 
     return metrics
 
@@ -174,7 +182,7 @@ class Metrics:
 
         return out_dict
 
-    def calc_iter_metrics(self, x_hat, x, iter_num, iter_type='train'):
+    def calc_iter_metrics(self, x_hat, x, iter_num, iter_type='train', ROI=None):
         """
         Function for calculating and adding metrics from one iteration to the master.
 
@@ -192,7 +200,7 @@ class Metrics:
         else:
             x_hat_ = x_hat.clone()
             x_ = x.clone()
-        iter_metrics = get_all_metrics(x_hat_, x_) #calc the metrics
+        iter_metrics = get_all_metrics(x_hat_, x_, ROI) #calc the metrics
 
         self.__init_iter_dict(cur_dict, iter_num) #check that the iter dict is initialized
 

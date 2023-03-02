@@ -43,6 +43,9 @@ class GBML:
         if self.prob_c:
             self._print_if_verbose("USING PROBABILISTIC MASK!")
 
+        #check if we have an ROI
+        self.ROI = getattr(self.hparams.outer, 'ROI', None) #this should be [(H_start, H_end), (W_start, W_end)]
+
         #running parameters
         self._init_c()
         self._init_meta_optimizer()
@@ -83,6 +86,19 @@ class GBML:
 
         #take a snap of the initialization
         if not self.hparams.debug and self.hparams.save_imgs:
+            if self.ROI is not None:
+                H0, H1 = self.ROI[0]
+                W0, W1 = self.ROI[1]
+
+                ROI_IMG = torch.zeros(1, 1, self.hparams.data.image_size, self.hparams.data.image_size)
+                ROI_IMG[..., H0:H1, W0:W1] = 1.0
+
+                ROI_path = os.path.join(self.image_root, "learned_masks")
+
+                if not os.path.exists(ROI_path):
+                    os.makedirs(ROI_path)
+                self._save_images(ROI_IMG, ["ROI"], ROI_path)
+
             if self.prob_c:
                 c_shaped = self.c.get_prob_mask()
                 c_shaped_binary = self.cur_mask_sample.detach().clone()
@@ -428,7 +444,7 @@ class GBML:
                 extra_metrics_dict["c_std"] = np.array([torch.std(self.c).item()] * x.shape[0])
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
-        self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
+        self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type, self.ROI)
 
     @torch.no_grad()
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
@@ -481,6 +497,15 @@ class GBML:
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
 
+        if self.ROI is not None:
+            H0, H1 = self.ROI[0]
+            W0, W1 = self.ROI[1]
+
+            x_hat_ROI = x_hat_vis[..., H0:H1, W0:W1]
+            x_idx_ROI = [s + "_ROI" for s in x_idx]
+
+            self._save_images(x_hat_ROI, x_idx_ROI, recovered_path)
+
         fake_maps = torch.ones_like(x)[:,0,:,:].unsqueeze(1) #[N, 1, H, W]
         recon_meas = MulticoilForwardMRINoMask(fake_maps)(x_hat)
         recon_meas = torch.abs(recon_meas)
@@ -501,6 +526,15 @@ class GBML:
             if not os.path.exists(true_path):
                 os.makedirs(true_path)
             self._save_images(x_vis, x_idx, true_path)
+
+            if self.ROI is not None:
+                H0, H1 = self.ROI[0]
+                W0, W1 = self.ROI[1]
+
+                x_ROI = x_vis[..., H0:H1, W0:W1]
+                x_idx_ROI = [s + "_ROI" for s in x_idx]
+
+                self._save_images(x_ROI, x_idx_ROI, true_path)
 
             gt_meas = MulticoilForwardMRINoMask(fake_maps)(x)
             gt_meas = torch.abs(gt_meas)
@@ -602,6 +636,11 @@ class GBML:
         """
         #(1) Get gradients of Meta loss w.r.t. image and hyperparams
         grad_x_meta_loss = x_hat - x
+
+        if self.ROI is not None:
+            H0, H1 = self.ROI[0]
+            W0, W1 = self.ROI[1]
+            grad_x_meta_loss = grad_x_meta_loss[..., H0:H1, W0:W1]
 
         if self.prob_c:
             grad_c_meta_loss = torch.zeros_like(self.c.weights)
