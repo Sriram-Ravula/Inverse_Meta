@@ -9,8 +9,7 @@ save_dir: "/home/sravula/inverse_meta_outputs" #root of folder to save run infor
 seed: 2023
 
 net:
- model: 'l1'
- reg_param: 0.005
+ model: 'mvue'
 
 data:
  dataset: 'Brain-Multicoil'

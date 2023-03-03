@@ -45,6 +45,10 @@ class GBML:
 
         #check if we have an ROI
         self.ROI = getattr(self.hparams.outer, 'ROI', None) #this should be [(H_start, H_end), (W_start, W_end)]
+        if self.ROI is not None:
+            H0, H1 = self.ROI[0]
+            W0, W1 = self.ROI[1]
+            self._print_if_verbose("ROI: Height: (%d, %d), Width: (%d, %d)" % (H0, H1, W0, W1))
 
         #running parameters
         self._init_c()
@@ -640,7 +644,11 @@ class GBML:
         if self.ROI is not None:
             H0, H1 = self.ROI[0]
             W0, W1 = self.ROI[1]
-            grad_x_meta_loss = grad_x_meta_loss[..., H0:H1, W0:W1]
+
+            mask = torch.zeros_like(grad_x_meta_loss)
+            mask[..., H0:H1, W0:W1] = 1.0
+
+            grad_x_meta_loss = grad_x_meta_loss * mask
 
         if self.prob_c:
             grad_c_meta_loss = torch.zeros_like(self.c.weights)

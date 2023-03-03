@@ -9,8 +9,7 @@ save_dir: "/home/sravula/inverse_meta_outputs" #root of folder to save run infor
 seed: 2023
 
 net:
- model: 'l1'
- reg_param: 0.005
+ model: 'mvue'
 
 data:
  dataset: 'Brain-Multicoil'
@@ -44,35 +43,20 @@ data:
 outer:
  meta_loss_type: 'l2' #["l2"]
 
- hyperparam_init: "smart" #[float, "smart", "random"]
- keep_center: true
-
- reg_hyperparam: true
- reg_hyperparam_type: 'l1' #[l1, soft (i.e. ISTA), hard (i.e. hard thresholding)]
- reg_hyperparam_scale: 0.1 #[l1: float (i.e. reg hyperparm in meta loss), soft: float (i.e. ISTA threshold param), hard: float (i.e. sparsity level)]
-
- ROI: [[110, 275], [135, 245]]
+ sample_pattern: '2D' #the type of pattern to sample [horizontal, vertical, random]
+ R: 8
+ tau: 0.5
+ num_acs_lines: 20
+ mask_init: "uniform"
 
 opt:
-  num_iters: 1 #number of meta iterations to run
+  num_iters: 100 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.005 #meta learning rate
+  lr: 0.05 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 1 #validate every n iterations
+  val_iters: 100 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
-
-problem:
- measurement_type: 'fourier-multicoil' #["fourier-multicoil"]
- sample_pattern: 'random' #the type of pattern to sample [horizontal, vertical, random]
- measurement_selection: true
- measurement_weighting: false
-
- #This stuff is for ddrm
- R: 8
- num_acs_lines: 20
- orientation: random
- pattern: random
