@@ -46,7 +46,7 @@ outer:
 
  sample_pattern: '2D' #the type of pattern to sample [horizontal, vertical, random]
  R: 8
- tau: 0.5
+ tau: 0.1
  num_acs_lines: 20
  mask_init: "uniform"
 
@@ -55,7 +55,7 @@ outer:
 opt:
   num_iters: 100 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.05 #meta learning rate
+  lr: 0.1 #meta learning rate
   batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
