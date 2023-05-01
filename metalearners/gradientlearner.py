@@ -136,72 +136,37 @@ class GBML:
 
     def test(self):
         """
-        Run through the test set with a given acceleration and center value.
+        Run through the test set.
         We want to save the metrics for each individual sample here!
         We also want to save images of every sample, reconstruction, measurement, recon_meas,
             and the c.
-        NOTE NOT optimized for probabilistic mask yet
         """
-        R = self.args.R
-        keep_center = self.args.keep_center
+        self._print_if_verbose("TESTING")
 
-        self._print_if_verbose("TESTING R="+str(R)+", KEEP CENTER="+str(keep_center))
-
-        #make c the right acceleration and sample center if needed
-        c = self.c.detach().clone()
-        if R > 1:
-            k = int(c.numel() * (1. - 1. / R))
-            smallest_kept_val = torch.kthvalue(torch.abs(c), k)[0]
-            under_idx = torch.abs(c) < smallest_kept_val
-            c[under_idx] = 0.
-        if keep_center:
-            num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
-            # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
-            center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
-                                (self.hparams.data.image_size + num_center_lines) // 2)
-
-            if self.hparams.problem.sample_pattern == 'random':
-                center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
-                c = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-                c[center_line_idx] = 1.
-                c = c.flatten()
-
-            elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                c[center_line_idx] = 1.
-
-        c[c > 0] = 1. #binarize the learned mask
-        self.c = c.to(self.device)
-
-        c_shaped = self._shape_c(self.c)
+        if self.prob_c:
+            tau = getattr(self.hparams.mask, 'tau', 0.5)
+            self.cur_mask_sample = self.c.sample_mask(tau)
+            c_shaped = self.cur_mask_sample.detach().clone()
+        else:
+            c_shaped = self.c.sample_mask()
         self.recon_alg.set_c(c_shaped)
 
-        #for logging and metrics purposes; avoids collisions with existing test
-        self.global_epoch = self.hparams.opt.num_iters + R 
-        if keep_center:
-            self.global_epoch += 1
-
-        #take a snap of the initialization
-        if not self.hparams.debug and self.hparams.save_imgs:
-            c_path = os.path.join(self.image_root, "learned_masks")
-
-            c_out = c_shaped.unsqueeze(0).unsqueeze(0).cpu()
-            if not os.path.exists(c_path):
-                os.makedirs(c_path)
-            self._save_images(c_out, ["TEST_R"+str(R)+"_CENTER-"+str(keep_center)], c_path)
-
-            #NOTE sparsity level is the proportion of zeros in the image
-            sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
-            self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
-
-        #Test
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
+
+            #draw a new sample for every test image
+            if self.prob_c:
+                tau = getattr(self.hparams.mask, 'tau', 0.5)
+                self.cur_mask_sample = self.c.sample_mask(tau)
+                c_shaped = self.cur_mask_sample.detach().clone()
+                self.recon_alg.set_c(c_shaped)
+
             #logging and saving
             scan_idxs = item['scan_idx']
             slice_idxs = item['slice_idx']
             x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-            self._save_all_images(x_hat, x, y, x_idx, "test_R"+str(R)+"_CENTER-"+str(keep_center))
+            self._save_all_images(x_hat, x, y, x_idx, "test")
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._add_metrics_to_tb("test")
@@ -209,7 +174,7 @@ class GBML:
 
         #grab the raw metrics dictionary and save it
         test_metrics = self.metrics.test_metrics['iter_'+str(self.global_epoch)]
-        save_to_pickle(test_metrics, os.path.join(self.log_dir, "test_R"+str(R)+"_CENTER-"+str(keep_center)+".pkl"))
+        save_to_pickle(test_metrics, os.path.join(self.log_dir, "test_"+str(self.global_epoch)".pkl"))
 
         return
 
@@ -246,6 +211,12 @@ class GBML:
             num_batches = len(self.train_loader)
         elif num_batches == 0:
             return
+
+        #Set the mask once before starting
+        tau = getattr(self.hparams.mask, 'tau', 0.5)
+        self.cur_mask_sample = self.c.sample_mask(tau)
+        c_shaped = self.cur_mask_sample.detach().clone()
+        self.recon_alg.set_c(c_shaped)
 
         for i, (item, x_idx) in tqdm(enumerate(self.train_loader)):
             x_hat, x, y = self._shared_step(item)
@@ -285,6 +256,12 @@ class GBML:
     def _run_validation(self):
         self._print_if_verbose("\nVALIDATING\n")
 
+        #make sure we have a mask before starting
+        tau = getattr(self.hparams.mask, 'tau', 0.5)
+        self.cur_mask_sample = self.c.sample_mask(tau)
+        c_shaped = self.cur_mask_sample.detach().clone()
+        self.recon_alg.set_c(c_shaped)
+
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "val")
@@ -293,7 +270,6 @@ class GBML:
             tau = getattr(self.hparams.mask, 'tau', 0.5)
             self.cur_mask_sample = self.c.sample_mask(tau)
             c_shaped = self.cur_mask_sample.detach().clone()
-
             self.recon_alg.set_c(c_shaped)
 
             #logging and saving
@@ -309,6 +285,12 @@ class GBML:
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
 
+        #Make sure we have a mask ebfore starting
+        tau = getattr(self.hparams.mask, 'tau', 0.5)
+        self.cur_mask_sample = self.c.sample_mask(tau)
+        c_shaped = self.cur_mask_sample.detach().clone()
+        self.recon_alg.set_c(c_shaped)
+
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
@@ -317,7 +299,6 @@ class GBML:
             tau = getattr(self.hparams.mask, 'tau', 0.5)
             self.cur_mask_sample = self.c.sample_mask(tau)
             c_shaped = self.cur_mask_sample.detach().clone()
-
             self.recon_alg.set_c(c_shaped)
 
             #logging and saving
