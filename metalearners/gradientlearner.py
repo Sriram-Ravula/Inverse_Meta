@@ -552,7 +552,7 @@ class GBML:
                                 num_workers=1, drop_last=True)
 
     def _init_c(self):
-        num_acs_lines = getattr(self.hparams.outer, 'num_acs_lines', 20)
+        num_acs_lines = getattr(self.hparams.mask, 'num_acs_lines', 20)
         self._print_if_verbose("NUMBER OF ACS LINES = ", num_acs_lines)
 
         if self.prob_c:
