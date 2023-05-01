@@ -21,15 +21,12 @@ from datasets import get_dataset, split_dataset
 
 from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
 from utils_new.meta_utils import hessian_vector_product as hvp
-from utils_new.meta_loss_utils import meta_loss
 from utils_new.metric_utils import Metrics
 
-from metalearners.probabilistic_mask import Probabilistic_Mask
+from metalearners.probabilistic_mask import Probabilistic_Mask, Baseline_Mask
 
 class GBML:
     def __init__(self, hparams, args):
-        #NOTE has been optimized for probabilistic mask
-
         self.hparams = hparams
         self.args = args
         self.device = self.hparams.device
@@ -39,12 +36,12 @@ class GBML:
             return
 
         #check if we have a probabilistic c
-        self.prob_c = hasattr(self.hparams.outer, 'sample_pattern')
+        self.prob_c = not(self.args.baseline)
         if self.prob_c:
             self._print_if_verbose("USING PROBABILISTIC MASK!")
 
         #check if we have an ROI
-        self.ROI = getattr(self.hparams.outer, 'ROI', None) #this should be [(H_start, H_end), (W_start, W_end)]
+        self.ROI = getattr(self.hparams.mask, 'ROI', None) #this should be [(H_start, H_end), (W_start, W_end)]
         if self.ROI is not None:
             H0, H1 = self.ROI[0]
             W0, W1 = self.ROI[1]
@@ -52,22 +49,24 @@ class GBML:
 
         #running parameters
         self._init_c()
-        self._init_meta_optimizer()
         self._init_dataset()
         self.A = None #placeholder for forward operator - None since each sample has different coil map
+
+        if not(args.baseline) and not(args.test):
+            self._init_meta_optimizer()
 
         self.global_epoch = 0
 
         if self.prob_c:
-            tau = getattr(self.hparams.outer, 'tau', 0.5)
+            tau = getattr(self.hparams.mask, 'tau', 0.5)
             self._print_if_verbose("TAU = ", tau)
             self.c_list = [self.c.weights.detach().clone().cpu()]
             self.cur_mask_sample = self.c.sample_mask(tau) #draw a binary mask sample
             c_shaped = self.cur_mask_sample.detach().clone()
         else:
-            self.c_list = [self.c.detach().clone().cpu()]
-            c_shaped = self._shape_c(self.c) 
+            c_shaped = self.c.sample_mask()
 
+        #NOTE deal with this later
         if self.hparams.net.model == 'ncsnpp':
             self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
         elif self.hparams.net.model == 'l1':
@@ -122,20 +121,17 @@ class GBML:
                 sparsity_level = 1 - (c_shaped_max.count_nonzero() / c_shaped_max.numel())
                 self._print_if_verbose("INITIAL SPARSITY (MAX MASK): " + str(sparsity_level.item()))
             else:
-                c_shaped = torch.abs(self._shape_c(self.c))
-                c_shaped_binary = torch.zeros_like(c_shaped)
-                c_shaped_binary[c_shaped > 0] = 1
+                c_shaped = self.c.sample_mask()
 
                 c_path = os.path.join(self.image_root, "learned_masks")
+                c_out = c_shaped.unsqueeze(0).cpu()
 
-                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-                # self._add_tb_images(c_out, "Mask Initialization")
                 if not os.path.exists(c_path):
                     os.makedirs(c_path)
-                self._save_images(c_out, ["Actual_00", "Binary_00"], c_path)
+                self._save_images(c_out, ["Actual_00"], c_path)
 
                 #NOTE sparsity level is the proportion of zeros in the image
-                sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
+                sparsity_level = 1 - (c_shaped.count_nonzero() / c_shaped.numel())
                 self._print_if_verbose("INITIAL SPARSITY: " + str(sparsity_level.item()))
 
     def test(self):
@@ -218,7 +214,6 @@ class GBML:
         return
 
     def run_meta_opt(self):
-        #NOTE doesn't need optimization for probabilistic mask
         for iter in tqdm(range(self.hparams.opt.num_iters)):
             #checkpoint
             if iter % self.hparams.opt.checkpoint_iters == 0:
@@ -242,10 +237,6 @@ class GBML:
         self._checkpoint()
 
     def _run_outer_step(self):
-        """
-        Runs one epoch of meta learning training.
-        NOTE has been optimized for probabilistic C
-        """
         self._print_if_verbose("\nTRAINING\n")
 
         meta_grad = 0.0
@@ -270,12 +261,9 @@ class GBML:
                 meta_grad /= n_samples
                 self._opt_step(meta_grad)
 
-                if self.prob_c:
-                    tau = getattr(self.hparams.outer, 'tau', 0.5)
-                    self.cur_mask_sample = self.c.sample_mask(tau)
-                    c_shaped = self.cur_mask_sample.detach().clone()
-                else:
-                    c_shaped = self._shape_c(self.c)
+                tau = getattr(self.hparams.mask, 'tau', 0.5)
+                self.cur_mask_sample = self.c.sample_mask(tau)
+                c_shaped = self.cur_mask_sample.detach().clone()
                 self.recon_alg.set_c(c_shaped)
 
                 meta_grad = 0.0
@@ -295,7 +283,6 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
 
     def _run_validation(self):
-        #NOTE doesn't need optimization for probabilistic mask
         self._print_if_verbose("\nVALIDATING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
@@ -303,12 +290,10 @@ class GBML:
             self._add_batch_metrics(x_hat, x, y, "val")
 
             #draw a new sample for every validation image
-            if self.prob_c:
-                tau = getattr(self.hparams.outer, 'tau', 0.5)
-                self.cur_mask_sample = self.c.sample_mask(tau)
-                c_shaped = self.cur_mask_sample.detach().clone()
-            else:
-                c_shaped = self._shape_c(self.c)
+            tau = getattr(self.hparams.mask, 'tau', 0.5)
+            self.cur_mask_sample = self.c.sample_mask(tau)
+            c_shaped = self.cur_mask_sample.detach().clone()
+
             self.recon_alg.set_c(c_shaped)
 
             #logging and saving
@@ -322,7 +307,6 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "val"), "\n")
 
     def _run_test(self):
-        #NOTE doesn't need optimization for probabilistic mask
         self._print_if_verbose("\nTESTING\n")
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
@@ -330,12 +314,10 @@ class GBML:
             self._add_batch_metrics(x_hat, x, y, "test")
 
             #draw a new sample for every test image
-            if self.prob_c:
-                tau = getattr(self.hparams.outer, 'tau', 0.5)
-                self.cur_mask_sample = self.c.sample_mask(tau)
-                c_shaped = self.cur_mask_sample.detach().clone()
-            else:
-                c_shaped = self._shape_c(self.c)
+            tau = getattr(self.hparams.mask, 'tau', 0.5)
+            self.cur_mask_sample = self.c.sample_mask(tau)
+            c_shaped = self.cur_mask_sample.detach().clone()
+
             self.recon_alg.set_c(c_shaped)
 
             #logging and saving
@@ -348,7 +330,6 @@ class GBML:
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
 
     def _shared_step(self, item):
-        #NOTE doesn't need optimization for probabilistic mask
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
@@ -391,41 +372,25 @@ class GBML:
 
     @torch.no_grad()
     def _add_batch_metrics(self, x_hat, x, y, iter_type):
-        """
-        Adds metrics for a single batch to the metrics object.
-        NOTE optimized for probabilistic C
-        """
+        #calc the measurement loss in fully-sampled kspace
         resid = self.A(x_hat) - y
+        real_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise SSE
 
-        real_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE
-                                                      
+        #calc the measurement loss in the observed indices                                           
         if self.prob_c:
             c_shaped = self.cur_mask_sample.detach().clone()
-            resid = c_shaped[None, None, :, :] * resid
-            weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
-
-            all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), c_shaped,
-                                        meta_loss_type=self.hparams.outer.meta_loss_type,
-                                        reg_hyperparam=False,
-                                        reg_hyperparam_type=None,
-                                        reg_hyperparam_scale=0)
         else:
-            c_shaped = self._shape_c(self.c)
-            resid = c_shaped[None, None, :, :] * resid
+            c_shaped = self.c.sample_mask()
+        resid = c_shaped[None, None, :, :] * resid
+        weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise SSE with mask
 
-            weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise MSE with mask
+        #calc the ground truth L2 error
+        resid = x_hat - x
+        gt_sse = torch.sum(torch.square(resid), dim=[1,2,3]) #element-wise SSE in pixel-space
 
-            all_meta_losses = meta_loss(x_hat, x, tuple(np.arange(x.dim())[1:]), self.c,
-                                        meta_loss_type=self.hparams.outer.meta_loss_type,
-                                        reg_hyperparam=self.hparams.outer.reg_hyperparam,
-                                        reg_hyperparam_type=self.hparams.outer.reg_hyperparam_type,
-                                        reg_hyperparam_scale=self.hparams.outer.reg_hyperparam_scale)
-
-        extra_metrics_dict = {"real_meas_loss": real_meas_loss.cpu().numpy().flatten(),
-                            "weighted_meas_loss": weighted_meas_loss.cpu().numpy().flatten(),
-                            "meta_loss_"+str(self.hparams.outer.meta_loss_type): all_meta_losses[0].cpu().numpy().flatten(),
-                            "meta_loss_reg": all_meta_losses[1].cpu().numpy().flatten(),
-                            "meta_loss_total": all_meta_losses[2].cpu().numpy().flatten()}
+        extra_metrics_dict = {"real_meas_sse": real_meas_loss.cpu().numpy().flatten(),
+                            "weighted_meas_sse": weighted_meas_loss.cpu().numpy().flatten(),
+                            "gt_sse": gt_sse.cpu().numpy().flatten()}
         
         if self.prob_c:
             prob_mask = self.c.get_prob_mask()
@@ -439,13 +404,8 @@ class GBML:
             sparsity_level_sample = 1 - (cur_mask.count_nonzero() / cur_mask.numel())
             extra_metrics_dict["sparsity_level_sample"] = np.array([sparsity_level_sample.item()] * x.shape[0]) #ugly artifact
         else:
-            if self.hparams.outer.reg_hyperparam:
-                sparsity_level = 1 - (self.c.count_nonzero() / self.c.numel())
-                extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) #ugly artifact
-                extra_metrics_dict["c_min"] = np.array([torch.min(self.c).item()] * x.shape[0])
-                extra_metrics_dict["c_max"] = np.array([torch.max(self.c).item()] * x.shape[0])
-                extra_metrics_dict["c_mean"] = np.array([torch.mean(self.c).item()] * x.shape[0])
-                extra_metrics_dict["c_std"] = np.array([torch.std(self.c).item()] * x.shape[0])
+            sparsity_level = 1 - (c_shaped.count_nonzero() / c_shaped.numel())
+            extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) 
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type, self.ROI)
@@ -552,75 +512,18 @@ class GBML:
         """
         Will take an optimization step (and scheduler if applicable).
         Sets c.grad to True then False.
-        NOTE optimized for probabilistic C
         """
-        if self.prob_c:
-            self.opt.zero_grad()
+        self.opt.zero_grad()
 
-            # dummy update to make sure grad is initialized
-            if type(self.c.weights.grad) == type(None):
-                dummy_loss = torch.sum(self.c.weights)
-                dummy_loss.backward()
-            
-            self.c.weights.grad.copy_(meta_grad)
-            self.opt.step()
+        # dummy update to make sure grad is initialized
+        if type(self.c.weights.grad) == type(None):
+            dummy_loss = torch.sum(self.c.weights)
+            dummy_loss.backward()
+        
+        self.c.weights.grad.copy_(meta_grad)
+        self.opt.step()
 
-            self.c_list.append(self.c.weights.detach().clone().cpu())
-        else:
-            self.opt.zero_grad()
-            self.c.requires_grad_()
-
-            # dummy update to make sure grad is initialized
-            if type(self.c.grad) == type(None):
-                dummy_loss = torch.sum(self.c)
-                dummy_loss.backward()
-
-            self.c.grad.copy_(meta_grad)
-            self.opt.step()
-            self.c.requires_grad_(False)
-
-            if self.hparams.outer.reg_hyperparam:
-                #the scale parameter in soft is lambda for soft thresholding with the
-                #   proximal l1-sparsity operator
-                if self.hparams.outer.reg_hyperparam_type == "soft":
-                    over_idx = (self.c > self.hparams.outer.reg_hyperparam_scale)
-                    mid_idx = (self.c >= -self.hparams.outer.reg_hyperparam_scale) & \
-                                (self.c <= self.hparams.outer.reg_hyperparam_scale)
-                    under_idx = (self.c < -self.hparams.outer.reg_hyperparam_scale)
-                    self.c[over_idx] -= self.hparams.outer.reg_hyperparam_scale
-                    self.c[mid_idx] *= 0
-                    self.c[under_idx] += self.hparams.outer.reg_hyperparam_scale
-
-                #the scale parameter in hard thresholding means keep <scale> highest values
-                #   and zero the (1 - <scale>) remaining
-                elif self.hparams.outer.reg_hyperparam_type == "hard":
-                    k = int(self.c.numel() * (1 - self.hparams.outer.reg_hyperparam_scale))
-                    smallest_kept_val = torch.kthvalue(torch.abs(self.c), k)[0]
-                    under_idx = torch.abs(self.c) < smallest_kept_val
-                    self.c[under_idx] *= 0
-
-                elif self.hparams.outer.reg_hyperparam_type != "l1":
-                    raise NotImplementedError("This meta regularizer has not been implemented yet!")
-
-                self.c.clamp_(min=0., max=1.) #TODO check if clamping at 0 or -1 is better
-
-            #finally check to see if we want to keep the center
-            if self.hparams.problem.measurement_selection and self.hparams.outer.keep_center:
-                num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
-                # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
-                center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
-                                    (self.hparams.data.image_size + num_center_lines) // 2)
-
-                if self.hparams.problem.sample_pattern == 'random':
-                    center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
-                    self.c = self.c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-                    self.c[center_line_idx] = 1.
-                    self.c = self.c.flatten()
-
-                elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                    self.c[center_line_idx] = 1.
-
-            self.c_list.append(self.c.detach().clone().cpu())
+        self.c_list.append(self.c.weights.detach().clone().cpu())
 
         if self.scheduler is not None and self.hparams.opt.decay:
             LR_OLD = self.opt.param_groups[0]['lr']
@@ -650,33 +553,15 @@ class GBML:
 
             grad_x_meta_loss = grad_x_meta_loss * mask
 
-        if self.prob_c:
-            grad_c_meta_loss = torch.zeros_like(self.c.weights)
+        grad_c_meta_loss = torch.zeros_like(self.c.weights)
 
-            #(2)
-            resid = self.cur_mask_sample[None, None, :, :] * (self.A(x_hat) - y)
-            cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
+        #(2)
+        resid = self.cur_mask_sample[None, None, :, :] * (self.A(x_hat) - y)
+        cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
 
-            out_grad = 0.0
-            out_grad -= hvp(self.c.weights, cond_log_grad, grad_x_meta_loss)
-            out_grad += grad_c_meta_loss
-        else:
-            grad_c_meta_loss = torch.sign(self.c) if self.hparams.outer.reg_hyperparam_type == 'l1' else torch.zeros_like(self.c)
-            grad_c_meta_loss *= self.hparams.outer.reg_hyperparam_scale
-
-            #(2)
-            self.c.requires_grad_()
-
-            c_shaped = self._shape_c(self.c)
-
-            resid = c_shaped[None, None, :, :] * (self.A(x_hat) - y)
-            cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
-
-            out_grad = 0.0
-            out_grad -= hvp(self.c, cond_log_grad, grad_x_meta_loss)
-            out_grad += grad_c_meta_loss
-
-            self.c.requires_grad_(False)
+        out_grad = 0.0
+        out_grad -= hvp(self.c.weights, cond_log_grad, grad_x_meta_loss)
+        out_grad += grad_c_meta_loss
 
         #Log the metrics for each gradient
         with torch.no_grad():
@@ -702,144 +587,27 @@ class GBML:
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
                                 num_workers=1, drop_last=True)
 
-    def _shape_c(self, c):
-        """
-        Function for properly shaping c to broadcast with images and measurements
-        """
-        if self.hparams.problem.measurement_weighting:
-            c_shaped = torch.ones((self.hparams.data.image_size, self.hparams.data.image_size)) * c
-
-        elif self.hparams.problem.measurement_selection:
-            if self.hparams.problem.sample_pattern == 'random':
-                c_shaped = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-
-            elif self.hparams.problem.sample_pattern == 'horizontal':
-                c_shaped = c.unsqueeze(1).repeat(1, self.hparams.data.image_size)
-
-            elif self.hparams.problem.sample_pattern == 'vertical':
-                c_shaped = c.unsqueeze(0).repeat(self.hparams.data.image_size, 1)
-
-            else:
-                raise NotImplementedError("This sample pattern is not supported!")
-
-        return c_shaped
-
     def _init_c(self):
-        """
-        Initializes C.
-        (1) Check for measurement_selection; False means c scalar, and we are done
-        (2) Check for sample_pattern; resize accordingly
-        (3) Check for any smart initialization
+        num_acs_lines = getattr(self.hparams.outer, 'num_acs_lines', 20)
+        self._print_if_verbose("NUMBER OF ACS LINES = ", num_acs_lines)
 
-        NOTE has been updated to work with probabilistic mask
-        """
         if self.prob_c:
-            num_acs_lines = getattr(self.hparams.outer, 'num_acs_lines', 20)
-            self._print_if_verbose("NUMBER OF ACS LINES = ", num_acs_lines)
             self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
-            return
+        else:
+            self.c = Baseline_Mask(self.hparams, self.device, num_acs_lines)
 
-        problem_check = sum([self.hparams.problem.measurement_weighting,
-                             self.hparams.problem.measurement_selection])
-        assert problem_check == 1, "Must choose exactly one of measurement weighting and selection!"
-
-        if self.hparams.problem.measurement_weighting:
-            c = torch.tensor(1.)
-
-        elif self.hparams.problem.measurement_selection:
-            #define the number of parameters
-            if self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                m = self.hparams.data.image_size
-
-            elif self.hparams.problem.sample_pattern == 'random':
-                m = self.hparams.data.image_size ** 2
-
-            else:
-                raise NotImplementedError("Fourier sampling pattern not supported!")
-
-            #now check for any smart initializations
-            if self.hparams.outer.hyperparam_init == "random":
-                c = torch.rand(m)
-                num_trash_inds = int(m * (1. - 1./self.hparams.problem.R))
-                trash_inds = np.random.choice(a=m, size=num_trash_inds, replace=False)
-                c[trash_inds] = 0.
-
-            elif isinstance(self.hparams.outer.hyperparam_init, (int, float)):
-                c = torch.ones(m) * float(self.hparams.outer.hyperparam_init)
-                num_trash_inds = int(m * (1. - 1./self.hparams.problem.R))
-                trash_inds = np.random.choice(a=m, size=num_trash_inds, replace=False)
-                c[trash_inds] = 0.
-
-            elif "smart" in self.hparams.outer.hyperparam_init:
-                if self.hparams.problem.sample_pattern == 'random':
-                    c = sigpy.mri.poisson(img_shape=(self.hparams.data.image_size, self.hparams.data.image_size),
-                                          accel=self.hparams.problem.R,
-                                          seed=self.hparams.seed-1) #NOTE function errors with seg fault for seed 2023. Using -1 to fix
-                    c = torch.tensor(c)
-                    c = torch.view_as_real(c)[:,:,0]
-                    c = c.flatten()
-
-                elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                    num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
-                    # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
-                    center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
-                                        (self.hparams.data.image_size + num_center_lines) // 2)
-                    outer_line_idx = np.setdiff1d(np.arange(self.hparams.data.image_size), center_line_idx)
-
-                    #account for the center lines when sampling the rest of the equispaced to match proper R
-                    outer_R = np.round((m - num_center_lines) / (m/self.hparams.problem.R - num_center_lines))
-                    random_line_idx = outer_line_idx[::int(outer_R)]
-                    c = torch.zeros(self.hparams.data.image_size)
-                    c[center_line_idx] = 1.
-                    c[random_line_idx] = 1.
-                
-                #if we want a soft operator, multiply with random
-                if self.hparams.outer.hyperparam_init == "soft_smart":
-                    c = c * torch.rand_like(c)
-
-            #finally check to see if we want to keep the center
-            if self.hparams.outer.keep_center:
-                num_center_lines = getattr(self.hparams.problem, 'num_acs_lines', 20)
-                self._print_if_verbose("NUMBER OF ACS LINES = ", num_center_lines)
-                # num_center_lines = int(self.hparams.data.image_size // 12) #keep ~8% of center
-                center_line_idx = np.arange((self.hparams.data.image_size - num_center_lines) // 2,
-                                    (self.hparams.data.image_size + num_center_lines) // 2)
-
-                if self.hparams.problem.sample_pattern == 'random':
-                    center_line_idx = np.meshgrid(center_line_idx, center_line_idx)
-                    c = c.view(self.hparams.data.image_size, self.hparams.data.image_size)
-                    c[center_line_idx] = 1.
-                    c = c.flatten()
-
-                elif self.hparams.problem.sample_pattern in ['horizontal', 'vertical']:
-                    c[center_line_idx] = 1.
-
-        self.c = c.to(self.device).type(torch.float)
         return
 
     def _init_meta_optimizer(self):
-        """
-        Initializes the meta optmizer and scheduler.
-
-        NOTE has been optimized for probabilistic mask
-        """
         opt_type = self.hparams.opt.optimizer
         lr = self.hparams.opt.lr
 
-        if self.prob_c:
-            if opt_type == 'adam':
-                meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
-            elif opt_type == 'sgd':
-                meta_opt = torch.optim.SGD([{'params': self.c.weights}], lr=lr)
-            else:
-                raise NotImplementedError("Optimizer not supported!")
+        if opt_type == 'adam':
+            meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
+        elif opt_type == 'sgd':
+            meta_opt = torch.optim.SGD([{'params': self.c.weights}], lr=lr)
         else:
-            if opt_type == 'adam':
-                meta_opt = torch.optim.Adam([{'params': self.c}], lr=lr)
-            elif opt_type == 'sgd':
-                meta_opt = torch.optim.SGD([{'params': self.c}], lr=lr)
-            else:
-                raise NotImplementedError("Optimizer not supported!")
+            raise NotImplementedError("Optimizer not supported!")
 
         if self.hparams.opt.decay:
             meta_scheduler = torch.optim.lr_scheduler.ExponentialLR(meta_opt, self.hparams.opt.lr_decay)

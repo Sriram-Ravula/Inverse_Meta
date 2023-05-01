@@ -119,7 +119,7 @@ def parse_config(config_path):
 
     return HPARAMS
 
-def parse_args(docstring="", manual=False, config=None, doc=None, eta=None, etaB=None, timesteps=None):
+def parse_args(docstring=""):
     """
     Gets command line arguments
     """
@@ -132,14 +132,9 @@ def parse_args(docstring="", manual=False, config=None, doc=None, eta=None, etaB
                                                                'Will be the name of the log folder.')
 
     parser.add_argument('--test', action='store_true', help='set to run a test')
-    parser.add_argument('--R', type=int, default=1, help='acceleration factor for testing')
-    parser.add_argument('--keep_center', action='store_true', help='whether to keep the center fully sampled for test')
 
     parser.add_argument('--resume', action='store_true', help="whether to resume from the last checkpoint")
 
-    if manual:
-        args = parser.parse_args(["--config", config, "--doc", doc, '--eta', eta, '--etaB', etaB, '--timesteps', timesteps])
-    else:
-        args = parser.parse_args()
+    parser.add_argument('--baseline', action='store_true', help='whether to run a baseline with a fixed mask')
 
     return args

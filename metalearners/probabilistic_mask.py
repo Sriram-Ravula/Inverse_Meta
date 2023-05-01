@@ -7,13 +7,13 @@ class Probabilistic_Mask:
     def __init__(self, hparams, device, num_acs_lines=20):
         super().__init__()
 
-        #Expects all info to be in hparams.outer
-        #hparams.outer.sample_pattern in ["horizontal", "vertical", "2D"]
-        #hparams.outer.R - NOTE this will be the true R with center sampled by default!
+        #Expects all info to be in hparams.mask
+        #hparams.mask.sample_pattern in ["horizontal", "vertical", "3D"]
+        #hparams.mask.R - NOTE this will be the true R with center sampled by default!
         self.hparams = hparams
         self.device = device
 
-        self.num_acs_lines = num_acs_lines #number of lines to keep for 1D, side length ratio of central square for 2D
+        self.num_acs_lines = num_acs_lines #number of lines to keep for 1D, side length ratio of central square for 3D
 
         self._init_mask()
 
@@ -22,13 +22,13 @@ class Probabilistic_Mask:
         Initialises locations of acs lines, sparsity level, and the learnable mask of logits
         """
         n = self.hparams.data.image_size
-        R = self.hparams.outer.R
+        R = self.hparams.mask.R
 
         #(1) set the number and location of acs lines
         acs_idx = np.arange((n - self.num_acs_lines) // 2, (n + self.num_acs_lines) // 2)
 
         #(2) set the number of learnable parameters and adjust sparsity for acs
-        if self.hparams.outer.sample_pattern in ['horizontal', 'vertical']:
+        if self.hparams.mask.sample_pattern in ['horizontal', 'vertical']:
             #location in an n-sized array to insert our m-sized parameters
             self.insert_mask_idx = np.array([i for i in range(n) if i not in acs_idx])
 
@@ -36,7 +36,7 @@ class Probabilistic_Mask:
 
             self.sparsity_level = (n/R - self.num_acs_lines) / self.m
 
-        elif self.hparams.outer.sample_pattern == '2D':
+        elif self.hparams.mask.sample_pattern == '3D':
             flat_n_inds = np.arange(n**2).reshape(n,n)
             acs_idx = flat_n_inds[acs_idx[:, None], acs_idx].flatten() #fancy indexing grabs a square from center
             self.insert_mask_idx = np.array([i for i in range(n**2) if i not in acs_idx])
@@ -51,7 +51,7 @@ class Probabilistic_Mask:
         #(3) initialize the weights - logits of a bernouli distribution
         #Pick a distribution we like for the probabilistic mask, then 
         #   take the logits of the entries
-        init_method = getattr(self.hparams.outer, 'mask_init', "random")
+        init_method = getattr(self.hparams.mask, 'mask_init', "random")
         
         if init_method == "uniform":
             probs = torch.ones(self.m) * 0.5
@@ -95,10 +95,10 @@ class Probabilistic_Mask:
         Given a flat, raw mask, re-shapes it properly and applies ACS lines
         """
         n = self.hparams.data.image_size
-        sample_pattern = self.hparams.outer.sample_pattern
+        sample_pattern = self.hparams.mask.sample_pattern
 
         #start with all ones for acs, then apply our raw mask around acs
-        flat_mask = torch.ones(n**2 if sample_pattern == '2D' else n, 
+        flat_mask = torch.ones(n**2 if sample_pattern == '3D' else n, 
                                 device=raw_mask.device, dtype=raw_mask.dtype)
         flat_mask[self.insert_mask_idx] = raw_mask
 
@@ -108,7 +108,7 @@ class Probabilistic_Mask:
         elif sample_pattern == 'vertical':
             out_mask = flat_mask.unsqueeze(0).repeat(n, 1)
 
-        elif sample_pattern == '2D':
+        elif sample_pattern == '3D':
             out_mask = flat_mask.view(n, n)
 
         return out_mask
