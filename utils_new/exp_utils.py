@@ -20,16 +20,6 @@ def save_image(image, path):
     
     torchvision.utils.save_image(x_png, path)
 
-    # image = image.detach().cpu().numpy() #image comes in as an [C, H, W] torch tensor
-    # print(image.shape)
-    # x_png = image.transpose(1,2,0)
-    # if x_png.shape[-1] == 1:
-    #     x_png = x_png[:,:,0]
-    # elif x_png.shape[-1] == 2:
-    #     x_png = np.linalg.norm(x_png, axis=-1)
-    # x_png = np.uint8(np.clip(x_png*256,0,255))
-    # x_png = Image.fromarray(x_png).save(path)
-
 def save_images(images, labels, save_prefix):
     """
     Save a batch of images (in a dictionary) to png files and .pt files.
@@ -140,9 +130,6 @@ def parse_args(docstring="", manual=False, config=None, doc=None, eta=None, etaB
     parser.add_argument('--config', type=str, required=True,  help='Path to the config file')
     parser.add_argument('--doc', type=str, default=now, help='A string for documentation purpose. '
                                                                'Will be the name of the log folder.')
-    parser.add_argument('--eta', type=float, default=1., help='etaA param for ddrm')
-    parser.add_argument('--etaB', type=float, default=1., help='etaB param for ddrm')
-    parser.add_argument('--timesteps', type=int, default=1000, help='number of steps for ddrm')
 
     parser.add_argument('--test', action='store_true', help='set to run a test')
     parser.add_argument('--R', type=int, default=1, help='acceleration factor for testing')

@@ -71,7 +71,6 @@ class BrainMultiCoil(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        # Comment this block if we want only central 5 slices
         # Get scan and slice index
         # First scan for which index is in the valid cumulative range
         scan_idx = int(np.where((self.slice_mapper - idx) >= 0)[0][0])
@@ -79,25 +78,11 @@ class BrainMultiCoil(Dataset):
         slice_idx = int(idx) if scan_idx == 0 else \
             int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
 
-        # # Uncomment this block if we want only central 5 slices
-        # # Get scan and slice index
-        # # we only use the 5 central slices
-        # scan_idx = idx // 5 
-        # # Offset from cumulative range
-        # slice_idx = idx % 5
-
         # Load maps for specific scan and slice
         maps_file = os.path.join(self.maps_dir,
                                  os.path.basename(self.file_list[scan_idx]))
         with h5py.File(maps_file, 'r') as data:
             # Get maps
-
-            # Uncomment block if only want central 5 slices
-            # num_slices = int(data['s_maps'].shape[0])
-            # slice_idx_shifted = (num_slices // 2) - 2 + slice_idx
-            # s_maps = np.asarray(data['s_maps'][slice_idx_shifted])
-
-            # Comment block if only want central 5 slices
             s_maps = np.asarray(data['s_maps'][slice_idx])
 
         # Load raw data for specific scan and slice
@@ -105,13 +90,6 @@ class BrainMultiCoil(Dataset):
                                 os.path.basename(self.file_list[scan_idx]))
         with h5py.File(raw_file, 'r') as data:
             # Get k-space
-
-            # Uncomment block if only want central 5 slices
-            # num_slices = int(data['kspace'].shape[0])
-            # slice_idx_shifted = (num_slices // 2) - 2 + slice_idx
-            # gt_ksp = np.asarray(data['kspace'][slice_idx_shifted])
-
-            # Comment block if only want central 5 slices
             gt_ksp = np.asarray(data['kspace'][slice_idx])
 
         # Crop extra lines and reduce FoV in phase-encode
@@ -147,14 +125,7 @@ class BrainMultiCoil(Dataset):
         ksp /= gt_mvue_scale_factor
         aliased_mvue /= gt_mvue_scale_factor
         gt_mvue /= gt_mvue_scale_factor
-
-        # s_maps_scale = np.sqrt(np.sum(np.square(np.abs(s_maps)), axis=-3))
-        # # print(s_maps_scale)
-        # ksp /= s_maps_scale
-        # aliased_mvue /= s_maps_scale
-        # gt_mvue /= s_maps_scale
-        # s_maps /= s_maps_scale
-
+        
         # Apply ACS-based instance scaling
         aliased_mvue_two_channel = np.float16(np.zeros((2,) + aliased_mvue.shape))
         aliased_mvue_two_channel[0] = np.float16(np.real(aliased_mvue))
