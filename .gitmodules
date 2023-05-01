@@ -4,3 +4,6 @@
 [submodule "ncsnv2"]
 	path = ncsnv2
 	url = https://github.com/ajiljalal/ncsnv2.git
+[submodule "edm"]
+	path = edm
+	url = git@github.com:Sriram-Ravula/edm.git
