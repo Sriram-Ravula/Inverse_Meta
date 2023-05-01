@@ -27,6 +27,15 @@ def get_dataset(config):
         load_slice_info = getattr(config.data, 'load_slice_info', False)
         save_slice_info = getattr(config.data, 'save_slice_info', False)
 
+        #If batch size is one, no point in padding k-space
+        train_pad_kspace = 28
+        if config.data.train_batch_size == 1 and config.data.val_batch_size == 1:
+            train_pad_kspace = False
+        
+        test_pad_kspace = 28
+        if config.data.test_batch_size == 1:
+            test_pad_kspace = False
+
         dataset = BrainMultiCoil(train_files,
                                 input_dir=config.data.train_input_dir,
                                 maps_dir=config.data.train_maps_dir,
@@ -34,7 +43,8 @@ def get_dataset(config):
                                 num_slices=train_num_slices,
                                 slice_mapper=train_slice_mapper,
                                 load_slice_info=load_slice_info,
-                                save_slice_info=save_slice_info)
+                                save_slice_info=save_slice_info,
+                                kspace_pad=train_pad_kspace)
 
         test_dataset = BrainMultiCoil(test_files,
                                 input_dir=config.data.test_input_dir,
@@ -43,7 +53,8 @@ def get_dataset(config):
                                 num_slices=test_num_slices,
                                 slice_mapper=test_slice_mapper,
                                 load_slice_info=load_slice_info,
-                                save_slice_info=save_slice_info)
+                                save_slice_info=save_slice_info,
+                                kspace_pad=test_pad_kspace)
 
     elif config.data.dataset == 'Knee-Multicoil':
         bad_slices = ['file1001022.h5', 'file1000262.h5', 'file1000633.h5', 'file1000794.h5', 'file1000882.h5']

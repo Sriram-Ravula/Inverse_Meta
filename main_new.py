@@ -16,7 +16,7 @@ def main():
 
     learner = GBML(hparams, args)
 
-    if args.test:
+    if args.test or args.baseline:
         learner.test()
     else:
         learner.run_meta_opt()

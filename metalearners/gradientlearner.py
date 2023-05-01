@@ -23,7 +23,8 @@ from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
 from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.metric_utils import Metrics
 
-from metalearners.probabilistic_mask import Probabilistic_Mask, Baseline_Mask
+from metalearners.probabilistic_mask import Probabilistic_Mask
+from metalearners.baseline_mask import Baseline_Mask
 
 class GBML:
     def __init__(self, hparams, args):
@@ -174,7 +175,7 @@ class GBML:
 
         #grab the raw metrics dictionary and save it
         test_metrics = self.metrics.test_metrics['iter_'+str(self.global_epoch)]
-        save_to_pickle(test_metrics, os.path.join(self.log_dir, "test_"+str(self.global_epoch)".pkl"))
+        save_to_pickle(test_metrics, os.path.join(self.log_dir, "test_"+str(self.global_epoch)+".pkl"))
 
         return
 

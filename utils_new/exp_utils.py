@@ -137,4 +137,6 @@ def parse_args(docstring=""):
 
     parser.add_argument('--baseline', action='store_true', help='whether to run a baseline with a fixed mask')
 
+    args = parser.parse_args()
+
     return args
