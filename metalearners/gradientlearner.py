@@ -31,10 +31,6 @@ class GBML:
         self.args = args
         self.device = self.hparams.device
 
-        if self.args.resume:
-            self._resume()
-            return
-
         #check if we have a probabilistic c
         self.prob_c = not(self.args.baseline)
         if self.prob_c:
@@ -52,7 +48,7 @@ class GBML:
         self._init_dataset()
         self.A = None #placeholder for forward operator - None since each sample has different coil map
 
-        if not(args.baseline) and not(args.test):
+        if not(self.args.baseline) and not(self.args.test):
             self._init_meta_optimizer()
 
         self.global_epoch = 0
@@ -60,7 +56,6 @@ class GBML:
         if self.prob_c:
             tau = getattr(self.hparams.mask, 'tau', 0.5)
             self._print_if_verbose("TAU = ", tau)
-            self.c_list = [self.c.weights.detach().clone().cpu()]
             self.cur_mask_sample = self.c.sample_mask(tau) #draw a binary mask sample
             c_shaped = self.cur_mask_sample.detach().clone()
         else:
@@ -86,6 +81,11 @@ class GBML:
         self._save_config()
 
         self.tb_logger = tb.SummaryWriter(log_dir=self.tb_root)
+
+        #We need all the stuff made before we can resume
+        if self.args.resume:
+            self._resume()
+            return
 
         #take a snap of the initialization
         if not self.hparams.debug and self.hparams.save_imgs:
@@ -511,8 +511,6 @@ class GBML:
         self.c.weights.grad.copy_(meta_grad)
         self.opt.step()
 
-        self.c_list.append(self.c.weights.detach().clone().cpu())
-
         if self.scheduler is not None and self.hparams.opt.decay:
             LR_OLD = self.opt.param_groups[0]['lr']
             self.scheduler.step()
@@ -603,64 +601,43 @@ class GBML:
         self.scheduler = meta_scheduler
 
     def _checkpoint(self):
-        #NOTE not optimized for probabilistic c yet
-        if not self.hparams.debug:
-            save_dict = {
-                "c": self.c,
-                "c_list": self.c_list,
-                "global_epoch": self.global_epoch,
-                "opt_state": self.opt.state_dict(),
-                "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None
-            }
-            metrics_dict = {
-                'train_metrics': self.metrics.train_metrics,
-                'val_metrics': self.metrics.val_metrics,
-                'test_metrics': self.metrics.test_metrics,
-                'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
-                'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
-                'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
-            }
-            save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
-            save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
+        if self.hparams.debug:
+            return
+
+        save_dict = {
+            "c_weights": self.c.weights.detach().cpu(),
+            "global_epoch": self.global_epoch,
+            "opt_state": self.opt.state_dict(),
+            "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None
+        }
+        metrics_dict = {
+            'train_metrics': self.metrics.train_metrics,
+            'val_metrics': self.metrics.val_metrics,
+            'test_metrics': self.metrics.test_metrics,
+            'train_metrics_aggregate': self.metrics.train_metrics_aggregate,
+            'val_metrics_aggregate': self.metrics.val_metrics_aggregate,
+            'test_metrics_aggregate': self.metrics.test_metrics_aggregate,
+        }
+        save_to_pickle(save_dict, os.path.join(self.log_dir, "checkpoint.pkl"))
+        save_to_pickle(metrics_dict, os.path.join(self.log_dir, "metrics.pkl"))
 
     def _resume(self):
-        #NOTE not optimized for probabilistic c yet
         self._print_if_verbose("RESUMING FROM CHECKPOINT")
-
-        self.log_dir = os.path.join(self.hparams.save_dir, self.args.doc)
-        self.image_root = os.path.join(self.log_dir, 'images')
-        self.tb_root = os.path.join(self.log_dir, 'tensorboard')
 
         checkpoint = load_if_pickled(os.path.join(self.log_dir, "checkpoint.pkl"))
         metrics = load_if_pickled(os.path.join(self.log_dir, "metrics.pkl"))
 
-        self.c = checkpoint['c'].detach().clone().to(self.device)
+        self.c.weights.copy_(checkpoint["c_weights"].to(self.device))
+        self.c.weights.requires_grad_()
 
-        self._init_meta_optimizer()
-        self.opt.load_state_dict(checkpoint['opt_state'])
-        if self.scheduler is not None:
-            self.scheduler.load_state_dict(checkpoint['scheduler_state'])
-
-        self._init_dataset()
-        self.A = None
-
+        if not(self.args.baseline) and not(self.args.test):
+            self.opt.load_state_dict(checkpoint['opt_state'])
+            if self.scheduler is not None:
+                self.scheduler.load_state_dict(checkpoint['scheduler_state'])
+        
         self.global_epoch = checkpoint['global_epoch']
-        self.c_list = checkpoint['c_list']
 
-        c_shaped = self._shape_c(self.c)
-        if self.hparams.net.model == 'ncsnpp':
-            self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
-        elif self.hparams.net.model == 'l1':
-            self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
-        elif self.hparams.net.model == 'ncsnv2':
-            self.recon_alg = NCSNv2(self.hparams, self.args, c_shaped, self.device).to(self.device)
-        elif self.hparams.net.model == 'mvue':
-            self.recon_alg = MVUE_solution(self.hparams, self.args, c_shaped)
-
-        self.metrics = Metrics(hparams=self.hparams)
         self.metrics.resume(metrics)
-
-        self.tb_logger = tb.SummaryWriter(log_dir=self.tb_root)
 
         self._print_if_verbose("RESUMING FROM EPOCH " + str(self.global_epoch))
 
