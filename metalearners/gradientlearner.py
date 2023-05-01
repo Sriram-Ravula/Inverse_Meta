@@ -412,10 +412,6 @@ class GBML:
 
     @torch.no_grad()
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
-        """
-        Given true, measurement, and recovered images, save to tensorboard and png.
-        #NOTE optimized for probabilistic C
-        """
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
         elif iter_type == "train" and self.global_epoch % self.hparams.opt.checkpoint_iters != 0:
@@ -437,18 +433,14 @@ class GBML:
                                           "Sample_" + str(self.global_epoch), 
                                           "Max_" + str(self.global_epoch)], c_path)
             else:
-                c_shaped = torch.abs(self._shape_c(self.c))
-                c_shaped_binary = torch.zeros_like(c_shaped)
-                c_shaped_binary[c_shaped > 0] = 1
+                c_shaped = self.c.sample_mask()
 
                 c_path = os.path.join(self.image_root, "learned_masks")
+                c_out = c_shaped.unsqueeze(0).cpu()
 
-                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu()])
-                # self._add_tb_images(c_out, "Learned Mask")
                 if not os.path.exists(c_path):
                     os.makedirs(c_path)
-                self._save_images(c_out, ["Actual_" + str(self.global_epoch),
-                                        "Binary_" + str(self.global_epoch)], c_path)
+                self._save_images(c_out, ["Actual_" + str(self.global_epoch)], c_path)
 
         #(2) Save reconstructions at every iteration
         meas_recovered_path = os.path.join(self.image_root, iter_type + "_recon_meas", "epoch_"+str(self.global_epoch))
@@ -456,7 +448,6 @@ class GBML:
 
         x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
 
-        # self._add_tb_images(x_hat_vis, "recovered " + iter_type + " images")
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
@@ -474,7 +465,6 @@ class GBML:
         recon_meas = MulticoilForwardMRINoMask(fake_maps)(x_hat)
         recon_meas = torch.abs(recon_meas)
 
-        # self._add_tb_images(recon_meas, "recovered " + iter_type + " meas")
         if not os.path.exists(meas_recovered_path):
             os.makedirs(meas_recovered_path)
         self._save_images(recon_meas, x_idx, meas_recovered_path)
@@ -486,7 +476,6 @@ class GBML:
 
             x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
-            # self._add_tb_images(x_vis, iter_type + " images")
             if not os.path.exists(true_path):
                 os.makedirs(true_path)
             self._save_images(x_vis, x_idx, true_path)
@@ -503,7 +492,6 @@ class GBML:
             gt_meas = MulticoilForwardMRINoMask(fake_maps)(x)
             gt_meas = torch.abs(gt_meas)
 
-            # self._add_tb_images(gt_meas, iter_type + " meas")
             if not os.path.exists(meas_path):
                 os.makedirs(meas_path)
             self._save_images(gt_meas, x_idx, meas_path)
@@ -537,9 +525,6 @@ class GBML:
         grad_c(meta_loss) = - grad_x_c[recon_loss] * (meta_loss)
         (1) Find meta loss
         (2) Get the HVP grad_x_c(recon_loss) * grad_x(meta_loss)
-
-        Sets c.grad to True then False.
-        NOTE optimized for probabilistic c
         """
         #(1) Get gradients of Meta loss w.r.t. image and hyperparams
         grad_x_meta_loss = x_hat - x
