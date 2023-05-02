@@ -14,7 +14,7 @@ import sigpy.mri
 
 # from algorithms.ddrm import DDRM
 from algorithms.wavelet import L1_wavelet
-from algorithms.ncsnv2 import NCSNv2
+from algorithms.dps import DPS
 from algorithms.mvue import MVUE_solution
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
@@ -62,13 +62,10 @@ class GBML:
         else:
             c_shaped = self.c.sample_mask()
 
-        #NOTE deal with this later
-        if self.hparams.net.model == 'ncsnpp':
-            self.recon_alg = DDRM(self.hparams, self.args, c_shaped, self.device).to(self.device)
+        if self.hparams.net.model == 'dps':
+            self.recon_alg = DPS(self.hparams, self.args, c_shaped, self.device)
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
-        elif self.hparams.net.model == 'ncsnv2':
-            self.recon_alg = NCSNv2(self.hparams, self.args, c_shaped, self.device).to(self.device)
         elif self.hparams.net.model == 'mvue':
             self.recon_alg = MVUE_solution(self.hparams, self.args, c_shaped)
 
