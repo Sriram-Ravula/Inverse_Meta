@@ -11,15 +11,9 @@ seed: 2023
 net:
  model: 'dps'
  config_dir: "/home/sravula/fastmri_brain_checkpoints/adm/network-snapshot-008040.pkl"
- second_order: false
- likelihood_step_size: 4.0
- class_idx: null
+ likelihood_step_size: 2.0
  steps: 1000
- rho: 7.0
  S_churn: 1000
- S_min: 0
- S_max: .inf
- S_noise: 1.0
 
 data:
  dataset: 'Brain-Multicoil'

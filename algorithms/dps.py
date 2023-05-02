@@ -31,15 +31,13 @@ class DPS:
         self.hparams = hparams
         self.args = args
 
-        self.second_order = self.hparams.net.second_order
         self.likelihood_step_size = self.hparams.net.likelihood_step_size
-        self.class_idx = self.hparams.net.class_idx 
         self.steps = self.hparams.net.steps
-        self.rho = self.hparams.net.rho
+        self.rho = 7.0
         self.S_churn = self.hparams.net.S_churn
-        self.S_min = self.hparams.net.S_min
-        self.S_max = self.hparams.net.S_max
-        self.S_noise = self.hparams.net.S_noise
+        self.S_min = 0
+        self.S_max = float('inf')
+        self.S_noise = 1.0
 
         self._init_net()
         self.c = c.detach().clone()
@@ -72,8 +70,6 @@ class DPS:
         class_labels = None
         if self.net.label_dim:
             class_labels = torch.zeros((ref.shape[0], self.net.label_dim), device=ref.device)
-        if self.class_idx is not None:
-            class_labels[:, self.class_idx] = 1
 
         # Time step discretization.
         step_indices = torch.arange(self.steps, dtype=torch.float64, device=ref.device)
@@ -107,12 +103,6 @@ class DPS:
             # Cleanup
             x_next = x_next.detach()
             x_hat = x_hat.detach()
-
-            # Apply optional 2nd order correction.
-            if self.second_order and i < self.steps - 1:
-                denoised = self.net(x_next, t_next, class_labels).to(torch.float64)
-                d_prime = (x_next - denoised) / t_next
-                x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
         
         return unnormalize(x_next, norm_mins, norm_maxes)
 

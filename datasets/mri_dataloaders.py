@@ -55,9 +55,6 @@ class BrainMultiCoil(Dataset):
         #Comment this block if we only want central 5 slices
         return int(np.sum(self.num_slices)) # Total number of slices from all scans
 
-        # #Uncomment this return block if we only want the central five slices
-        # return int(len(self.file_list) * 5)
-
     # Cropping utility - works with numpy / tensors
     def _crop(self, x, wout, hout):
         w, h = x.shape[-2:]
