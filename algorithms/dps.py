@@ -106,7 +106,7 @@ class DPS:
 
             # Cleanup
             x_next = x_next.detach()
-            x_hat = x_hat.requires_grad_(False)
+            x_hat = x_hat.detach()
 
             # Apply optional 2nd order correction.
             if self.second_order and i < self.steps - 1:
