@@ -12,7 +12,7 @@ net:
  model: 'dps'
  config_dir: "/home/sravula/fastmri_brain_checkpoints/ddpmpp/network-snapshot-008592.pkl"
  second_order: false
- likelihood_step_size: 1.0
+ likelihood_step_size: 2.0
  class_idx: null
  steps: 1000
  rho: 7.0

@@ -1,4 +1,5 @@
 import edm.dnnlib as dnnlib
+
 import pickle
 from datasets.mri_dataloaders import get_mvue
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
@@ -41,7 +42,7 @@ class DPS:
         self.S_noise = self.hparams.net.S_noise
 
         self._init_net()
-        self.register_buffer('c', c.detach().clone())
+        self.c = c.detach().clone()
         self.H_funcs = Dummy()
     
     def __call__(self, x_mod, y):
@@ -63,8 +64,8 @@ class DPS:
                     get_mvue(ref.cpu().numpy(),
                     maps.cpu().numpy()), device=ref.device)#[N, H, W] complex
         estimated_mvue = torch.view_as_real(estimated_mvue) #[N, H, W, 2] float
-        norm_mins = torch.min(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        norm_maxes = torch.max(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
 
         #default labels are zero unless specified
         # [N, label_dim]
@@ -99,7 +100,7 @@ class DPS:
             denoised_unscaled = unnormalize(denoised, norm_mins, norm_maxes) #we need to undo the scaling to [-1,1] first
             Ax = A(denoised_unscaled)
             residual = ref - Ax
-            sse = torch.sum(torch.square(residual))
+            sse = torch.sum(torch.square(torch.abs(residual)))
             likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat)[0]
             x_next = x_next - (self.likelihood_step_size / torch.sqrt(sse)) * likelihood_score
 
@@ -122,8 +123,8 @@ class DPS:
         with dnnlib.util.open_url(self.hparams.net.config_dir, verbose=self.hparams.verbose) as f:
             net = pickle.load(f)['ema'].to(self.device)
         self.net = net
-
-        self.sigma_min = self.net.sigma_min
-        self.sigma_max = self.net.sigma_max
+        
+        self.sigma_min = max(self.net.sigma_min, 0.002)
+        self.sigma_max = min(self.net.sigma_max, 80)
 
         return

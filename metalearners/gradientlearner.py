@@ -63,6 +63,7 @@ class GBML:
             c_shaped = self.c.sample_mask()
 
         if self.hparams.net.model == 'dps':
+            sys.path.append("/home/sravula/Inverse_Meta/edm") #need dnnlib and torch_utils accessible
             self.recon_alg = DPS(self.hparams, self.args, c_shaped, self.device)
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
