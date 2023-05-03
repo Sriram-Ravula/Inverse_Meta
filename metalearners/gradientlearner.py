@@ -324,22 +324,22 @@ class GBML:
         x_hat = self.recon_alg(x_mod, y) #[N, 2, H, W] float
 
         #scale the output appropriately
-        x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
-        x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
-        x_hat /= x_hat_scale[:, None, None, None]
+        # x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
+        # x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
+        # x_hat /= x_hat_scale[:, None, None, None]
 
         #Do a fully-sampled forward-->adjoint on the output 
         x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
         x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
 
-        print("Image shape: ", x.shape)
-        print("Image type: ", x.dtype)
-        print("Recon shape: ", x_hat.shape)
-        print("Recon type: ", x_hat.dtype)
-        print("K-Space shape: ", y.shape)
-        print("K-Space dtype: ", y.dtype)
-        print("Coil map shape: ", s_maps.shape)
-        print("Coil map dtype: ", s_maps.dtype)
+        # print("Image shape: ", x.shape)
+        # print("Image type: ", x.dtype)
+        # print("Recon shape: ", x_hat.shape)
+        # print("Recon type: ", x_hat.dtype)
+        # print("K-Space shape: ", y.shape)
+        # print("K-Space dtype: ", y.dtype)
+        # print("Coil map shape: ", s_maps.shape)
+        # print("Coil map dtype: ", s_maps.dtype)
 
         return x_hat, x, y
 

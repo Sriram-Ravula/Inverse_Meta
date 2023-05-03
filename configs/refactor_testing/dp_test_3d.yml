@@ -47,7 +47,7 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "vertical"
+ sample_pattern: "3D"
  R: 8
  tau: 0.1
  num_acs_lines: 20
