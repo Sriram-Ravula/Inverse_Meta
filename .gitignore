@@ -6,6 +6,6 @@
 *.tar
 trial
 *scans*
-ncsnv2-mri-mvue/*
 .DS_Store
 .vscode
+__pycache__/
