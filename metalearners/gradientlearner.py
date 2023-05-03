@@ -34,8 +34,6 @@ class GBML:
 
         #check if we have a probabilistic c
         self.prob_c = not(self.args.baseline)
-        if self.prob_c:
-            self._print_if_verbose("USING PROBABILISTIC MASK!")
 
         #check if we have an ROI
         self.ROI = getattr(self.hparams.mask, 'ROI', None) #this should be [(H_start, H_end), (W_start, W_end)]
@@ -56,11 +54,10 @@ class GBML:
 
         if self.prob_c:
             tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self._print_if_verbose("TAU = ", tau)
-            self.cur_mask_sample = self.c.sample_mask(tau) #draw a binary mask sample
+            self.cur_mask_sample = self.c.sample_mask(tau).unsqueeze(0).unsqueeze(0) #draw a binary mask sample and reshape [H, W] --> [1, 1, H, W]
             c_shaped = self.cur_mask_sample.detach().clone()
         else:
-            c_shaped = self.c.sample_mask()
+            c_shaped = self.c.sample_mask().unsqueeze(0).unsqueeze(0) #[H, W] --> [1, 1, H, W]
 
         if self.hparams.net.model == 'dps':
             sys.path.append("/home/sravula/Inverse_Meta/edm") #need dnnlib and torch_utils accessible
@@ -103,7 +100,7 @@ class GBML:
 
             if self.prob_c:
                 c_shaped = self.c.get_prob_mask()
-                c_shaped_binary = self.cur_mask_sample.detach().clone()
+                c_shaped_binary = self.cur_mask_sample.detach().clone().squeeze()
                 c_shaped_max = self.c.get_max_mask()
 
                 c_path = os.path.join(self.image_root, "learned_masks")
@@ -142,24 +139,19 @@ class GBML:
         """
         self._print_if_verbose("TESTING")
 
-        if self.prob_c:
-            tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = self.c.sample_mask(tau)
-            c_shaped = self.cur_mask_sample.detach().clone()
-        else:
-            c_shaped = self.c.sample_mask()
-        self.recon_alg.set_c(c_shaped)
-
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
+            #grab a new mask(s) for every sample
+            if self.prob_c:
+                bs = item['gt_image'].shape[0]
+                tau = getattr(self.hparams.mask, 'tau', 0.5)
+                self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
+                c_shaped = self.cur_mask_sample.detach().clone()
+            else:
+                c_shaped = self.c.sample_mask().unsqueeze(0).unsqueeze(0)
+            self.recon_alg.set_c(c_shaped)
+            
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
-
-            #draw a new sample for every test image
-            if self.prob_c:
-                tau = getattr(self.hparams.mask, 'tau', 0.5)
-                self.cur_mask_sample = self.c.sample_mask(tau)
-                c_shaped = self.cur_mask_sample.detach().clone()
-                self.recon_alg.set_c(c_shaped)
 
             #logging and saving
             scan_idxs = item['scan_idx']
@@ -203,44 +195,23 @@ class GBML:
     def _run_outer_step(self):
         self._print_if_verbose("\nTRAINING\n")
 
-        meta_grad = 0.0
-        n_samples = 0
-        num_batches = self.hparams.opt.batches_per_iter
-        if num_batches < 0 or num_batches > len(self.train_loader):
-            num_batches = len(self.train_loader)
-        elif num_batches == 0:
-            return
-
-        #Set the mask once before starting
-        tau = getattr(self.hparams.mask, 'tau', 0.5)
-        self.cur_mask_sample = self.c.sample_mask(tau)
-        c_shaped = self.cur_mask_sample.detach().clone()
-        self.recon_alg.set_c(c_shaped)
-
         for i, (item, x_idx) in tqdm(enumerate(self.train_loader)):
+            #grab a new mask(s) for every sample
+            bs = item['gt_image'].shape[0]
+            tau = getattr(self.hparams.mask, 'tau', 0.5)
+            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
+            c_shaped = self.cur_mask_sample.detach().clone()
+            self.recon_alg.set_c(c_shaped)
+            
+            #(1) Grab the reconstruction and log the metrics
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "train")
 
-            #(2) Calculate the meta-gradient and (possibly) update
-            meta_grad += self._mle_grad(x_hat, x, y)
-
-            #if we have passed through the requisite number of samples, update
-            n_samples += x.shape[0]
-            num_batches -= 1
-            if num_batches==0:
-                meta_grad /= n_samples
-                self._opt_step(meta_grad)
-
-                tau = getattr(self.hparams.mask, 'tau', 0.5)
-                self.cur_mask_sample = self.c.sample_mask(tau)
-                c_shaped = self.cur_mask_sample.detach().clone()
-                self.recon_alg.set_c(c_shaped)
-
-                meta_grad = 0.0
-                n_samples = 0
-                num_batches = self.hparams.opt.batches_per_iter
-                if num_batches < 0 or num_batches > len(self.train_loader):
-                    num_batches = len(self.train_loader)
+            #(2) Calculate the meta-gradient and update
+            meta_grad = self._mle_grad(x_hat, x, y)
+            meta_grad /= x.shape[0]
+            
+            self._opt_step(meta_grad)
 
             #logging and saving
             if i == 0:
@@ -255,21 +226,17 @@ class GBML:
     def _run_validation(self):
         self._print_if_verbose("\nVALIDATING\n")
 
-        #make sure we have a mask before starting
-        tau = getattr(self.hparams.mask, 'tau', 0.5)
-        self.cur_mask_sample = self.c.sample_mask(tau)
-        c_shaped = self.cur_mask_sample.detach().clone()
-        self.recon_alg.set_c(c_shaped)
-
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
-            x_hat, x, y = self._shared_step(item)
-            self._add_batch_metrics(x_hat, x, y, "val")
-
-            #draw a new sample for every validation image
+            #grab a new mask(s) for every sample
+            bs = item['gt_image'].shape[0]
             tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = self.c.sample_mask(tau)
+            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
             c_shaped = self.cur_mask_sample.detach().clone()
             self.recon_alg.set_c(c_shaped)
+            
+            #Grab the recon
+            x_hat, x, y = self._shared_step(item)
+            self._add_batch_metrics(x_hat, x, y, "val")
 
             #logging and saving
             if i == 0:
@@ -284,21 +251,17 @@ class GBML:
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
 
-        #Make sure we have a mask ebfore starting
-        tau = getattr(self.hparams.mask, 'tau', 0.5)
-        self.cur_mask_sample = self.c.sample_mask(tau)
-        c_shaped = self.cur_mask_sample.detach().clone()
-        self.recon_alg.set_c(c_shaped)
-
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
-            x_hat, x, y = self._shared_step(item)
-            self._add_batch_metrics(x_hat, x, y, "test")
-
-            #draw a new sample for every test image
+            #grab a new mask(s) for every sample
+            bs = item['gt_image'].shape[0]
             tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = self.c.sample_mask(tau)
+            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
             c_shaped = self.cur_mask_sample.detach().clone()
             self.recon_alg.set_c(c_shaped)
+            
+            #Grab the recon            
+            x_hat, x, y = self._shared_step(item)
+            self._add_batch_metrics(x_hat, x, y, "test")
 
             #logging and saving
             scan_idxs = item['scan_idx']
@@ -323,23 +286,9 @@ class GBML:
         x_mod = torch.randn_like(x)
         x_hat = self.recon_alg(x_mod, y) #[N, 2, H, W] float
 
-        #scale the output appropriately
-        # x_hat_scale_ = np.percentile(np.linalg.norm(x_hat.view(x_hat.shape[0],x_hat.shape[1],-1).detach().cpu().numpy(), axis=1), 99, axis=1)
-        # x_hat_scale = torch.Tensor(x_hat_scale_).to(self.device)
-        # x_hat /= x_hat_scale[:, None, None, None]
-
         #Do a fully-sampled forward-->adjoint on the output 
         x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
         x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
-
-        # print("Image shape: ", x.shape)
-        # print("Image type: ", x.dtype)
-        # print("Recon shape: ", x_hat.shape)
-        # print("Recon type: ", x_hat.dtype)
-        # print("K-Space shape: ", y.shape)
-        # print("K-Space dtype: ", y.dtype)
-        # print("Coil map shape: ", s_maps.shape)
-        # print("Coil map dtype: ", s_maps.dtype)
 
         return x_hat, x, y
 
@@ -358,10 +307,10 @@ class GBML:
 
         #calc the measurement loss in the observed indices                                           
         if self.prob_c:
-            c_shaped = self.cur_mask_sample.detach().clone()
+            c_shaped = self.cur_mask_sample.detach().clone() #[N, 1, H, W]
         else:
-            c_shaped = self.c.sample_mask()
-        resid = c_shaped[None, None, :, :] * resid
+            c_shaped = self.c.sample_mask().unsqueeze(0).unsqueeze(0) #[1, 1, H, W]
+        resid = c_shaped * resid
         weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise SSE with mask
 
         #calc the ground truth L2 error
@@ -380,9 +329,9 @@ class GBML:
             sparsity_level_max = 1 - (max_mask.count_nonzero() / max_mask.numel())
             extra_metrics_dict["sparsity_level_max"] = np.array([sparsity_level_max.item()] * x.shape[0]) #ugly artifact
 
-            cur_mask = self.cur_mask_sample.detach().clone()
-            sparsity_level_sample = 1 - (cur_mask.count_nonzero() / cur_mask.numel())
-            extra_metrics_dict["sparsity_level_sample"] = np.array([sparsity_level_sample.item()] * x.shape[0]) #ugly artifact
+            cur_mask = self.cur_mask_sample.detach().clone() #[N, 1, H, W]
+            sparsity_level_sample = 1 - (cur_mask.count_nonzero(dim=(1,2,3)) / (cur_mask.shape[-1]*cur_mask.shape[-2])) #[N]
+            extra_metrics_dict["sparsity_level_sample"] = sparsity_level_sample.cpu().numpy()
         else:
             sparsity_level = 1 - (c_shaped.count_nonzero() / c_shaped.numel())
             extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) 
@@ -405,13 +354,15 @@ class GBML:
                 c_shaped_max = self.c.get_max_mask()
 
                 c_path = os.path.join(self.image_root, "learned_masks")
-                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu(), c_shaped_max.unsqueeze(0).cpu()])
+                c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_max.unsqueeze(0).cpu()])
 
                 if not os.path.exists(c_path):
                     os.makedirs(c_path)
                 self._save_images(c_out, ["Prob_" + str(self.global_epoch), 
-                                          "Sample_" + str(self.global_epoch), 
                                           "Max_" + str(self.global_epoch)], c_path)
+                self._save_images(c_shaped_binary.cpu(), 
+                                  ["Sample_"+str(self.global_epoch)+"_"+str(j) for j in range(c_shaped_binary.shape[0])],
+                                  c_path)
             else:
                 c_shaped = self.c.sample_mask()
 
@@ -519,7 +470,7 @@ class GBML:
         grad_c_meta_loss = torch.zeros_like(self.c.weights)
 
         #(2)
-        resid = self.cur_mask_sample[None, None, :, :] * (self.A(x_hat) - y)
+        resid = self.cur_mask_sample * (self.A(x_hat) - y)
         cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
 
         out_grad = 0.0
@@ -552,7 +503,6 @@ class GBML:
 
     def _init_c(self):
         num_acs_lines = getattr(self.hparams.mask, 'num_acs_lines', 20)
-        self._print_if_verbose("NUMBER OF ACS LINES = ", num_acs_lines)
 
         if self.prob_c:
             self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)

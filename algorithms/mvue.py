@@ -12,7 +12,7 @@ class MVUE_solution:
         self.args = args
         self.device = device
 
-        self.c = c.clone().cpu().numpy()
+        self.c = c.clone().cpu().numpy() #[N, 1, H, W]
         self.H_funcs = Dummy()
     
     def __call__(self, x_mod, y):
@@ -25,7 +25,7 @@ class MVUE_solution:
         maps = self.H_funcs.s_maps.clone().cpu().numpy()
 
         #make the proper measurements
-        y = self.c[None, None, :, :] * y
+        y = self.c * y
 
         estimated_mvue = torch.tensor(get_mvue(y, maps), device=x_mod.device) #[N, H, W] complex
         estimated_mvue = torch.view_as_real(estimated_mvue) #[N, H, W, 2] float

@@ -40,7 +40,7 @@ class DPS:
         self.S_noise = 1.0
 
         self._init_net()
-        self.c = c.detach().clone()
+        self.c = c.detach().clone() #[N, 1, H, W]
         self.H_funcs = Dummy()
     
     def __call__(self, x_mod, y):
@@ -50,11 +50,11 @@ class DPS:
         mask = self.c.clone()
         maps = self.H_funcs.s_maps.clone()
 
-        ref = mask[None, None, :, :] * y
+        ref = mask * y
 
         #set up forward operator
         FS = MulticoilForwardMRINoMask(maps)
-        A = lambda x: mask[None, None, :, :] * FS(x)
+        A = lambda x: mask * FS(x)
 
         #grab mvue from undersampled measurements and estimate normalisation
         # factors with it

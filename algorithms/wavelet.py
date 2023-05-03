@@ -15,7 +15,7 @@ class L1_wavelet:
 
         self.reg = self.hparams.net.reg_param
 
-        self.c = c.clone().cpu().numpy()#.astype(complex)  #[H, W] float
+        self.c = c.clone().cpu().numpy()# [N, 1, H, W] float
         self.H_funcs = Dummy()
 
     def __call__(self, x_mod, y):
@@ -28,7 +28,7 @@ class L1_wavelet:
         maps = self.H_funcs.s_maps.clone().cpu().numpy()
 
         #make the proper measurements
-        y = self.c[None, None, :, :] * y
+        y = self.c * y
 
         #make a container for the final solutions
         x_out = torch.zeros_like(x_mod)
