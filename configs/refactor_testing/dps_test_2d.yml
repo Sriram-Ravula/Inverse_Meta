@@ -33,13 +33,13 @@ data:
 
  centered: True
 
- num_train: 4
- num_val:   4
- num_test:  4
+ num_train: 10
+ num_val:   10
+ num_test:  10
 
- train_batch_size: 4
- val_batch_size:   4
- test_batch_size:  4
+ train_batch_size: 1
+ val_batch_size:   1
+ test_batch_size:  1
 
  image_size: 384
  num_channels: 2

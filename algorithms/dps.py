@@ -96,9 +96,10 @@ class DPS:
             denoised_unscaled = unnormalize(denoised, norm_mins, norm_maxes) #we need to undo the scaling to [-1,1] first
             Ax = A(denoised_unscaled)
             residual = ref - Ax
-            sse = torch.sum(torch.square(torch.abs(residual)))
+            sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+            sse = torch.sum(sse_per_samp)
             likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat)[0]
-            x_next = x_next - (self.likelihood_step_size / torch.sqrt(sse)) * likelihood_score
+            x_next = x_next - (self.likelihood_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
 
             # Cleanup
             x_next = x_next.detach()
