@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import torchvision
 from tqdm import tqdm
 import torch.fft as torch_fft
+import json
 
 import os
 import sys
@@ -385,6 +386,16 @@ class GBML:
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
         self._save_images(x_resid, [idx + "_resid" for idx in x_idx], recovered_path)
+        
+        #grab the dict and save the stats for the recons
+        metric_dict = self.metrics.get_dict(iter_type)['iter_' + str(self.global_epoch)]
+        psnr_array = metric_dict['psnr'][-len(x_idx):]
+        ssim_array = metric_dict['ssim'][-len(x_idx):]
+        sample_metric_dicts = [{"Slice": idx, "PSNR": psnr_array[i], "SSIM": ssim_array[i]} for i, idx in enumerate(x_idx)]
+        
+        metric_path = os.path.join(recovered_path, "sample_metrics.json")
+        with open(metric_path, 'w') as f:
+            json.dump(sample_metric_dicts, f, indent=4)
 
         if self.ROI is not None:
             H0, H1 = self.ROI[0]
