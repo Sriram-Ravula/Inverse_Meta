@@ -49,17 +49,17 @@ mask:
 
  sample_pattern: "3D"
  R: 8
- tau: 1.0
+ tau: 0.1
  num_acs_lines: 16
  mask_init: "uniform"
 
 opt:
   num_iters: 50 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.05 #meta learning rate
+  lr: 0.02 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 1 #validate every n iterations
-  checkpoint_iters: 1 #checkpoint every n iterations
+  val_iters: 5 #validate every n iterations
+  checkpoint_iters: 5 #checkpoint every n iterations

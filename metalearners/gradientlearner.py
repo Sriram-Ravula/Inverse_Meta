@@ -470,7 +470,12 @@ class GBML:
         (2) Get the HVP grad_x_c(recon_loss) * grad_x(meta_loss)
         """
         #(1) Get gradients of Meta loss w.r.t. image and hyperparams
-        grad_x_meta_loss = x_hat - x
+        if self.hparams.mask.meta_loss_type == "l2":
+            grad_x_meta_loss = x_hat - x
+        elif self.hparams.mask.meta_loss_type == "l1":
+            grad_x_meta_loss = torch.sign(x_hat - x)
+        else:
+            raise NotImplementedError("META LOSS NOT IMPLEMENTED!")
 
         if self.ROI is not None:
             H0, H1 = self.ROI[0]
