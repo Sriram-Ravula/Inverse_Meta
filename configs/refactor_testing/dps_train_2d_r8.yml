@@ -57,7 +57,6 @@ opt:
   num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.01 #meta learning rate
-  batches_per_iter: 1 #number of training batches to use per meta update. -1 means all batches
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
