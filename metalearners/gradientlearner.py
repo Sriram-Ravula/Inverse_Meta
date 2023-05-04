@@ -276,7 +276,6 @@ class GBML:
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W, 2] float last channel is ""
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex
-        scale_factor = item['scale_factor'].to(self.device)
 
         #set coil maps and forward operator including current coil maps
         self.recon_alg.H_funcs.s_maps = s_maps
@@ -313,13 +312,15 @@ class GBML:
         resid = c_shaped * resid
         weighted_meas_loss = torch.sum(torch.square(torch.abs(resid)), dim=[1,2,3]) #get element-wise SSE with mask
 
-        #calc the ground truth L2 error
+        #calc the ground truth L2 and L1 error
         resid = x_hat - x
-        gt_sse = torch.sum(torch.square(resid), dim=[1,2,3]) #element-wise SSE in pixel-space
+        gt_mse = torch.mean(torch.square(resid), dim=[1,2,3]) #element-wise MSE in pixel-space
+        gt_mae = torch.mean(torch.abs(resid), dim=[1,2,3]) #element-wise mean MAE 
 
         extra_metrics_dict = {"real_meas_sse": real_meas_loss.cpu().numpy().flatten(),
                             "weighted_meas_sse": weighted_meas_loss.cpu().numpy().flatten(),
-                            "gt_sse": gt_sse.cpu().numpy().flatten()}
+                            "gt_mse": gt_mse.cpu().numpy().flatten(),
+                            "gt_mae": gt_mae.cpu().numpy().flatten()}
         
         if self.prob_c:
             prob_mask = self.c.get_prob_mask()
@@ -378,10 +379,12 @@ class GBML:
         recovered_path = os.path.join(self.image_root, iter_type + "_recon", "epoch_"+str(self.global_epoch))
 
         x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
+        x_resid = torch.norm(x_hat - x, dim=1).unsqueeze(1) #save the residual image
 
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
+        self._save_images(x_resid, [idx + "_resid" for idx in x_idx], recovered_path)
 
         if self.ROI is not None:
             H0, H1 = self.ROI[0]

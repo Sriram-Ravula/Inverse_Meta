@@ -33,13 +33,13 @@ data:
 
  centered: True
 
- num_train: 10
- num_val:   10
+ num_train: 1
+ num_val:   1
  num_test:  10
 
  train_batch_size: 1
  val_batch_size:   1
- test_batch_size:  1
+ test_batch_size:  10
 
  image_size: 384
  num_channels: 2
@@ -48,7 +48,7 @@ mask:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "vertical"
- R: 4
+ R: 6
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
