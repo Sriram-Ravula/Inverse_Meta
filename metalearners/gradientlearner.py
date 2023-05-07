@@ -345,7 +345,8 @@ class GBML:
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
-        elif iter_type == "train" and self.global_epoch % self.hparams.opt.checkpoint_iters != 0:
+        elif iter_type == "train" and not (self.global_epoch % self.hparams.opt.checkpoint_iters == 0 or
+                 self.global_epoch == self.hparams.opt.num_iters - 1):
             return
 
         #(1) Save samping masks
@@ -392,10 +393,15 @@ class GBML:
         psnr_array = metric_dict['psnr'][-len(x_idx):]
         ssim_array = metric_dict['ssim'][-len(x_idx):]
         sample_metric_dicts = [{"Slice": idx, "PSNR": psnr_array[i], "SSIM": ssim_array[i]} for i, idx in enumerate(x_idx)]
-        
         metric_path = os.path.join(recovered_path, "sample_metrics.json")
-        with open(metric_path, 'w') as f:
+        with open(metric_path, 'a') as f:
             json.dump(sample_metric_dicts, f, indent=4)
+            
+        avg_metric_dict = [{"MEAN PSNR": np.mean(metric_dict['psnr']), "MEAN SSIM": np.mean(metric_dict['ssim']),
+                            "STD PSNR": np.std(metric_dict['psnr']), "STD SSIM": np.std(metric_dict['ssim'])}]
+        avg_metric_path = os.path.join(recovered_path, "avg_sample_metrics.json")
+        with open(avg_metric_path, 'w') as f:
+            json.dump(avg_metric_dict, f, indent=4)
 
         if self.ROI is not None:
             H0, H1 = self.ROI[0]

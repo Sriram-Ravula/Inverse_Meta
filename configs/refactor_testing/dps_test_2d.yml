@@ -33,8 +33,8 @@ data:
 
  centered: True
 
- num_train: 100
- num_val:   10
+ num_train: 200
+ num_val:   50
  num_test:  100
 
  train_batch_size: 10
@@ -49,17 +49,17 @@ mask:
 
  sample_pattern: "3D"
  R: 8
- tau: 0.1
+ tau: 0.5
  num_acs_lines: 16
  mask_init: "uniform"
 
 opt:
-  num_iters: 50 #number of meta iterations to run
+  num_iters: 20 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.02 #meta learning rate
+  lr: 0.1 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 5 #validate every n iterations
-  checkpoint_iters: 5 #checkpoint every n iterations
+  val_iters: 4 #validate every n iterations
+  checkpoint_iters: 2 #checkpoint every n iterations

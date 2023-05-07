@@ -29,13 +29,13 @@ data:
 
  centered: True
 
- num_train: 1
- num_val:   1
- num_test:  1
+ num_train: 200
+ num_val:   50
+ num_test:  100
 
- train_batch_size: 1
- val_batch_size:   1
- test_batch_size:  1
+ train_batch_size: 10
+ val_batch_size:   10
+ test_batch_size:  10
 
  image_size: 384
  num_channels: 2
@@ -43,14 +43,14 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "vertical"
- R: 4
- tau: 0.1
- num_acs_lines: 20
+ sample_pattern: "3D"
+ R: 8
+ tau: 0.5
+ num_acs_lines: 16
  mask_init: "uniform"
 
 opt:
-  num_iters: 25 #number of meta iterations to run
+  num_iters: 20 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.1 #meta learning rate
 
@@ -58,4 +58,4 @@ opt:
   lr_decay: 0.95 #exponential weight decay rate.
 
   val_iters: 5 #validate every n iterations
-  checkpoint_iters: 25 #checkpoint every n iterations
+  checkpoint_iters: 2 #checkpoint every n iterations
