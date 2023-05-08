@@ -19,6 +19,7 @@ from algorithms.dps import DPS
 from algorithms.mvue import MVUE_solution
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
+from datasets.mri_dataloaders import get_mvue
 
 from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
 from utils_new.meta_utils import hessian_vector_product as hvp
@@ -192,6 +193,74 @@ class GBML:
         self._add_metrics_to_tb("test")
 
         self._checkpoint()
+    
+    def _dps_loss(self, item, net):
+        #(0) Grab the necessary variables
+        x = item['gt_image'].to(self.device) #[N, 2, H, W] float, x*
+        y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W] complex, FSx*
+        if len(y.shape) > 4:
+            y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
+        s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex, S
+        
+        self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
+        
+        ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
+        
+        with torch.no_grad():
+            estimated_mvue = torch.tensor(
+                        get_mvue(ref.cpu().numpy(),
+                        s_maps.cpu().numpy()), device=self.device)#[N, H, W] complex
+            estimated_mvue = torch.view_as_real(estimated_mvue) #[N, H, W, 2] float
+            norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+            norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        
+        #Also grab normalisation factors for ground truth MVUE
+        x_mins = torch.amin(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        x_maxes = torch.amax(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        
+        class_labels = None
+        if net.label_dim:
+            class_labels = torch.zeros((ref.shape[0], net.label_dim), device=self.device)#[N, label_dim]
+        
+        #(3) Grab the noise and noise the image
+        rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
+        sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
+        weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5
+        
+        #scale the gt mvue to [-1, 1] before noising
+        n = torch.randn_like(x) * sigma
+        x_scaled = (x - x_mins) / (x_maxes - x_mins)
+        x_scaled = 2*x_scaled - 1
+        x_t = x_scaled + n
+        x_t = x_t.requires_grad_() #track gradients for DPS
+        
+        #(4) Grab the unconditional denoise estimate and the likelihood grad
+        #\hat{x}_0^t
+        x_hat_0 = net(x_t, sigma, labels)
+        
+        # Likelihood gradient
+        x_hat_0_unscaled = (x_hat_0 + 1) / 2
+        x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
+        Ax = self.cur_mask_sample * self.A(x_hat_0_unscaled) #PFS\hat{x}_0^t
+        residual = ref - Ax
+        sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        sse = torch.sum(sse_per_samp)
+        likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
+        
+        #Final Denoised prediction
+        x_hat = x_hat_0 - (self.hparams.net.likelihood_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+        x_hat = (x_hat + 1) / 2
+        x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
+        
+        #(5) Update Step and Return
+        self.opt.zero_grad()
+        
+        meta_loss = torch.sum(torch.square(x_hat - x))
+        meta_loss.backward()
+        
+        self.opt.step()
+        
+        return x_hat, x, y
 
     def _run_outer_step(self):
         self._print_if_verbose("\nTRAINING\n")
@@ -204,15 +273,18 @@ class GBML:
             c_shaped = self.cur_mask_sample.detach().clone()
             self.recon_alg.set_c(c_shaped)
             
-            #(1) Grab the reconstruction and log the metrics
-            x_hat, x, y = self._shared_step(item)
-            self._add_batch_metrics(x_hat, x, y, "train")
+            if self.hparams.net.model == 'dps':
+                x_hat, x, y = self._dps_loss(item, self.recon_alg.net)
+            else:
+                #(1) Grab the reconstruction and log the metrics
+                x_hat, x, y = self._shared_step(item)
+                self._add_batch_metrics(x_hat, x, y, "train")
 
-            #(2) Calculate the meta-gradient and update
-            meta_grad = self._mle_grad(x_hat, x, y)
-            meta_grad /= x.shape[0]
-            
-            self._opt_step(meta_grad)
+                #(2) Calculate the meta-gradient and update
+                meta_grad = self._mle_grad(x_hat, x, y)
+                meta_grad /= bs
+                
+                self._opt_step(meta_grad)
 
             #logging and saving
             if i == 0:
