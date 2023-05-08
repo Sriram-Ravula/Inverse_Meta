@@ -287,8 +287,8 @@ class GBML:
         x_hat = self.recon_alg(x_mod, y) #[N, 2, H, W] float
 
         #Do a fully-sampled forward-->adjoint on the output 
-        x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
-        x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
+        # x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
+        # x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
 
         return x_hat, x, y
 
