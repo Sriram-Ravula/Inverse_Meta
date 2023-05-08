@@ -248,17 +248,25 @@ class GBML:
         likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
         
         #Final Denoised prediction
-        x_hat = x_hat_0 - (self.hparams.net.likelihood_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+        x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
         
-        #(5) Update Step and Return
+        #(5) Update Step
         self.opt.zero_grad()
         
         meta_loss = weight * torch.sum(torch.square(x_hat - x))
         meta_loss.backward()
         
         self.opt.step()
+        
+        #(6) Log Things
+        with torch.no_grad():
+            grad_metrics_dict = {"sigma": sigma.flatten().cpu().numpy(),
+                                 "meas_sse": sse_per_samp.flatten().cpu().numpy(),
+                                 "meta_loss": np.array([meta_loss.item()] * x.shape[0]),
+                                 "likelihood_grad_norm": torch.norm(likelihood_score, p=2, dim=(1,2,3)).detach().cpu().numpy()}
+            self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
         return x_hat, x, y
 
