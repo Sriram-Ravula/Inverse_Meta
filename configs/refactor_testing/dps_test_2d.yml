@@ -34,12 +34,12 @@ data:
  centered: True
 
  num_train: 200
- num_val:   50
- num_test:  100
+ num_val:   1
+ num_test:  1
 
- train_batch_size: 10
- val_batch_size:   10
- test_batch_size:  10
+ train_batch_size: 1
+ val_batch_size:   1
+ test_batch_size:  1
 
  image_size: 384
  num_channels: 2
@@ -47,8 +47,8 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "3D"
- R: 8
+ sample_pattern: "vertical"
+ R: 4
  tau: 0.5
  num_acs_lines: 16
  mask_init: "uniform"

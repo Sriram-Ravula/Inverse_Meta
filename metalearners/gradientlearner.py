@@ -220,7 +220,7 @@ class GBML:
         
         class_labels = None
         if net.label_dim:
-            class_labels = torch.zeros((ref.shape[0], net.label_dim), device=self.device)#[N, label_dim]
+            class_labels = torch.zeros((x.shape[0], net.label_dim), device=self.device)#[N, label_dim]
         
         #(3) Grab the noise and noise the image
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
@@ -236,7 +236,7 @@ class GBML:
         
         #(4) Grab the unconditional denoise estimate and the likelihood grad
         #\hat{x}_0^t
-        x_hat_0 = net(x_t, sigma, labels)
+        x_hat_0 = net(x_t, sigma, class_labels)
         
         # Likelihood gradient
         x_hat_0_unscaled = (x_hat_0 + 1) / 2
@@ -255,7 +255,7 @@ class GBML:
         #(5) Update Step and Return
         self.opt.zero_grad()
         
-        meta_loss = torch.sum(torch.square(x_hat - x))
+        meta_loss = weight * torch.sum(torch.square(x_hat - x))
         meta_loss.backward()
         
         self.opt.step()
@@ -275,6 +275,7 @@ class GBML:
             
             if self.hparams.net.model == 'dps':
                 x_hat, x, y = self._dps_loss(item, self.recon_alg.net)
+                self._add_batch_metrics(x_hat, x, y, "train")
             else:
                 #(1) Grab the reconstruction and log the metrics
                 x_hat, x, y = self._shared_step(item)
