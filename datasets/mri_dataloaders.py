@@ -20,7 +20,9 @@ class BrainMultiCoil(Dataset):
                  slice_mapper=None,
                  load_slice_info=False,
                  save_slice_info=False,
-                 kspace_pad=28):
+                 kspace_pad=28,
+                 remove_start=0,
+                 remove_end=5):
         # Attributes
         self.file_list    = file_list
         self.maps_dir     = maps_dir
@@ -28,6 +30,9 @@ class BrainMultiCoil(Dataset):
         self.image_size = image_size
 
         self.kspace_pad = kspace_pad
+        
+        self.remove_start = remove_start
+        self.remove_end = remove_end
 
         if not load_slice_info:
             # Comment next two blocks if we only want central 5 slices
@@ -44,7 +49,9 @@ class BrainMultiCoil(Dataset):
         else:
             print("Loading available scan information\n")
             self.num_slices = np.load(num_slices)
-            self.slice_mapper = np.load(slice_mapper)
+            self.num_slices = self.num_slices - (self.remove_start + self.remove_end)
+            
+            self.slice_mapper = np.cumsum(self.num_slices) - 1 # Counts from '0'
         
         if save_slice_info:
             print("Saving compiled scan information!\n")
@@ -53,7 +60,9 @@ class BrainMultiCoil(Dataset):
 
     def __len__(self):
         #Comment this block if we only want central 5 slices
-        return int(np.sum(self.num_slices)) # Total number of slices from all scans
+        total_slices = int(np.sum(self.num_slices))
+        
+        return total_slices
 
     # Cropping utility - works with numpy / tensors
     def _crop(self, x, wout, hout):
@@ -74,6 +83,7 @@ class BrainMultiCoil(Dataset):
         # Offset from cumulative range
         slice_idx = int(idx) if scan_idx == 0 else \
             int(idx - self.slice_mapper[scan_idx] + self.num_slices[scan_idx] - 1)
+        slice_idx += self.remove_start #skip some at the start if desired
 
         # Load maps for specific scan and slice
         maps_file = os.path.join(self.maps_dir,
@@ -164,4 +174,5 @@ class KneesMultiCoil(BrainMultiCoil):
                  kspace_pad=False):
         super(KneesMultiCoil, self).__init__(file_list, maps_dir, input_dir,
                                              image_size, num_slices, slice_mapper, 
-                                             load_slice_info, save_slice_info, kspace_pad)
+                                             load_slice_info, save_slice_info, kspace_pad,
+                                             remove_start=10, remove_end=0)
