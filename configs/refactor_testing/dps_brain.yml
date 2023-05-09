@@ -11,7 +11,7 @@ seed: 2023
 net:
  model: 'dps'
  config_dir: "/home/sravula/meta_exp/network-snapshot-008040.pkl"
- training_step_size: 50.0
+ training_step_size: 100.0
  likelihood_step_size: 10.0
  steps: 100
  S_churn: 0

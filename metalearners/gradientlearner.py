@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 from torch.utils.data import DataLoader
 import torchvision
+from torchmetrics.functional import structural_similarity_index_measure
 from tqdm import tqdm
 import torch.fft as torch_fft
 import json
@@ -255,7 +256,20 @@ class GBML:
         #(5) Update Step
         self.opt.zero_grad()
         
-        meta_loss = weight * torch.sum(torch.square(x_hat - x))
+        if self.hparams.mask.meta_loss_type == "l2":
+            meta_loss = weight * torch.sum(torch.square(x_hat - x))
+        elif self.hparams.mask.meta_loss_type == "l1":
+            meta_loss = weight * torch.sum(torch.abs(x_hat - x))
+        elif self.hparams.mask.meta_loss_type == "ssim":
+            pred = torch.norm(x_hat, dim=1, keepdim=True)
+            target = torch.norm(x, dim=1, keepdim=True)
+            pix_range = (torch.amax(target) - torch.amin(target)).item()
+            meta_loss = weight * (1 - structural_similarity_index_measure(preds=pred, 
+                                                                     target=target, 
+                                                                     reduction="sum", 
+                                                                     data_range=pix_range))
+        else:
+            raise NotImplementedError("META LOSS NOT IMPLEMENTED!")
         meta_loss.backward()
         
         self.opt.step()
