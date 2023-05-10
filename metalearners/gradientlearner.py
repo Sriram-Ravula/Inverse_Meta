@@ -364,7 +364,7 @@ class GBML:
             scan_idxs = item['scan_idx']
             slice_idxs = item['slice_idx']
             x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-            self._save_all_images(x_hat, x, y, x_idx, "test")
+            self._save_all_images(x_hat, x, y, x_idx, "test", save_masks_manual=(True if i==0 else False))
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
@@ -438,7 +438,7 @@ class GBML:
         self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type, self.ROI)
 
     @torch.no_grad()
-    def _save_all_images(self, x_hat, x, y, x_idx, iter_type):
+    def _save_all_images(self, x_hat, x, y, x_idx, iter_type, save_masks_manual=False):
         if self.hparams.debug or (not self.hparams.save_imgs):
             return
         elif iter_type == "train" and not (self.global_epoch % self.hparams.opt.checkpoint_iters == 0 or
@@ -446,7 +446,7 @@ class GBML:
             return
 
         #(1) Save samping masks
-        if iter_type == "train":
+        if iter_type == "train" or save_masks_manual:
             if self.prob_c:
                 c_shaped = self.c.get_prob_mask()
                 c_shaped_binary = self.cur_mask_sample.detach().clone()

@@ -11,7 +11,7 @@ seed: 2023
 net:
  model: 'dps'
  config_dir: "/home/sravula/meta_exp/network-snapshot-003578.pkl"
- training_step_size: 25.0
+ training_step_size: 2.0
  likelihood_step_size: 10.0
  steps: 100
  S_churn: 0
@@ -46,10 +46,10 @@ data:
  num_channels: 2
 
 mask:
- meta_loss_type: 'l2' #["l2"]
+ meta_loss_type: 'ssim' #["l2"]
 
- sample_pattern: "3D"
- R: 8
+ sample_pattern: "vertical"
+ R: 4
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
@@ -57,7 +57,7 @@ mask:
 opt:
   num_iters: 20 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.01 #meta learning rate
+  lr: 0.025 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
