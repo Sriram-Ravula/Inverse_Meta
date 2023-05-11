@@ -472,11 +472,14 @@ class GBML:
 
         x_hat_vis = torch.norm(x_hat, dim=1).unsqueeze(1) #[N, 1, H, W]
         x_resid = torch.norm(x_hat - x, dim=1).unsqueeze(1) #save the residual image
+        x_resid_stretched = (x_resid - torch.amin(x_resid, dim=(1,2,3), keepdim=True)) / \
+                                (torch.amax(x_resid, dim=(1,2,3), keepdim=True) - torch.amin(x_resid, dim=(1,2,3), keepdim=True))
 
         if not os.path.exists(recovered_path):
             os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
         self._save_images(x_resid, [idx + "_resid" for idx in x_idx], recovered_path)
+        self._save_images(x_resid_stretched, [idx + "_resid_stretched" for idx in x_idx], recovered_path)
         
         #grab the dict and save the stats for the recons
         metric_dict = self.metrics.get_dict(iter_type)['iter_' + str(self.global_epoch)]
