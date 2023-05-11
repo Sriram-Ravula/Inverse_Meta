@@ -46,7 +46,7 @@ data:
  num_channels: 2
 
 mask:
- meta_loss_type: 'ssim' #["l2"]
+ meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "vertical"
  R: 8

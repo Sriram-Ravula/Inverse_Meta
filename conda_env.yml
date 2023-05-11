@@ -2,8 +2,8 @@ name: inverse_meta
 channels:
   - frankong
   - pytorch
-  - anaconda
   - conda-forge
+  - anaconda
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
@@ -29,11 +29,11 @@ dependencies:
   - brunsli=0.1=h2531618_0
   - bzip2=1.0.8=h7f98852_4
   - c-ares=1.18.1=h7f98852_0
-  - ca-certificates=2022.9.24=ha878542_0
+  - ca-certificates=2023.5.7=hbcca054_0
   - cached-property=1.5.2=hd8ed1ab_1
   - cached_property=1.5.2=pyha770c72_1
   - cachetools=5.2.0=pyhd8ed1ab_0
-  - certifi=2022.9.24=pyhd8ed1ab_0
+  - certifi=2023.5.7=pyhd8ed1ab_0
   - cffi=1.14.6=py39he32792d_0
   - cfitsio=3.470=h5893167_7
   - charls=2.2.0=h2531618_0
@@ -148,7 +148,7 @@ dependencies:
   - olefile=0.46=pyh9f0ad1d_1
   - openh264=2.1.1=h780b84a_0
   - openjpeg=2.4.0=hb52868f_1
-  - openssl=1.1.1q=h7f8727e_0
+  - openssl=1.1.1t=h7f8727e_0
   - opt_einsum=3.3.0=pyhd8ed1ab_1
   - packaging=21.3=pyhd8ed1ab_0
   - pandas=1.4.4=py39h6a678d5_0
@@ -215,6 +215,7 @@ dependencies:
   - tk=8.6.12=h1ccaba5_0
   - toolz=0.11.2=pyhd3eb1b0_0
   - torchaudio=0.12.1=py39_cu116
+  - torchmetrics=0.11.4=pyhd8ed1ab_0
   - torchvision=0.13.1=py39_cu116
   - tornado=6.1=py39h27cfd23_0
   - tqdm=4.64.1=pyhd8ed1ab_0
@@ -234,4 +235,7 @@ dependencies:
   - zipp=3.8.1=pyhd8ed1ab_0
   - zlib=1.2.12=h5eee18b_3
   - zstd=1.5.2=ha4553b6_0
+  - pip:
+    - lpips==0.1.4
+    - numpy==1.22.4
 prefix: /home/sravula/anaconda3/envs/inverse_meta

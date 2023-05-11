@@ -206,12 +206,10 @@ class GBML:
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
         ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
-        
+    
         with torch.no_grad():
-            estimated_mvue = torch.tensor(
-                        get_mvue(ref.cpu().numpy(),
-                        s_maps.cpu().numpy()), device=self.device)#[N, H, W] complex
-            estimated_mvue = torch.view_as_real(estimated_mvue) #[N, H, W, 2] float
+            estimated_mvue = torch.sum(self._ifft(ref) * torch.conj(s_maps), axis=1) / torch.sqrt(torch.sum(torch.square(torch.abs(s_maps)), axis=1))
+            estimated_mvue = torch.view_as_real(estimated_mvue)
             norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
             norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         
@@ -226,7 +224,7 @@ class GBML:
         #(3) Grab the noise and noise the image
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
-        weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5
+        # weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5
         
         #scale the gt mvue to [-1, 1] before noising
         n = torch.randn_like(x) * sigma
@@ -258,14 +256,14 @@ class GBML:
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
-            meta_loss = weight * torch.sum(torch.square(x_hat - x))
+            meta_loss = torch.sum(torch.square(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "l1":
-            meta_loss = weight * torch.sum(torch.abs(x_hat - x))
+            meta_loss = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
             pred = torch.norm(x_hat, dim=1, keepdim=True)
             target = torch.norm(x, dim=1, keepdim=True)
             pix_range = (torch.amax(target) - torch.amin(target)).item()
-            meta_loss = weight * (1 - structural_similarity_index_measure(preds=pred, 
+            meta_loss = (1 - structural_similarity_index_measure(preds=pred, 
                                                                      target=target, 
                                                                      reduction="sum", 
                                                                      data_range=pix_range))

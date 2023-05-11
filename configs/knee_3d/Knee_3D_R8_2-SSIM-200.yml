@@ -48,16 +48,16 @@ data:
 mask:
  meta_loss_type: 'ssim' #["l2"]
 
- sample_pattern: "vertical"
+ sample_pattern: "3D"
  R: 8
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
 
 opt:
-  num_iters: 100 #number of meta iterations to run
+  num_iters: 200 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.05 #meta learning rate
+  lr: 0.025 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
