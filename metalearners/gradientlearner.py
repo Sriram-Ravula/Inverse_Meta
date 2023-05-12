@@ -199,7 +199,12 @@ class GBML:
             y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex, S
         
+        #NOTE debugging - make new s_maps and calculate y from these
+        s_maps = torch.ones_like(s_maps)[:, 0].unsqueeze(1)
+        
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
+        
+        y = self.A(x)
         
         ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
