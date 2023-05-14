@@ -50,6 +50,10 @@ class GBML:
             self._init_meta_optimizer()
 
         self.global_epoch = 0
+        
+        #track the best validation weights and restore them before test time
+        self.best_val_psnr = 0
+        self.best_val_weights = None
 
         if self.prob_c:
             tau = getattr(self.hparams.mask, 'tau', 0.5)
@@ -174,14 +178,14 @@ class GBML:
             if iter % self.hparams.opt.checkpoint_iters == 0:
                 self._checkpoint()
 
+            #train
+            self._run_outer_step()
+            self._add_metrics_to_tb("train")
+            
             #validate
             if iter % self.hparams.opt.val_iters == 0:
                 self._run_validation()
                 self._add_metrics_to_tb("val")
-
-            #train
-            self._run_outer_step()
-            self._add_metrics_to_tb("train")
 
             self.global_epoch += 1
 
@@ -343,9 +347,20 @@ class GBML:
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "val")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "val"), "\n")
+        
+        #track the best validation stats
+        cur_val_psnr = self.metrics.get_all_metrics(self.global_epoch, "val")['mean_psnr']
+        if cur_val_psnr > self.best_val_psnr:
+            self.best_val_psnr = cur_val_psnr
+            self.best_val_weights = self.c.weights.clone().detach()
+            self._print_if_verbose("BEST VALIDATION PSNR: ", cur_val_psnr)
 
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
+        
+        #Restore best weights
+        self.c.weights.copy_(self.best_val_weights)
+        self._print_if_verbose("Restoring best validation weights")
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             #grab a new mask(s) for every sample

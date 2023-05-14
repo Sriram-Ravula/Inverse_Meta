@@ -11,7 +11,7 @@ seed: 2023
 net:
  model: 'dps'
  config_dir: "/home/sravula/meta_exp/network-snapshot-003578.pkl"
- training_step_size: 2.0
+ training_step_size: 1.0
  likelihood_step_size: 10.0
  steps: 100
  S_churn: 0
@@ -35,21 +35,21 @@ data:
  centered: True
 
  num_train: 200
- num_val:   1
+ num_val:   50
  num_test:  100
 
  train_batch_size: 1
- val_batch_size:   1
+ val_batch_size:   10
  test_batch_size:  10
 
  image_size: 320
  num_channels: 2
 
 mask:
- meta_loss_type: 'l2' #["l1"]
+ meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "vertical"
- R: 4
+ sample_pattern: "3D"
+ R: 20
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
@@ -62,5 +62,5 @@ opt:
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 10 #validate every n iterations
+  val_iters: 2 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
