@@ -183,7 +183,7 @@ class GBML:
             self._add_metrics_to_tb("train")
             
             #validate
-            if iter % self.hparams.opt.val_iters == 0:
+            if (iter + 1) % self.hparams.opt.val_iters == 0:
                 self._run_validation()
                 self._add_metrics_to_tb("val")
 
@@ -359,6 +359,7 @@ class GBML:
         self._print_if_verbose("\nTESTING\n")
         
         #Restore best weights
+        self.c.weights.requires_grad_(False)
         self.c.weights.copy_(self.best_val_weights)
         self._print_if_verbose("Restoring best validation weights")
 
