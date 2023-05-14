@@ -62,5 +62,5 @@ opt:
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 2 #validate every n iterations
+  val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
