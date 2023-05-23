@@ -48,6 +48,15 @@ class GBML:
 
         if not(self.args.baseline) and not(self.args.test):
             self._init_meta_optimizer()
+        
+        if self.args.mask_path is not None:
+            self.c.weights.requires_grad_(False)
+            
+            checkpoint = load_if_pickled(os.path.join(args.mask_path))
+            self.c.weights.copy_(checkpoint["c_weights"].to(self.device))
+            
+            self._print_if_verbose("Restoring Mask from given path")
+            self.c.weights.requires_grad_(True)
 
         self.global_epoch = 0
         
@@ -160,7 +169,7 @@ class GBML:
             scan_idxs = item['scan_idx']
             slice_idxs = item['slice_idx']
             x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-            self._save_all_images(x_hat, x, y, x_idx, "test")
+            self._save_all_images(x_hat, x, y, x_idx, "test", save_masks_manual=(True if i==0 else False))
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._add_metrics_to_tb("test")
@@ -229,7 +238,7 @@ class GBML:
         #(3) Grab the noise and noise the image
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
-        # weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5
+        # weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5 
         
         #scale the gt mvue to [-1, 1] before noising
         n = torch.randn_like(x) * sigma

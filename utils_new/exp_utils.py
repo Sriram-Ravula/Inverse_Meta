@@ -133,6 +133,8 @@ def parse_args(docstring=""):
     parser.add_argument('--test', action='store_true', help='set to run a test')
 
     parser.add_argument('--resume', action='store_true', help="whether to resume from the last checkpoint")
+    
+    parser.add_argument('--mask_path', type=str, default=None, required=False,  help='Path to probabilistic mask to restore')
 
     parser.add_argument('--baseline', action='store_true', help='whether to run a baseline with a fixed mask')
 
