@@ -213,11 +213,11 @@ class GBML:
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex, S
         
         #NOTE debugging - make new s_maps and calculate y from these
-        s_maps = torch.ones_like(s_maps)[:, 0].unsqueeze(1)
+        # s_maps = torch.ones_like(s_maps)[:, 0].unsqueeze(1)
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        y = self.A(x)
+        # y = self.A(x)
         
         ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
@@ -241,19 +241,22 @@ class GBML:
         # weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5 
         
         #scale the gt mvue to [-1, 1] before noising
-        n = torch.randn_like(x) * sigma
         x_scaled = (x - x_mins) / (x_maxes - x_mins)
         x_scaled = 2*x_scaled - 1
+
+        n = torch.randn_like(x) * sigma
         x_t = x_scaled + n
+
         x_t = x_t.requires_grad_() #track gradients for DPS
         
         #(4) Grab the unconditional denoise estimate and the likelihood grad
         #\hat{x}_0^t
         x_hat_0 = net(x_t, sigma, class_labels)
-        
-        # Likelihood gradient
+
         x_hat_0_unscaled = (x_hat_0 + 1) / 2
         x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
+        
+        # Likelihood gradient
         Ax = self.cur_mask_sample * self.A(x_hat_0_unscaled) #PFS\hat{x}_0^t
         residual = ref - Ax
         sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
@@ -263,6 +266,7 @@ class GBML:
         #Final Denoised prediction
         # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
         x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
+        
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
         
