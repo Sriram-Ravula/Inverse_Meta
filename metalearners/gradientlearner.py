@@ -221,6 +221,7 @@ class GBML:
         
         ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
+        #grab the normalisation stats from the undersampled MVUE
         with torch.no_grad():
             estimated_mvue = torch.sum(self._ifft(ref) * torch.conj(s_maps), axis=1) / torch.sqrt(torch.sum(torch.square(torch.abs(s_maps)), axis=1))
             estimated_mvue = torch.view_as_real(estimated_mvue)
@@ -264,8 +265,9 @@ class GBML:
         likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
         
         #Final Denoised prediction
-        # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
-        x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
+        #NOTE uncommented first line and commmented second line temporarily!
+        x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+        # x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
         
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
