@@ -219,7 +219,10 @@ class GBML:
         
         # y = self.A(x)
         
-        ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
+        #NOTE: we don't want to start tracking gradients for ref until the last unroll
+        # ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
+        detached_cur_mask_sample = self.cur_mask_sample.clone().detach()
+        ref = detached_cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
         #grab the normalisation stats from the undersampled MVUE
         with torch.no_grad():
@@ -249,6 +252,25 @@ class GBML:
         x_t = x_scaled + n
 
         x_t = x_t.requires_grad_() #track gradients for DPS
+
+        #(4)a Optionally do an unroll
+        x_hat_0 = net(x_t, sigma, class_labels)
+
+        x_hat_0_unscaled = (x_hat_0 + 1) / 2
+        x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
+
+        residual = detached_cur_mask_sample * (y - self.A(x_hat_0_unscaled))
+        sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        sse = torch.sum(sse_per_samp)
+        likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t)[0]
+
+        x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+
+        x_t = x_t.detach()
+        x_hat = x_hat.detach()
+
+        x_t = x_hat + n
+        x_t = x_t.requires_grad_()
         
         #(4) Grab the unconditional denoise estimate and the likelihood grad
         #\hat{x}_0^t
@@ -258,8 +280,8 @@ class GBML:
         x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
         
         # Likelihood gradient
-        Ax = self.cur_mask_sample * self.A(x_hat_0_unscaled) #PFS\hat{x}_0^t
-        residual = ref - Ax
+        # Ax = self.cur_mask_sample * self.A(x_hat_0_unscaled) #PFS\hat{x}_0^t
+        residual = self.cur_mask_sample * (y - self.A(x_hat_0_unscaled))
         sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         sse = torch.sum(sse_per_samp)
         likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
