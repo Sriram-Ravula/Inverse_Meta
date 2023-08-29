@@ -34,7 +34,7 @@ data:
 
  centered: True
 
- num_train: 800
+ num_train: 200
  num_val:   50
  num_test:  100
 
@@ -55,9 +55,9 @@ mask:
  mask_init: "uniform"
 
 opt:
-  num_iters: 25 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.001 #meta learning rate
+  lr: 0.01 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.

@@ -212,24 +212,16 @@ class GBML:
             y = torch.complex(y[:, :, :, :, 0], y[:, :, :, :, 1])
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex, S
         
-        #NOTE debugging - make new s_maps and calculate y from these
-        # s_maps = torch.ones_like(s_maps)[:, 0].unsqueeze(1)
-        
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        # y = self.A(x)
-        
-        #NOTE: we don't want to start tracking gradients for ref until the last unroll
-        # ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
-        detached_cur_mask_sample = self.cur_mask_sample.clone().detach()
+        #grab the normalisation stats from the undersampled MVUE
+        detached_cur_mask_sample = self.cur_mask_sample.clone().detach() #P 
         ref = detached_cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
-        #grab the normalisation stats from the undersampled MVUE
-        with torch.no_grad():
-            estimated_mvue = torch.sum(self._ifft(ref) * torch.conj(s_maps), axis=1) / torch.sqrt(torch.sum(torch.square(torch.abs(s_maps)), axis=1))
-            estimated_mvue = torch.view_as_real(estimated_mvue)
-            norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-            norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        estimated_mvue = torch.sum(self._ifft(ref) * torch.conj(s_maps), axis=1) / torch.sqrt(torch.sum(torch.square(torch.abs(s_maps)), axis=1))
+        estimated_mvue = torch.view_as_real(estimated_mvue)
+        norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         
         #Also grab normalisation factors for ground truth MVUE
         x_mins = torch.amin(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
@@ -242,7 +234,6 @@ class GBML:
         #(3) Grab the noise and noise the image
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
-        # weight = (sigma ** 2 + 0.5 ** 2) / (sigma * 0.5) ** 2 #sigma_data=0.5 
         
         #scale the gt mvue to [-1, 1] before noising
         x_scaled = (x - x_mins) / (x_maxes - x_mins)
@@ -253,24 +244,25 @@ class GBML:
 
         x_t = x_t.requires_grad_() #track gradients for DPS
 
-        #(4)a Optionally do an unroll
-        x_hat_0 = net(x_t, sigma, class_labels)
+        #NOTE add parameter to do unrolling
+        # #(4)a Optionally do an unroll
+        # x_hat_0 = net(x_t, sigma, class_labels)
 
-        x_hat_0_unscaled = (x_hat_0 + 1) / 2
-        x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
+        # x_hat_0_unscaled = (x_hat_0 + 1) / 2
+        # x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
 
-        residual = detached_cur_mask_sample * (y - self.A(x_hat_0_unscaled))
-        sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        sse = torch.sum(sse_per_samp)
-        likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t)[0]
+        # residual = detached_cur_mask_sample * (y - self.A(x_hat_0_unscaled))
+        # sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        # sse = torch.sum(sse_per_samp)
+        # likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t)[0]
 
-        x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+        # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
 
-        x_t = x_t.detach()
-        x_hat = x_hat.detach()
+        # x_t = x_t.detach()
+        # x_hat = x_hat.detach()
 
-        x_t = x_hat + n
-        x_t = x_t.requires_grad_()
+        # x_t = x_hat + n
+        # x_t = x_t.requires_grad_()
         
         #(4) Grab the unconditional denoise estimate and the likelihood grad
         #\hat{x}_0^t
@@ -280,15 +272,13 @@ class GBML:
         x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
         
         # Likelihood gradient
-        # Ax = self.cur_mask_sample * self.A(x_hat_0_unscaled) #PFS\hat{x}_0^t
-        residual = self.cur_mask_sample * (y - self.A(x_hat_0_unscaled))
+        residual = self.cur_mask_sample * (y - self.A(x_hat_0_unscaled)) #PFSx* - PFS\hat{x}_0^t
         sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         sse = torch.sum(sse_per_samp)
         likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
         
         #Final Denoised prediction
         x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
-        # x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
         
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
