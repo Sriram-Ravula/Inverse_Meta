@@ -282,12 +282,19 @@ class GBML:
         
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
+
+        #Grab the regularisation
+        meas_resid = self.cur_mask_sample * (y - self.A(x_hat))
+        real_resid = x_hat - x
+        sse_meas_resid = torch.sum(torch.square(torch.abs(meas_resid)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        sse_real_resid = torch.sum(torch.square(torch.abs(real_resid)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        Loss_RIP = torch.sum(torch.square(sse_meas_resid - sse_real_resid))
         
         #(5) Update Step
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
-            meta_loss = torch.sum(torch.square(x_hat - x))
+            meta_loss = torch.sum(torch.square(x_hat - x)) + 0.001 * Loss_RIP
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_loss = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":

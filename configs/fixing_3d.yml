@@ -52,7 +52,7 @@ mask:
  R: 20
  tau: 1.0
  num_acs_lines: 16
- mask_init: "uniform"
+ mask_init: "random"
 
 opt:
   num_iters: 10 #number of meta iterations to run
