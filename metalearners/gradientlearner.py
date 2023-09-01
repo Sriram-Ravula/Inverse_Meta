@@ -288,7 +288,7 @@ class GBML:
         ds = self.train_loader.dataset.dataset
         for i in range(x.shape[0]):
             rand_idx = int(np.random.rand()*len(ds))
-            x_rip[i] = ds[rand_idx]
+            x_rip[i] = torch.from_numpy(ds[rand_idx][0]['gt_image'])
         meas_resid = self.cur_mask_sample * (y - self.A(x_rip))
         real_resid = x_rip - x
         sse_meas_resid = torch.sum(torch.square(torch.abs(meas_resid)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
