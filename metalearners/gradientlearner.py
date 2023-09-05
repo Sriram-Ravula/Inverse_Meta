@@ -300,7 +300,7 @@ class GBML:
         
         if self.hparams.mask.meta_loss_type == "l2":
             meta_error = torch.sum(torch.square(x_hat - x))
-            meta_loss = meta_error + 0.01 * Loss_RIP
+            meta_loss = meta_error + 1e-3 * Loss_RIP
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_loss = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
@@ -323,7 +323,7 @@ class GBML:
                                  "meas_sse": sse_per_samp.flatten().cpu().numpy(),
                                  "meta_loss": np.array([meta_loss.item()] * x.shape[0]),
                                  "meta_error": np.array([meta_error.item()] * x.shape[0]),
-                                 "Loss_RIP": np.array([0.01*Loss_RIP.item()] * x.shape[0]),
+                                 "Loss_RIP": np.array([1e-3*Loss_RIP.item()] * x.shape[0]),
                                  "likelihood_grad_norm": torch.norm(likelihood_score, p=2, dim=(1,2,3)).detach().cpu().numpy()}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
