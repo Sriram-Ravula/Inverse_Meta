@@ -257,8 +257,8 @@ class GBML:
         likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
 
         #Final Denoised prediction
-        x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
-        # x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
+        # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+        x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
         
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
@@ -280,7 +280,7 @@ class GBML:
         
         if self.hparams.mask.meta_loss_type == "l2":
             meta_error = torch.sum(torch.square(x_hat - x))
-            meta_loss = meta_error #* (1 / torch.sum(torch.square(x))) #+ 1e-3 * Loss_RIP
+            meta_loss = meta_error * (1 / torch.sum(torch.square(x))) #+ 1e-3 * Loss_RIP
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_loss = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
