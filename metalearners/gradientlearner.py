@@ -263,24 +263,21 @@ class GBML:
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
 
-        # #Grab the regularisation
-        # x_rip = torch.zeros_like(x)
-        # ds = self.train_loader.dataset.dataset
-        # for i in range(x.shape[0]):
-        #     rand_idx = int(np.random.rand()*len(ds))
-        #     x_rip[i] = torch.from_numpy(ds[rand_idx][0]['gt_image'])
-        # meas_resid = self.cur_mask_sample * (y - self.A(x_rip))
-        # real_resid = x_rip - x
-        # sse_meas_resid = torch.sum(torch.square(torch.abs(meas_resid)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        # sse_real_resid = torch.sum(torch.square(torch.abs(real_resid)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        # Loss_RIP = torch.sum(torch.square(sse_meas_resid - sse_real_resid))
+        #(4b) Calculate the regularisation term
+        W = x.shape[-1]
+        x_vec = y_vec = torch.arange(W, device=x.device) - (W-1)/2 #[W]
+        grid_x, grid_y = torch.meshgrid(x_vec, y_vec, indexing='xy') #[H, W]
+        grid = torch.stack([grid_x, grid_y], dim=0) #[2, H, W]
+        square_radius_grid = torch.sum(torch.square(grid), dim=0) #[H, W] grid with radius from center at each point
+        active_radius_grid = square_radius_grid * self.cur_mask_sample
+        reg_loss = torch.sum(self.cur_mask_sample) / torch.sum(active_radius_grid)
         
         #(5) Update Step
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
             meta_error = torch.sum(torch.square(x_hat - x))
-            meta_loss = meta_error * (1 / torch.sum(torch.square(x))) #+ 1e-3 * Loss_RIP
+            meta_loss = meta_error + reg_loss
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_loss = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
@@ -303,7 +300,7 @@ class GBML:
                                  "meas_sse": sse_per_samp.flatten().cpu().numpy(),
                                  "meta_loss": np.array([meta_loss.item()] * x.shape[0]),
                                  "meta_error": np.array([meta_error.item()] * x.shape[0]),
-                                #  "Loss_RIP": np.array([1e-3*Loss_RIP.item()] * x.shape[0]),
+                                 "reg_loss": np.array([reg_loss.item()] * x.shape[0]),
                                  "likelihood_grad_norm": torch.norm(likelihood_score, p=2, dim=(1,2,3)).detach().cpu().numpy()}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
