@@ -268,19 +268,19 @@ class GBML:
         
         if self.hparams.mask.meta_loss_type == "l2":
             meta_error = torch.sum(torch.square(x_hat - x))
-            meta_loss = meta_error #+ reg_loss
         elif self.hparams.mask.meta_loss_type == "l1":
-            meta_loss = torch.sum(torch.abs(x_hat - x))
+            meta_error = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
             pred = torch.norm(x_hat, dim=1, keepdim=True)
             target = torch.norm(x, dim=1, keepdim=True)
             pix_range = (torch.amax(target) - torch.amin(target)).item()
-            meta_loss = (1 - structural_similarity_index_measure(preds=pred, 
+            meta_error = (1 - structural_similarity_index_measure(preds=pred, 
                                                                      target=target, 
                                                                      reduction="sum", 
                                                                      data_range=pix_range))
         else:
             raise NotImplementedError("META LOSS NOT IMPLEMENTED!")
+        meta_loss = meta_error #+ reg_loss
         meta_loss.backward()
         
         self.opt.step()

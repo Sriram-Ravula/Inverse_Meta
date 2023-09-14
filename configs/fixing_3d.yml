@@ -49,7 +49,7 @@ mask:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "3D"
- R: 20
+ R: 10
  tau: 1.0
  num_acs_lines: 16
  mask_init: "random"
