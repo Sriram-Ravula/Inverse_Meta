@@ -265,12 +265,12 @@ class GBML:
 
         #(4b) Calculate the regularisation term
         W = x.shape[-1]
-        x_vec = y_vec = torch.arange(W, device=x.device) - (W-1)/2 #[W]
+        x_vec = y_vec = (torch.arange(W, device=x.device) - (W-1)/2) / (np.sqrt(2)*(W-1)/2) #[W]
         grid_x, grid_y = torch.meshgrid(x_vec, y_vec, indexing='xy') #[H, W]
         grid = torch.stack([grid_x, grid_y], dim=0) #[2, H, W]
         square_radius_grid = torch.sum(torch.square(grid), dim=0) #[H, W] grid with radius from center at each point
         active_radius_grid = square_radius_grid * self.cur_mask_sample
-        reg_loss = torch.sum(self.cur_mask_sample) / torch.sum(active_radius_grid)
+        reg_loss = 10 * torch.sum(self.cur_mask_sample) / torch.sum(active_radius_grid)
         
         #(5) Update Step
         self.opt.zero_grad()
