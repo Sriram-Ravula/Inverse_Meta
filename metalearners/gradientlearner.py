@@ -204,7 +204,7 @@ class GBML:
         self._checkpoint()
     
     def _dps_loss(self, item, net):
-        #(0) Grab the necessary variables
+        #(0) Grab the necessary variables and operators
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float, x*
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W] complex, FSx*
         if len(y.shape) > 4:
@@ -217,7 +217,7 @@ class GBML:
         if net.label_dim:
             class_labels = torch.zeros((x.shape[0], net.label_dim), device=self.device)#[N, label_dim]
         
-        #grab the normalisation stats from the undersampled MVUE
+        #(1) Grab the normalisation stats from (a) the undersampled MVUE and (b) the ground truth
         detached_cur_mask_sample = self.cur_mask_sample.clone().detach() #P 
         ref = detached_cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
@@ -226,58 +226,49 @@ class GBML:
         norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         
-        #Also grab normalisation factors for ground truth MVUE
         x_mins = torch.amin(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         x_maxes = torch.amax(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         
-        #(3) Grab the noise and noise the image
+        #(2) Grab the noise and noise the image
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
         
-        #scale the gt mvue to [-1, 1] before noising
         x_scaled = (x - x_mins) / (x_maxes - x_mins)
         x_scaled = 2*x_scaled - 1
 
         n = torch.randn_like(x) * sigma
         x_t = x_scaled + n
 
-        x_t = x_t.requires_grad_() #track gradients for DPS
+        # x_t = x_t.requires_grad_() #track gradients for DPS NOTE commented for taking shallow grad w.r.t. \hat{x}_0^t
         
-        #(4) Grab the unconditional denoise estimate and the likelihood grad
+        #(3) Grab the unconditional denoise estimate and the likelihood grad
         #\hat{x}_0^t
         x_hat_0 = net(x_t, sigma, class_labels)
+        x_hat_0 = x_hat_0.requires_grad_() #NOTE added this to take shallow grad w.r.t. \hat{x}_0^t
 
         x_hat_0_unscaled = (x_hat_0 + 1) / 2
         x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
         
-        # Likelihood gradient
+        #Likelihood gradient
         residual = self.cur_mask_sample * (y - self.A(x_hat_0_unscaled)) #PFSx* - PFS\hat{x}_0^t
         sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
         sse = torch.sum(sse_per_samp)
-        likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
+        # likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
+        likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] #NOTE added for shallow gradients
 
-        #Final Denoised prediction
+        #(4) Make the final posterior mean prediction
         # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
         x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
         
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
-
-        #(4b) Calculate the regularisation term
-        W = x.shape[-1]
-        x_vec = y_vec = (torch.arange(W, device=x.device) - (W-1)/2) / (np.sqrt(2)*(W-1)/2) #[W]
-        grid_x, grid_y = torch.meshgrid(x_vec, y_vec, indexing='xy') #[H, W]
-        grid = torch.stack([grid_x, grid_y], dim=0) #[2, H, W]
-        square_radius_grid = torch.sum(torch.square(grid), dim=0) #[H, W] grid with radius from center at each point
-        active_radius_grid = square_radius_grid * self.cur_mask_sample
-        reg_loss = 10 * torch.sum(self.cur_mask_sample) / torch.sum(active_radius_grid)
         
         #(5) Update Step
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
             meta_error = torch.sum(torch.square(x_hat - x))
-            meta_loss = meta_error + reg_loss
+            meta_loss = meta_error #+ reg_loss
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_loss = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
@@ -300,7 +291,7 @@ class GBML:
                                  "meas_sse": sse_per_samp.flatten().cpu().numpy(),
                                  "meta_loss": np.array([meta_loss.item()] * x.shape[0]),
                                  "meta_error": np.array([meta_error.item()] * x.shape[0]),
-                                 "reg_loss": np.array([reg_loss.item()] * x.shape[0]),
+                                #  "reg_loss": np.array([reg_loss.item()] * x.shape[0]),
                                  "likelihood_grad_norm": torch.norm(likelihood_score, p=2, dim=(1,2,3)).detach().cpu().numpy()}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
