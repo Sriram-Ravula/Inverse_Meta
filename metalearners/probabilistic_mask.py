@@ -44,6 +44,22 @@ class Probabilistic_Mask:
             self.m = n**2 - self.num_acs_lines**2
 
             self.sparsity_level = ((n**2)/R - self.num_acs_lines**2) / self.m
+        
+        elif self.hparams.mask.sample_pattern == '3D_circle':
+            #Make the grids to be used for radius estimation
+            x = y = (torch.arange(n) - (n-1)/2) / ((n-1)/2)
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='xy')
+            grid = torch.stack([grid_x, grid_y], dim=0)
+            square_radius_grid = torch.sum(torch.square(grid), dim=0)
+            
+            flat_n_inds = np.arange(n**2).reshape(n,n)
+            self.corner_idx = flat_n_inds[square_radius_grid > 1].flatten()
+            acs_idx = flat_n_inds[acs_idx[:, None], acs_idx].flatten() #fancy indexing grabs a square from center
+            self.insert_mask_idx = np.array([i for i in range(n**2) if i not in acs_idx and i not in self.corner_idx])
+
+            self.m = n**2 - self.num_acs_lines**2 - self.corner_idx.size
+
+            self.sparsity_level = ((n**2)/R - self.num_acs_lines**2) / self.m
 
         else:
             raise NotImplementedError("Fourier sampling pattern not supported!")
@@ -98,9 +114,12 @@ class Probabilistic_Mask:
         sample_pattern = self.hparams.mask.sample_pattern
 
         #start with all ones for acs, then apply our raw mask around acs
-        flat_mask = torch.ones(n**2 if sample_pattern == '3D' else n, 
+        flat_mask = torch.ones(n**2 if '3D' in sample_pattern else n, 
                                 device=raw_mask.device, dtype=raw_mask.dtype)
         flat_mask[self.insert_mask_idx] = raw_mask
+        
+        if sample_pattern == "3D_circle":
+            flat_mask[self.corner_idx] = 0
 
         if sample_pattern == 'horizontal':
             out_mask = flat_mask.unsqueeze(1).repeat(1, n) 
@@ -108,7 +127,7 @@ class Probabilistic_Mask:
         elif sample_pattern == 'vertical':
             out_mask = flat_mask.unsqueeze(0).repeat(n, 1)
 
-        elif sample_pattern == '3D':
+        elif '3D' in sample_pattern:
             out_mask = flat_mask.view(n, n)
 
         return out_mask
