@@ -20,9 +20,14 @@ class ZConjGrad(torch.nn.Module):
     
     Args:
         rhs (Tensor): The residual vector b in some conjugate gradient descent algorithms.
+            - (A^*(b) + \lambda x_init) 
+            - NOTE for multi-coil, A conjugate involves point-wise multiplication and sum over coils
         Aop_fun (func): A function performing the A matrix operation.
+            - A^* A
+            - must be a callable
         max_iter (int): Maximum number of times to run conjugate gradient descent.
         l2lam (float): The L2 lambda, or regularization parameter (must be positive).
+            - \lambda
         eps (float): Determines how small the residuals must be before termination.
         verbose (bool): If true, prints extra information to the console.
     Attributes:
