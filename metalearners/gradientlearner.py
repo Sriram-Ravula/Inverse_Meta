@@ -14,6 +14,8 @@ import yaml
 from algorithms.wavelet import L1_wavelet
 from algorithms.dps import DPS
 from algorithms.mvue import MVUE_solution
+from algorithms.diffusion_cg import Diffusion_CG
+
 from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
 
@@ -73,6 +75,9 @@ class GBML:
         if self.hparams.net.model == 'dps':
             sys.path.append("/home/sravula/Inverse_Meta/edm") #need dnnlib and torch_utils accessible
             self.recon_alg = DPS(self.hparams, self.args, c_shaped, self.device)
+        elif self.hparams.net.model == 'diffusion_cg':
+            sys.path.append("/home/sravula/Inverse_Meta/edm") #need dnnlib and torch_utils accessible
+            self.recon_alg = Diffusion_CG(self.hparams, self.args, c_shaped, self.device)
         elif self.hparams.net.model == 'l1':
             self.recon_alg = L1_wavelet(self.hparams, self.args, c_shaped)
         elif self.hparams.net.model == 'mvue':
@@ -308,7 +313,7 @@ class GBML:
             c_shaped = self.cur_mask_sample.detach().clone()
             self.recon_alg.set_c(c_shaped)
             
-            if self.hparams.net.model == 'dps':
+            if self.hparams.net.model in ['dps', 'diffusion_cg']:
                 x_hat, x, y = self._dps_loss(item, self.recon_alg.net)
                 self._add_batch_metrics(x_hat, x, y, "train")
             else:

@@ -9,10 +9,12 @@ save_dir: "/home/sravula/temp_inverse_outputs" #root of folder to save run infor
 seed: 2023
 
 net:
- model: 'dps'
+ model: 'diffusion_cg'
  config_dir: "/home/sravula/meta_exp/network-snapshot-008040.pkl"
  training_step_size: 1.0
- likelihood_step_size: 10.0
+ l2lam: 1.0
+ max_iter: 10
+ eps: 0.000001 #1e-6
  steps: 100
  S_churn: 0
 
