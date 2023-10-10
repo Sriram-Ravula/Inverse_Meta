@@ -84,12 +84,16 @@ class MulticoilForwardMRINoMask(nn.Module):
         """
         Args:
             image:  [N, 2, H, W] float second channel is (Re, Im)
+                - or [N, H, W] complex
 
         Returns:
             ksp_coils: [N, C, H, W] torch.complex64/128 in kspace domain
         """
-        #convert to a complex tensor
-        x = torch.complex(image[:,0], image[:,1])
+        #convert to a complex tensor if needed
+        if not torch.is_complex(image):
+            x = torch.complex(image[:,0], image[:,1])
+        else:
+            x = image
 
         # Broadcast pointwise multiply
         coils = x[:, None] * self.s_maps

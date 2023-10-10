@@ -12,24 +12,25 @@ class ZConjGrad(torch.nn.Module):
     This implementation of conjugate gradient descent works as a standard torch module, with the functions forward
         and get_metadata overridden. 
         
-    Solves: \argmin_x ||A(x) - b||^2 + \lambda ||x - x_init||^2
-        - closed-form solution is: x = (A^* A + \lambda I)^-1 (A^*(b) + \lambda x_init)
-            - A^* A is equivalent to conjugate_forward(forward( ))
-        - actually solves: (A^* A + \lambda I)x = (A^*(b) + \lambda x_init) 
-            - solves for x
+    Solves \argmin_x ||A(x) - b||^2 + \lambda ||x - x_init||^2
+    - closed-form solution is: x = (A^* A + \lambda I)^-1 (A^*(b) + \lambda x_init)
+        - A^* A is equivalent to conjugate_forward(forward( ))
+    - actually solves: (A^* A + \lambda I)x = A^*(b) + \lambda x_init
+        - solves for x
     
-    Args:
+    Args: #TODO write a helper function to make Aop_fun given S_maps and c (mask)
         rhs (Tensor): The residual vector b in some conjugate gradient descent algorithms.
             - (A^*(b) + \lambda x_init) 
-            - NOTE for multi-coil, A conjugate involves point-wise multiplication and sum over coils
         Aop_fun (func): A function performing the A matrix operation.
             - A^* A
             - must be a callable
+            - for multi-coil MRI, involves point-wise multiplication and sum over coils
         max_iter (int): Maximum number of times to run conjugate gradient descent.
         l2lam (float): The L2 lambda, or regularization parameter (must be positive).
             - \lambda
         eps (float): Determines how small the residuals must be before termination.
         verbose (bool): If true, prints extra information to the console.
+    
     Attributes:
         rhs (Tensor): The residual vector, b in some conjugate gradient descent algorithms.
         Aop_fun (func): A function performing the A matrix operation.
@@ -74,15 +75,21 @@ class ZConjGrad(torch.nn.Module):
 
 
 def zconjgrad(x, b, Aop_fun, max_iter=10, l2lam=0., eps=1e-4, verbose=True):
-    """Conjugate Gradient Algorithm for a complex vector space applied to batches; assumes the first index is batch size.
+    """
+    Conjugate Gradient Algorithm for a complex vector space applied to batches; assumes the first index is batch size.
+    
     Args:
-    x (complex-valued Tensor): The initial input to the algorithm.
-    b (complex-valued Tensor): The residual vector
-    Aop_fun (func): A function performing the normal equations, A.H * A
-    max_iter (int): Maximum number of times to run conjugate gradient descent.
-    l2lam (float): The L2 lambda, or regularization parameter (must be positive).
-    eps (float): Determines how small the residuals must be before termination…
-    verbose (bool): If true, prints extra information to the console.
+        x (complex-valued Tensor): The initial input to the algorithm.
+            - [N, H, W] complex (could convert from [N, 2, H, W] real)
+        b (complex-valued Tensor): The residual vector
+            - [N, H, W] complex 
+        Aop_fun (func): A function performing the normal equations, A.H * A
+            - In: [N, H, W] complex, Out: [N, H, W] complex
+        max_iter (int): Maximum number of times to run conjugate gradient descent.
+        l2lam (float): The L2 lambda, or regularization parameter (must be positive).
+        eps (float): Determines how small the residuals must be before termination…
+        verbose (bool): If true, prints extra information to the console.
+    
     Returns:
     	A tuple containing the output vector x and the number of iterations performed.
     """
@@ -129,3 +136,27 @@ def zconjgrad(x, b, Aop_fun, max_iter=10, l2lam=0., eps=1e-4, verbose=True):
         print('FINAL: {rsnew}'.format(rsnew=torch.sqrt(rsnew)))
 
     return x, num_iter
+
+def itemize(x):
+    """
+    Converts a Tensor into a list of Python numbers.
+    """
+    if len(x.shape) < 1:
+        x = x[None]
+    if x.shape[0] > 1:
+        return [xx.item() for xx in x]
+    else:
+        return x.item()
+    
+def zdot_batch(x1, x2):
+    """
+    Complex dot product of two complex-valued multidimensional Tensors
+    """
+    batch = x1.shape[0]
+    return torch.reshape(torch.conj(x1)*x2, (batch, -1)).sum(1)
+
+def zdot_single_batch(x):
+    """
+    Same, applied to self --> squared L2-norm
+    """
+    return zdot_batch(x, x)
