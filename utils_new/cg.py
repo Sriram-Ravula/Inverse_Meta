@@ -5,6 +5,7 @@ Based on functions from https://github.com/utcsilab/LOUPE_MoDL/
 """
 
 import torch
+from problems.fourier_multicoil import MulticoilForwardMRINoMask
 
 class ZConjGrad(torch.nn.Module):
     """
@@ -18,7 +19,7 @@ class ZConjGrad(torch.nn.Module):
     - actually solves: (A^* A + \lambda I)x = A^*(b) + \lambda x_init
         - solves for x
     
-    Args: #TODO write a helper function to make Aop_fun given S_maps and c (mask)
+    Args:
         rhs (Tensor): The residual vector b in some conjugate gradient descent algorithms.
             - (A^*(b) + \lambda x_init) 
         Aop_fun (func): A function performing the A matrix operation.
@@ -73,6 +74,52 @@ class ZConjGrad(torch.nn.Module):
                 'num_cg': self.num_cg,
                 }
 
+def get_Aop_fun(mask, s_maps):
+    """
+    Helper function that returns a callable A^*A operation given coil maps and mask.
+    
+    Args:
+        mask: Sampling pattern - [N, 1, H, W] real-valued torch tensor
+        s_maps: Coil sensitiviy maps - [N, C, H, W] complex complex-valued tensor
+        
+    Returns:
+        Aop_fun (func): A function performing the normal equations, A.H * A
+            - In: [N, H, W] complex, Out: [N, H, W] complex
+    """
+    
+    def Aop_fun(x):
+        FS = MulticoilForwardMRINoMask(s_maps) #In: [N, H, W] complex, Out: [N, C, H, W] complex
+        
+        Ax = mask * FS(x) #[N, C, H, W] complex, undersampled measurements
+        
+        return torch.sum(FS.ifft(Ax) * torch.conj(s_maps), axis=1) #[N, H, W] complex
+
+    return Aop_fun
+
+def get_cg_rhs(mask, s_maps, FSx, l2lam, x_init):
+    """
+    Helper function that prepares and returns the rhs of the inverse problem linear system
+        aka (A^*(b) + \lambda x_init).
+    Here b = PFSx and x_init is the (un-normalised) initialisation for CG. 
+
+    Args:
+        mask (real-valued tensor): Sampling pattern - [N, 1, H, W] real-valued torch tensor.
+        s_maps (complex-valued tensor): Coil sensitiviy maps - [N, C, H, W] complex-valued tensor.
+        FSx (complex-valued tensor): Fully-sampled ground truth K-space - [N, C, H, W] complex tensor.
+        l2lam (float): The L2 lambda, or regularization parameter (must be positive).
+        x_init (complex-valued Tensor): The initial input to the algorithm. [N, H, W] complex.
+    
+    Returns:
+        rhs (complex-valued tensor): (A^*(b) + \lambda x_init). [N, H, W] complex.
+    """
+    
+    FS = MulticoilForwardMRINoMask(s_maps) #NOTE dummy instance, just need ifft function
+    
+    b = mask * FSx #PFSx [N, C, H, W] complex, undersampled measurements
+    
+    A_conj_b = torch.sum(FS.ifft(b) * torch.conj(s_maps), axis=1) #[N, H, W] complex
+    
+    return A_conj_b + l2lam * x_init
 
 def zconjgrad(x, b, Aop_fun, max_iter=10, l2lam=0., eps=1e-4, verbose=True):
     """
