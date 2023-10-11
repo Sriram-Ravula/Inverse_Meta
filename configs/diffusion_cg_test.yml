@@ -12,7 +12,7 @@ net:
  model: 'diffusion_cg'
  config_dir: "/home/sravula/meta_exp/network-snapshot-008040.pkl"
  training_step_size: 1.0
- l2lam: 0.25
+ l2lam: 0.3
  max_iter: 5
  eps: 0.000001 #1e-6
  steps: 100
@@ -50,7 +50,7 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "vertical"
+ sample_pattern: "3D"
  R: 4
  tau: 1.0
  num_acs_lines: 16
