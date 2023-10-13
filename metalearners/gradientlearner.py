@@ -260,13 +260,34 @@ class GBML:
         sse = torch.sum(sse_per_samp)
         # likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
         likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] #NOTE added for shallow gradients
-
-        #(4) Make the final posterior mean prediction
-        # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
-        x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
+        
+        #create the next iterate
+        sigma_next = sigma / 2 
+        d_cur = (x_t - x_hat_0) / sigma
+        x_next = x_t + (sigma_next - sigma) * d_cur - self.hparams.net.training_step_size * likelihood_score
+        
+        x_hat_0_2 = net(x_next, sigma_next, class_labels)
+        x_hat_0_2 = x_hat_0_2.requires_grad_()
+        
+        x_hat_0_2_unscaled = (x_hat_0_2 + 1) / 2
+        x_hat_0_2_unscaled = x_hat_0_2_unscaled * (norm_maxes - norm_mins) + norm_mins
+        
+        residual_2 = self.cur_mask_sample * (y - self.A(x_hat_0_2_unscaled)) 
+        sse_per_samp_2 = torch.sum(torch.square(torch.abs(residual_2)), dim=(1,2,3), keepdim=True)
+        sse_2 = torch.sum(sse_per_samp_2)
+        likelihood_score_2 = torch.autograd.grad(outputs=sse_2, inputs=x_hat_0_2, create_graph=True)[0]
+        
+        x_hat = x_hat_0_2 - self.hparams.net.training_step_size * likelihood_score_2
         
         x_hat = (x_hat + 1) / 2
         x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
+
+        # #(4) Make the final posterior mean prediction
+        # # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
+        # x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
+        
+        # x_hat = (x_hat + 1) / 2
+        # x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
         
         #(5) Update Step
         self.opt.zero_grad()
