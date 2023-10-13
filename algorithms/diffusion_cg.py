@@ -1,13 +1,12 @@
 import edm.dnnlib as dnnlib
 
 import pickle
-from datasets.mri_dataloaders import get_mvue
 import torch
 import numpy as np
 from tqdm import tqdm
 
 from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
-from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real
+from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real, get_mvue_torch, get_min_max
 
 
 class Dummy:
@@ -46,12 +45,8 @@ class Diffusion_CG:
 
         #grab mvue from undersampled measurements and estimate normalisation
         # factors with it
-        estimated_mvue = torch.tensor(
-                    get_mvue(ref.cpu().numpy(),
-                    maps.cpu().numpy()), device=ref.device)#[N, H, W] complex
-        estimated_mvue = torch.view_as_real(estimated_mvue) #[N, H, W, 2] float
-        norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        estimated_mvue = get_mvue_torch(ref, maps)
+        norm_mins, norm_maxes = get_min_max(estimated_mvue)
 
         #default labels are zero unless specified
         # [N, label_dim]

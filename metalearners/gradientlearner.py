@@ -22,6 +22,7 @@ from datasets import get_dataset, split_dataset
 from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
 from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.metric_utils import Metrics
+from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real, get_mvue_torch, ifft, get_min_max
 
 from metalearners.probabilistic_mask import Probabilistic_Mask
 from metalearners.baseline_mask import Baseline_Mask
@@ -226,20 +227,16 @@ class GBML:
         detached_cur_mask_sample = self.cur_mask_sample.clone().detach() #P 
         ref = detached_cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
-        estimated_mvue = torch.sum(self._ifft(ref) * torch.conj(s_maps), axis=1) / torch.sqrt(torch.sum(torch.square(torch.abs(s_maps)), axis=1))
-        estimated_mvue = torch.view_as_real(estimated_mvue)
-        norm_mins = torch.amin(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        norm_maxes = torch.amax(estimated_mvue, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        estimated_mvue = get_mvue_torch(ref, s_maps)
+        norm_mins, norm_maxes = get_min_max(estimated_mvue)
         
-        x_mins = torch.amin(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        x_maxes = torch.amax(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+        x_mins, x_maxes = get_min_max(x)
         
         #(2) Grab the noise and noise the image
         rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
         sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
         
-        x_scaled = (x - x_mins) / (x_maxes - x_mins)
-        x_scaled = 2*x_scaled - 1
+        x_scaled = normalize(x, x_mins, x_maxes)
 
         n = torch.randn_like(x) * sigma
         x_t = x_scaled + n
@@ -251,8 +248,7 @@ class GBML:
         x_hat_0 = net(x_t, sigma, class_labels)
         x_hat_0 = x_hat_0.requires_grad_() #NOTE added this to take shallow grad w.r.t. \hat{x}_0^t
 
-        x_hat_0_unscaled = (x_hat_0 + 1) / 2
-        x_hat_0_unscaled = x_hat_0_unscaled * (norm_maxes - norm_mins) + norm_mins
+        x_hat_0_unscaled = unnormalize(x_hat_0, norm_mins, norm_maxes)
         
         #Likelihood gradient
         residual = self.cur_mask_sample * (y - self.A(x_hat_0_unscaled)) #PFSx* - PFS\hat{x}_0^t
@@ -269,8 +265,7 @@ class GBML:
         x_hat_0_2 = net(x_next, sigma_next, class_labels)
         x_hat_0_2 = x_hat_0_2.requires_grad_()
         
-        x_hat_0_2_unscaled = (x_hat_0_2 + 1) / 2
-        x_hat_0_2_unscaled = x_hat_0_2_unscaled * (norm_maxes - norm_mins) + norm_mins
+        x_hat_0_2_unscaled = unnormalize(x_hat_0_2, norm_mins, norm_maxes)
         
         residual_2 = self.cur_mask_sample * (y - self.A(x_hat_0_2_unscaled)) 
         sse_per_samp_2 = torch.sum(torch.square(torch.abs(residual_2)), dim=(1,2,3), keepdim=True)
@@ -279,8 +274,7 @@ class GBML:
         
         x_hat = x_hat_0_2 - self.hparams.net.training_step_size * likelihood_score_2
         
-        x_hat = (x_hat + 1) / 2
-        x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
+        x_hat = unnormalize(x_hat, norm_mins, norm_maxes)
 
         # #(4) Make the final posterior mean prediction
         # # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
@@ -434,16 +428,9 @@ class GBML:
 
         #Do a fully-sampled forward-->adjoint on the output 
         # x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
-        # x_hat = torch.view_as_real(torch.sum(self._ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
+        # x_hat = torch.view_as_real(torch.sum(ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
 
         return x_hat, x, y
-
-    # Centered, orthogonal ifft in torch >= 1.7
-    def _ifft(self, x):
-        x = torch_fft.ifftshift(x, dim=(-2, -1))
-        x = torch_fft.ifft2(x, dim=(-2, -1), norm='ortho')
-        x = torch_fft.fftshift(x, dim=(-2, -1))
-        return x 
 
     @torch.no_grad()
     def _add_batch_metrics(self, x_hat, x, y, iter_type):
@@ -645,7 +632,7 @@ class GBML:
 
         #(2)
         resid = self.cur_mask_sample * (self.A(x_hat) - y)
-        cond_log_grad = torch.view_as_real(torch.sum(self.A.ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
+        cond_log_grad = torch.view_as_real(torch.sum(ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
 
         out_grad = 0.0
         out_grad -= hvp(self.c.weights, cond_log_grad, grad_x_meta_loss)

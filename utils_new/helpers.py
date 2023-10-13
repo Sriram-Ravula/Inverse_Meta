@@ -54,7 +54,18 @@ def get_mvue_torch(y, s_maps):
         s_maps: Coil sensitivity maps S. [N, C, H, W] complex tensor. 
     
     Returns:
-        estimated_mvue: [N, H, W, 2] real-valued tensor.
+        estimated_mvue: [N, 2, H, W] real-valued tensor.
     """
     estimated_mvue = torch.sum(ifft(y) * torch.conj(s_maps), axis=1) / torch.sqrt(torch.sum(torch.square(torch.abs(s_maps)), axis=1))
-    return torch.view_as_real(estimated_mvue)
+    
+    return complex_to_real(estimated_mvue)
+
+def get_min_max(x):
+    """
+    Given a [N, 2, H, W] real-valued tensor, return [N, 1, 1, 1] shaped
+        minimum and maximum pixel values.
+    """
+    norm_mins = torch.amin(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+    norm_maxes = torch.amax(x, dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
+    
+    return norm_mins, norm_maxes
