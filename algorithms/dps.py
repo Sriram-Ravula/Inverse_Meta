@@ -7,19 +7,8 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
-def normalize(x, x_min, x_max):
-    """
-    Scales x to appx [-1, 1]
-    """
-    out = (x - x_min) / (x_max - x_min)
-    return 2*out - 1
+from utils_new.helpers import unnormalize
 
-def unnormalize(x, x_min, x_max):
-    """
-    Takes input in appx [-1,1] and unscales it
-    """
-    out = (x + 1) / 2
-    return out * (x_max - x_min) + x_min
 
 class Dummy:
     def __init__(self):

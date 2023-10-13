@@ -7,32 +7,8 @@ import numpy as np
 from tqdm import tqdm
 
 from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
+from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real
 
-def normalize(x, x_min, x_max):
-    """
-    Scales x to appx [-1, 1]
-    """
-    out = (x - x_min) / (x_max - x_min)
-    return 2*out - 1
-
-def unnormalize(x, x_min, x_max):
-    """
-    Takes input in appx [-1,1] and unscales it
-    """
-    out = (x + 1) / 2
-    return out * (x_max - x_min) + x_min
-
-def real_to_complex(x):
-    """
-    Takes an [N, 2, H, W] real-valued tensor and converts it to a [N, H, W] complex tensor.
-    """
-    return torch.complex(x[:,0], x[:,1])
-
-def complex_to_real(x):
-    """
-    Converts [N, H, W] complex tensor to a [N, 2, H, W] real-valued tensor.
-    """
-    return torch.permute(torch.view_as_real(x), (0, 3, 1, 2))
 
 class Dummy:
     def __init__(self):
