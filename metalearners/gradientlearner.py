@@ -295,7 +295,7 @@ class GBML:
         
         #(2) Prepare parameters for running
         steps = 10
-        sigma_max = 80.0
+        sigma_max = 1.0 #80.0
         sigma_min = 0.002
         rho = 7.0
         
