@@ -4,7 +4,7 @@ gpu_num: 0 #-1 means use all (DP mode)
 verbose: true
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "/home/sravula/temp_inverse_outputs" #root of folder to save run information
+save_dir: "/csiNAS2/slow/sriram/NeurIPS_experiments" #root of folder to save run information
 
 seed: 2023
 

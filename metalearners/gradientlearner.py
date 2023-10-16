@@ -224,7 +224,7 @@ class GBML:
         
         return t_steps
     
-    def _unrolled_sampling(self, net, x_init, t_steps, FSx, norm_mins, norm_maxes):
+    def _unrolled_sampling(self, net, x_init, t_steps, FSx, norm_mins, norm_maxes, s_maps=None):
         """
         Performs unrolled conditional sampling using reverse diffusion.
         
@@ -245,19 +245,28 @@ class GBML:
             class_labels = torch.zeros((x_init.shape[0], net.label_dim), device=self.device)#[N, label_dim]
         
         x_t = x_init
-        for i, (t_cur, t_next) in tqdm(enumerate(zip(t_steps[:-1], t_steps[1:]))): # 0, ..., N-1
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_hat_0 = net(x_t, t_cur, class_labels)
-            x_hat_0 = x_hat_0.requires_grad_()
+            if s_maps is None:
+                x_hat_0 = x_hat_0.requires_grad_()
             
             x_hat_0_unscaled = unnormalize(x_hat_0, norm_mins, norm_maxes)
             
-            residual = self.cur_mask_sample * (FSx - self.A(x_hat_0_unscaled))
-            sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) 
-            sse = torch.sum(sse_per_samp)
-            likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] 
-            
-            d_cur = (x_t - x_hat_0) / t_cur
-            x_t = x_t + (t_next - t_cur) * d_cur - self.hparams.net.training_step_size * likelihood_score
+            if s_maps is None:
+                residual = self.cur_mask_sample * (FSx - self.A(x_hat_0_unscaled))
+                sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) 
+                sse = torch.sum(sse_per_samp)
+                likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] 
+                
+                d_cur = (x_t - x_hat_0) / t_cur
+                x_t = x_t + (t_next - t_cur) * d_cur - self.hparams.net.training_step_size * likelihood_score
+            else:
+                y_hat_0 = (1 - self.cur_mask_sample) * self.A(x_hat_0_unscaled) + self.cur_mask_sample * FSx
+                x_hat_0_repaint = get_mvue_torch(y_hat_0, s_maps)
+                x_hat_0_repaint = normalize(x_hat_0_repaint, norm_mins, norm_maxes)
+                
+                d_cur = (x_t - x_hat_0_repaint) / t_cur
+                x_t = x_t + (t_next - t_cur) * d_cur
         
         return unnormalize(x_t, norm_mins, norm_maxes)
     
@@ -296,7 +305,7 @@ class GBML:
         n = torch.randn_like(x) * t_steps[0]
         x_t = x_scaled + n
         
-        x_hat = self._unrolled_sampling(net, x_t, t_steps, y, norm_mins, norm_maxes)
+        x_hat = self._unrolled_sampling(net, x_t, t_steps, y, norm_mins, norm_maxes, s_maps)
         
         # #(2) Grab the noise and noise the image
         # rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
