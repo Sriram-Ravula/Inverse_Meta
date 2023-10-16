@@ -285,8 +285,8 @@ class GBML:
         #     class_labels = torch.zeros((x.shape[0], net.label_dim), device=self.device)#[N, label_dim]
         
         #(1) Grab the normalisation stats from (a) the undersampled MVUE and (b) the ground truth
-        detached_cur_mask_sample = self.cur_mask_sample.clone().detach() #P 
-        ref = detached_cur_mask_sample * y #[N, C, H, W] complex, PFSx*
+        # detached_cur_mask_sample = self.cur_mask_sample.clone().detach() #P 
+        ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
     
         estimated_mvue = get_mvue_torch(ref, s_maps)
         norm_mins, norm_maxes = get_min_max(estimated_mvue)
@@ -294,15 +294,19 @@ class GBML:
         x_mins, x_maxes = get_min_max(x)
         
         #(2) Prepare parameters for running
-        steps = 10
-        sigma_max = 1.0 #80.0
+        steps = 13
+        sigma_max = np.random.rand() * 2 #1.0 #80.0
         sigma_min = 0.002
         rho = 7.0
         
         t_steps = self._get_noise_schedule(steps, sigma_max, sigma_min, rho, net)
         
-        x_scaled = normalize(x, x_mins, x_maxes)
-        n = torch.randn_like(x) * t_steps[0]
+        # x_scaled = normalize(x, x_mins, x_maxes)
+        # n = torch.randn_like(x) * t_steps[0]
+        # x_t = x_scaled + n
+        
+        x_scaled = normalize(estimated_mvue, norm_mins, norm_maxes)
+        n = torch.randn_like(x_scaled) * t_steps[0]
         x_t = x_scaled + n
         
         x_hat = self._unrolled_sampling(net, x_t, t_steps, y, norm_mins, norm_maxes, s_maps)
