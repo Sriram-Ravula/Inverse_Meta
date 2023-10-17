@@ -367,7 +367,7 @@ class GBML:
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
-            meta_error = torch.sum(torch.square(x_hat - x))
+            meta_error = torch.sum(torch.square(x_hat - x)) / torch.sum(torch.square(x)) #NOTE temporary NMSE
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_error = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
