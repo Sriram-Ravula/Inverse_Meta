@@ -269,6 +269,21 @@ class GBML:
                 x_t = x_t + (t_next - t_cur) * d_cur
         
         return unnormalize(x_t, norm_mins, norm_maxes)
+
+    @torch.no_grad()
+    def _add_noise_to_weights(self):
+        for group in self.opt.param_groups:
+            
+            lr = group['lr']
+            noise_std = np.sqrt(2 * lr)
+            
+            for p in group['params']:
+                
+                if p.grad is None:
+                    continue
+                
+                additive_noise = torch.randn_like(p.data) * noise_std
+                p.data.add_(additive_noise)
     
     def _dps_loss(self, item, net):
         #(0) Grab the necessary variables and operators
@@ -384,6 +399,9 @@ class GBML:
         meta_loss.backward()
         
         self.opt.step()
+        
+        #NOTE TEWSTING SGLD
+        self._add_noise_to_weights()
         
         #(6) Log Things
         with torch.no_grad():

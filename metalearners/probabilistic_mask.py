@@ -69,12 +69,15 @@ class Probabilistic_Mask:
         #   take the logits of the entries
         init_method = getattr(self.hparams.mask, 'mask_init', "random")
         
-        if init_method == "uniform":
-            probs = torch.ones(self.m) * 0.5
+        if init_method == "normal":
+            self.weights = torch.randn(self.m, device=self.device)
         else:
-            probs = torch.rand(self.m)
-
-        self.weights = torch.special.logit(probs, eps=1e-3).to(self.device)
+            if init_method == "uniform":
+                probs = torch.ones(self.m) * 0.5
+            elif init_method == "random":
+                probs = torch.rand(self.m)
+            self.weights = torch.special.logit(probs, eps=1e-3).to(self.device)
+            
         self.weights.requires_grad_()
 
         return
