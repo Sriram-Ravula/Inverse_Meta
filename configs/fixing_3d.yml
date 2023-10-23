@@ -48,11 +48,11 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "vertical"
- R: 4
+ sample_pattern: "3D"
+ R: 20
  tau: 1.0
  num_acs_lines: 16
- mask_init: "normal"
+ mask_init: "gaussian_psf"
 
 opt:
   num_iters: 50 #number of meta iterations to run

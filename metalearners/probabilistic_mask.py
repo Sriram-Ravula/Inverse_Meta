@@ -76,6 +76,20 @@ class Probabilistic_Mask:
                 probs = torch.ones(self.m) * 0.5
             elif init_method == "random":
                 probs = torch.rand(self.m)
+            elif init_method == "gaussian_psf":
+                if '3D' in self.hparams.mask.sample_pattern:
+                    x = y = (torch.arange(n) - (n-1)/2) / ((n-1)/2)
+                    grid_x, grid_y = torch.meshgrid(x, y, indexing='xy')
+                    grid = torch.stack([grid_x, grid_y], dim=0)
+                    radius_grid = torch.sum(torch.square(grid), dim=0)
+                else:
+                    grid = (torch.arange(n) - (n-1)/2) / ((n-1)/2)
+                    radius_grid = torch.square(grid)
+                std = 0.5
+                normalizing_constant = 1 / (2 * np.pi * std**2)
+                gauss_psf =  normalizing_constant * torch.exp(-radius_grid / (2 * std**2))
+                probs = gauss_psf.flatten()[self.insert_mask_idx]
+                    
             self.weights = torch.special.logit(probs, eps=1e-3).to(self.device)
             
         self.weights.requires_grad_()
