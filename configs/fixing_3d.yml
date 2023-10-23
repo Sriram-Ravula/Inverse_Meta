@@ -48,14 +48,14 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "3D"
- R: 20
+ sample_pattern: "vertical"
+ R: 4
  tau: 1.0
  num_acs_lines: 16
  mask_init: "normal"
 
 opt:
-  num_iters: 100 #number of meta iterations to run
+  num_iters: 50 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
 
