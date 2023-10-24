@@ -401,7 +401,7 @@ class GBML:
         self.opt.step()
         
         #NOTE TEWSTING SGLD
-        self._add_noise_to_weights()
+        # self._add_noise_to_weights()
         
         #(6) Log Things
         with torch.no_grad():
