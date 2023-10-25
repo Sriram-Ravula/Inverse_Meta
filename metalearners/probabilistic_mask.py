@@ -85,7 +85,7 @@ class Probabilistic_Mask:
                 else:
                     grid = (torch.arange(n) - (n-1)/2) / ((n-1)/2)
                     radius_grid = torch.square(grid)
-                std = 0.2
+                std = 0.3
                 normalizing_constant = 1 / (2 * np.pi * std**2)
                 gauss_psf =  normalizing_constant * torch.exp(-radius_grid / (2 * std**2))
                 probs = gauss_psf.flatten()[self.insert_mask_idx]
@@ -122,11 +122,8 @@ class Probabilistic_Mask:
 
         Note - this requires probability inputs, use sigmoid on input first if giving logits
         """
-        #NOTE temporary and ugly fix to projected gradient descent!
-        return prob_mask
-        
         mu = torch.mean(prob_mask)
-
+        
         if mu >= self.sparsity_level:
             return (self.sparsity_level / mu) * prob_mask
         else:

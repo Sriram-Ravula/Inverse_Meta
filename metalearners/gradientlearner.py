@@ -402,7 +402,7 @@ class GBML:
         
         #NOTE TEWSTING SGLD
         self._add_noise_to_weights()
-        self.c.normalize_probs() #NOTE trying PGD
+        # self.c.normalize_probs() #PGD
         
         #(6) Log Things
         with torch.no_grad():
