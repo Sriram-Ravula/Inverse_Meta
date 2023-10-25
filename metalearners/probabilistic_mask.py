@@ -92,9 +92,29 @@ class Probabilistic_Mask:
                     
             self.weights = torch.special.logit(probs, eps=1e-3).to(self.device)
             
+        self.normalize_probs()
         self.weights.requires_grad_()
 
         return
+    
+    @torch.no_grad()
+    def normalize_probs(self):
+        """
+        Projects current weights/logits onto the set with correct mean probability.
+        
+        To be used for projected gradient descent. 
+        """
+        probs = torch.sigmoid(self.weights)
+        
+        mu = torch.mean(probs)
+        if mu >= self.sparsity_level:
+            normed_probs = (self.sparsity_level / mu) * probs
+        else:
+            normed_probs = 1 - (1 - self.sparsity_level)/(1 - mu) * (1 - probs)
+        
+        projected_logits = torch.special.logit(normed_probs)
+        
+        self.weights.copy_(projected_logits)
     
     def _normalize_probs(self, prob_mask):
         """
@@ -102,6 +122,9 @@ class Probabilistic_Mask:
 
         Note - this requires probability inputs, use sigmoid on input first if giving logits
         """
+        #NOTE temporary and ugly fix to projected gradient descent!
+        return prob_mask
+        
         mu = torch.mean(prob_mask)
 
         if mu >= self.sparsity_level:
