@@ -394,95 +394,37 @@ class GBML:
         s_maps = item['s_maps'].to(self.device) #[N, C, H, W] complex, S
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
-
-        # class_labels = None
-        # if net.label_dim:
-        #     class_labels = torch.zeros((x.shape[0], net.label_dim), device=self.device)#[N, label_dim]
         
-        #(1) Grab the normalisation stats from (a) the undersampled MVUE and (b) the ground truth
-        # detached_cur_mask_sample = self.cur_mask_sample.clone().detach() #P 
-        with torch.no_grad():
-            ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
+        x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
         
-            estimated_mvue = get_mvue_torch(ref, s_maps)
-            norm_mins, norm_maxes = get_min_max(estimated_mvue)
+        # #(1) Grab the normalisation stats from (a) the undersampled MVUE and (b) the ground truth
+        # with torch.no_grad():
+        #     ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
         
-        x_mins, x_maxes = get_min_max(x)
+        #     estimated_mvue = get_mvue_torch(ref, s_maps)
+        #     norm_mins, norm_maxes = get_min_max(estimated_mvue)
         
-        #(2) Prepare parameters for running
-        steps = 10
-        sigma_max = np.random.rand() #1.0 #80.0
-        sigma_min = 0.002
-        rho = 7.0
+        # x_mins, x_maxes = get_min_max(x)
         
-        t_steps = self._get_noise_schedule(steps, sigma_max, sigma_min, rho, net)
+        # #(2) Prepare parameters for running
+        # steps = 10
+        # sigma_max = np.random.rand() #1.0 #80.0
+        # sigma_min = 0.002
+        # rho = 7.0
         
-        x_scaled = normalize(x, x_mins, x_maxes)
-        n = torch.randn_like(x) * t_steps[0]
-        x_t = x_scaled + n
-        
-        # x_scaled = normalize(estimated_mvue, norm_mins, norm_maxes)
-        # n = torch.randn_like(x_scaled) * t_steps[0]
-        # x_t = x_scaled + n
-        
-        x_hat = self._unrolled_sampling(net, x_t, t_steps, y, norm_mins, norm_maxes, s_maps)
-        
-        # #(2) Grab the noise and noise the image
-        # rnd_normal = torch.randn([x.shape[0], 1, 1, 1], device=x.device)
-        # sigma = (rnd_normal * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
+        # t_steps = self._get_noise_schedule(steps, sigma_max, sigma_min, rho, net)
         
         # x_scaled = normalize(x, x_mins, x_maxes)
-
-        # n = torch.randn_like(x) * sigma
+        # n = torch.randn_like(x) * t_steps[0]
         # x_t = x_scaled + n
-
-        # # x_t = x_t.requires_grad_() #track gradients for DPS NOTE commented for taking shallow grad w.r.t. \hat{x}_0^t
         
-        # #(3) Grab the unconditional denoise estimate and the likelihood grad
-        # #\hat{x}_0^t
-        # x_hat_0 = net(x_t, sigma, class_labels)
-        # x_hat_0 = x_hat_0.requires_grad_() #NOTE added this to take shallow grad w.r.t. \hat{x}_0^t
-
-        # x_hat_0_unscaled = unnormalize(x_hat_0, norm_mins, norm_maxes)
-        
-        # #Likelihood gradient
-        # residual = self.cur_mask_sample * (y - self.A(x_hat_0_unscaled)) #PFSx* - PFS\hat{x}_0^t
-        # sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
-        # sse = torch.sum(sse_per_samp)
-        # # likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t, create_graph=True)[0] #create a graph to track grads of likelihood
-        # likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] #NOTE added for shallow gradients
-        
-        # #create the next iterate
-        # sigma_next = sigma / 2 
-        # d_cur = (x_t - x_hat_0) / sigma
-        # x_next = x_t + (sigma_next - sigma) * d_cur - self.hparams.net.training_step_size * likelihood_score
-        
-        # x_hat_0_2 = net(x_next, sigma_next, class_labels)
-        # x_hat_0_2 = x_hat_0_2.requires_grad_()
-        
-        # x_hat_0_2_unscaled = unnormalize(x_hat_0_2, norm_mins, norm_maxes)
-        
-        # residual_2 = self.cur_mask_sample * (y - self.A(x_hat_0_2_unscaled)) 
-        # sse_per_samp_2 = torch.sum(torch.square(torch.abs(residual_2)), dim=(1,2,3), keepdim=True)
-        # sse_2 = torch.sum(sse_per_samp_2)
-        # likelihood_score_2 = torch.autograd.grad(outputs=sse_2, inputs=x_hat_0_2, create_graph=True)[0]
-        
-        # x_hat = x_hat_0_2 - self.hparams.net.training_step_size * likelihood_score_2
-        
-        # x_hat = unnormalize(x_hat, norm_mins, norm_maxes)
-
-        # # #(4) Make the final posterior mean prediction
-        # # # x_hat = x_hat_0 - (self.hparams.net.training_step_size / torch.sqrt(sse_per_samp)) * likelihood_score
-        # # x_hat = x_hat_0 - self.hparams.net.training_step_size * likelihood_score
-        
-        # # x_hat = (x_hat + 1) / 2
-        # # x_hat = x_hat * (norm_maxes - norm_mins) + norm_mins
+        # x_hat = self._unrolled_sampling(net, x_t, t_steps, y, norm_mins, norm_maxes, s_maps)
         
         #(5) Update Step
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
-            meta_error = torch.sum(torch.square(x_hat - x)) / torch.sum(torch.square(x)) #NOTE temporary NMSE
+            meta_error = torch.sum(torch.square(x_hat - x)) / torch.sum(torch.square(x))
         elif self.hparams.mask.meta_loss_type == "l1":
             meta_error = torch.sum(torch.abs(x_hat - x))
         elif self.hparams.mask.meta_loss_type == "ssim":
