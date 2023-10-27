@@ -424,9 +424,15 @@ class GBML:
         self.opt.zero_grad()
         
         if self.hparams.mask.meta_loss_type == "l2":
-            meta_error = torch.sum(torch.square(x_hat - x)) / torch.sum(torch.square(x))
+            #Sample-Wise Mean Normalised SSE
+            numerator = torch.sum(torch.square(x_hat - x), dim=(1,2,3))
+            denominator = torch.sum(torch.square(x), dim=(1,2,3))
+            meta_error = torch.mean(numerator / denominator)
         elif self.hparams.mask.meta_loss_type == "l1":
-            meta_error = torch.sum(torch.abs(x_hat - x))
+            #Sample-Wise Mean Normalised SAE
+            numerator = torch.sum(torch.abs(x_hat - x), dim=(1,2,3))
+            denominator = torch.sum(torch.abs(x), dim=(1,2,3))
+            meta_error = torch.mean(numerator / denominator)
         elif self.hparams.mask.meta_loss_type == "ssim":
             pred = torch.norm(x_hat, dim=1, keepdim=True)
             target = torch.norm(x, dim=1, keepdim=True)
