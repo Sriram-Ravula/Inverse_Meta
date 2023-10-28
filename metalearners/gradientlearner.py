@@ -20,9 +20,8 @@ from problems.fourier_multicoil import MulticoilForwardMRINoMask
 from datasets import get_dataset, split_dataset
 
 from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
-from utils_new.meta_utils import hessian_vector_product as hvp
 from utils_new.metric_utils import Metrics
-from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real, get_mvue_torch, ifft, get_min_max
+from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real, get_mvue_torch, get_min_max
 from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
 
 from metalearners.probabilistic_mask import Probabilistic_Mask
@@ -67,12 +66,8 @@ class GBML:
         self.best_val_psnr = 0
         self.best_val_weights = None
 
-        if self.prob_c:
-            tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = self.c.sample_mask(tau).unsqueeze(0).unsqueeze(0) #draw a binary mask sample and reshape [H, W] --> [1, 1, H, W]
-            c_shaped = self.cur_mask_sample.detach().clone()
-        else:
-            c_shaped = self.c.sample_mask().unsqueeze(0).unsqueeze(0) #[H, W] --> [1, 1, H, W]
+        #grab a single sampling pattern to 
+        c_shaped = self._sample_and_set_mask(1)
 
         if self.hparams.net.model == 'dps':
             sys.path.append("/home/sravula/Inverse_Meta/edm") #need dnnlib and torch_utils accessible
@@ -112,8 +107,6 @@ class GBML:
 
                 ROI_path = os.path.join(self.image_root, "learned_masks")
 
-                if not os.path.exists(ROI_path):
-                    os.makedirs(ROI_path)
                 self._save_images(ROI_IMG, ["ROI"], ROI_path)
 
             if self.prob_c:
@@ -124,8 +117,6 @@ class GBML:
                 c_path = os.path.join(self.image_root, "learned_masks")
                 c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_binary.unsqueeze(0).cpu(), c_shaped_max.unsqueeze(0).cpu()])
 
-                if not os.path.exists(c_path):
-                    os.makedirs(c_path)
                 self._save_images(c_out, ["Prob_00", "Sample_00", "Max_00"], c_path)
 
                 #NOTE sparsity level is the proportion of zeros in the image
@@ -140,8 +131,6 @@ class GBML:
                 c_path = os.path.join(self.image_root, "learned_masks")
                 c_out = c_shaped.unsqueeze(0).cpu()
 
-                if not os.path.exists(c_path):
-                    os.makedirs(c_path)
                 self._save_images(c_out, ["Actual_00"], c_path)
 
                 #NOTE sparsity level is the proportion of zeros in the image
@@ -159,23 +148,14 @@ class GBML:
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             #grab a new mask(s) for every sample
-            if self.prob_c:
-                bs = item['gt_image'].shape[0]
-                tau = getattr(self.hparams.mask, 'tau', 0.5)
-                self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
-                c_shaped = self.cur_mask_sample.detach().clone()
-            else:
-                c_shaped = self.c.sample_mask().unsqueeze(0).unsqueeze(0)
-            self.recon_alg.set_c(c_shaped)
-            
+            bs = item['gt_image'].shape[0]
+            _ = self._sample_and_set_mask(bs)            
+
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
 
             #logging and saving
-            scan_idxs = item['scan_idx']
-            slice_idxs = item['slice_idx']
-            x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-            self._save_all_images(x_hat, x, y, x_idx, "test", save_masks_manual=(True if i==0 else False))
+            self._step_end_logging(i, "test", item, x_hat, x, y)
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._add_metrics_to_tb("test")
@@ -483,10 +463,7 @@ class GBML:
         for i, (item, x_idx) in tqdm(enumerate(self.train_loader)):
             #grab a new mask(s) for every sample
             bs = item['gt_image'].shape[0]
-            tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
-            c_shaped = self.cur_mask_sample.detach().clone()
-            self.recon_alg.set_c(c_shaped)
+            _ = self._sample_and_set_mask(bs)
             
             if self.hparams.net.model in ['dps', 'diffusion_cg']:
                 x_hat, x, y = self._dps_loss(item, self.recon_alg.net)
@@ -495,11 +472,7 @@ class GBML:
                 raise NotImplementedError("Model type unsupported")
 
             #logging and saving
-            if i == 0:
-                scan_idxs = item['scan_idx']
-                slice_idxs = item['slice_idx']
-                x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-                self._save_all_images(x_hat, x, y, x_idx, "train")
+            self._step_end_logging(i, "train", item, x_hat, x, y)
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
@@ -510,21 +483,14 @@ class GBML:
         for i, (item, x_idx) in tqdm(enumerate(self.val_loader)):
             #grab a new mask(s) for every sample
             bs = item['gt_image'].shape[0]
-            tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
-            c_shaped = self.cur_mask_sample.detach().clone()
-            self.recon_alg.set_c(c_shaped)
+            _ = self._sample_and_set_mask(bs)
             
             #Grab the recon
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "val")
 
             #logging and saving
-            if i == 0:
-                scan_idxs = item['scan_idx']
-                slice_idxs = item['slice_idx']
-                x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-                self._save_all_images(x_hat, x, y, x_idx, "val")
+            self._step_end_logging(i, "val", item, x_hat, x, y)
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "val")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "val"), "\n")
@@ -547,23 +513,28 @@ class GBML:
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             #grab a new mask(s) for every sample
             bs = item['gt_image'].shape[0]
-            tau = getattr(self.hparams.mask, 'tau', 0.5)
-            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(bs)], dim=0) #[N, 1, H, W]
-            c_shaped = self.cur_mask_sample.detach().clone()
-            self.recon_alg.set_c(c_shaped)
+            _ = self._sample_and_set_mask(bs)
             
             #Grab the recon            
             x_hat, x, y = self._shared_step(item)
             self._add_batch_metrics(x_hat, x, y, "test")
 
             #logging and saving
-            scan_idxs = item['scan_idx']
-            slice_idxs = item['slice_idx']
-            x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
-            self._save_all_images(x_hat, x, y, x_idx, "test", save_masks_manual=(True if i==0 else False))
+            self._step_end_logging(i, "test", item, x_hat, x, y)
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "test")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "test"), "\n")
+    
+    def _step_end_logging(self, iter_idx, iter_type, item, x_hat, x, y):
+        if iter_type=="test" or iter_idx == 0:
+            scan_idxs = item['scan_idx']
+            slice_idxs = item['slice_idx']
+            x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
+        
+        manual_save_flag = (iter_type=="test" and iter_idx==0)
+        self._save_all_images(x_hat, x, y, x_idx, iter_type, save_masks_manual=manual_save_flag)
+        
+        return    
 
     def _shared_step(self, item):
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float second channel is (Re, Im)
@@ -644,8 +615,6 @@ class GBML:
                 c_path = os.path.join(self.image_root, "learned_masks")
                 c_out = torch.stack([c_shaped.unsqueeze(0).cpu(), c_shaped_max.unsqueeze(0).cpu()])
 
-                if not os.path.exists(c_path):
-                    os.makedirs(c_path)
                 self._save_images(c_out, ["Prob_" + str(self.global_epoch), 
                                           "Max_" + str(self.global_epoch)], c_path)
                 self._save_images(c_shaped_binary.cpu(), 
@@ -657,8 +626,6 @@ class GBML:
                 c_path = os.path.join(self.image_root, "learned_masks")
                 c_out = c_shaped.unsqueeze(0).cpu()
 
-                if not os.path.exists(c_path):
-                    os.makedirs(c_path)
                 self._save_images(c_out, ["Actual_" + str(self.global_epoch)], c_path)
 
         #(2) Save reconstructions at every iteration
@@ -670,8 +637,6 @@ class GBML:
         x_resid_stretched = (x_resid - torch.amin(x_resid, dim=(1,2,3), keepdim=True)) / \
                                 (torch.amax(x_resid, dim=(1,2,3), keepdim=True) - torch.amin(x_resid, dim=(1,2,3), keepdim=True))
 
-        if not os.path.exists(recovered_path):
-            os.makedirs(recovered_path)
         self._save_images(x_hat_vis, x_idx, recovered_path)
         self._save_images(x_resid, [idx + "_resid" for idx in x_idx], recovered_path)
         self._save_images(x_resid_stretched, [idx + "_resid_stretched" for idx in x_idx], recovered_path)
@@ -704,8 +669,6 @@ class GBML:
         recon_meas = MulticoilForwardMRINoMask(fake_maps)(x_hat)
         recon_meas = torch.abs(recon_meas)
 
-        if not os.path.exists(meas_recovered_path):
-            os.makedirs(meas_recovered_path)
         self._save_images(recon_meas, x_idx, meas_recovered_path)
 
         #(3) Save ground truth only once
@@ -715,8 +678,6 @@ class GBML:
 
             x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
-            if not os.path.exists(true_path):
-                os.makedirs(true_path)
             self._save_images(x_vis, x_idx, true_path)
 
             if self.ROI is not None:
@@ -731,30 +692,7 @@ class GBML:
             gt_meas = MulticoilForwardMRINoMask(fake_maps)(x)
             gt_meas = torch.abs(gt_meas)
 
-            if not os.path.exists(meas_path):
-                os.makedirs(meas_path)
             self._save_images(gt_meas, x_idx, meas_path)
-
-    def _opt_step(self, meta_grad):
-        """
-        Will take an optimization step (and scheduler if applicable).
-        Sets c.grad to True then False.
-        """
-        self.opt.zero_grad()
-
-        # dummy update to make sure grad is initialized
-        if type(self.c.weights.grad) == type(None):
-            dummy_loss = torch.sum(self.c.weights)
-            dummy_loss.backward()
-        
-        self.c.weights.grad.copy_(meta_grad)
-        self.opt.step()
-
-        if self.scheduler is not None and self.hparams.opt.decay:
-            LR_OLD = self.opt.param_groups[0]['lr']
-            self.scheduler.step()
-            LR_NEW = self.opt.param_groups[0]['lr']
-            self._print_if_verbose("\nDECAYING LR: ", LR_OLD, " --> ", LR_NEW)
 
     def _init_dataset(self):
         train_set, test_set = get_dataset(self.hparams)
@@ -779,6 +717,27 @@ class GBML:
             self.c = Baseline_Mask(self.hparams, self.device, num_acs_lines)
 
         return
+    
+    def _sample_and_set_mask(self, num_samples):
+        """
+        Grabs num_samples sampling patterns, sets them as current, updates the recon_alg patterns,
+            and returns a stopgrad version of the patterns.
+            
+        Args:
+            num_samples (int): Number of patterns to sample.
+        
+        Returns:
+            c_shaped ([N, 1, H, W] real-valued Torch Tensor): The (detached) patterns that were sampled.  
+        """
+        if self.prob_c:
+            tau = getattr(self.hparams.mask, 'tau', 0.5)
+            self.cur_mask_sample = torch.stack([self.c.sample_mask(tau).unsqueeze(0) for _ in range(num_samples)], dim=0)
+            c_shaped = self.cur_mask_sample.detach().clone()
+        else:
+            c_shaped = self.c.sample_mask().repeat(num_samples, 1, 1, 1)
+        self.recon_alg.set_c(c_shaped)
+        
+        return c_shaped
 
     def _init_meta_optimizer(self):
         opt_type = self.hparams.opt.optimizer
@@ -863,6 +822,8 @@ class GBML:
 
     def _save_images(self, images, img_indices, save_path):
         if not self.hparams.debug and self.hparams.save_imgs:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             save_images(images, img_indices, save_path)
 
     def _print_if_verbose(self, *text):
