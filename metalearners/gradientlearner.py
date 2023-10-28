@@ -427,23 +427,28 @@ class GBML:
             #Sample-Wise Mean Normalised SSE
             numerator = torch.sum(torch.square(x_hat - x), dim=(1,2,3))
             denominator = torch.sum(torch.square(x), dim=(1,2,3))
-            meta_error = torch.mean(numerator / denominator)
+            meta_loss = torch.mean(numerator / denominator)
         elif self.hparams.mask.meta_loss_type == "l1":
             #Sample-Wise Mean Normalised SAE
             numerator = torch.sum(torch.abs(x_hat - x), dim=(1,2,3))
             denominator = torch.sum(torch.abs(x), dim=(1,2,3))
-            meta_error = torch.mean(numerator / denominator)
+            meta_loss = torch.mean(numerator / denominator)
         elif self.hparams.mask.meta_loss_type == "ssim":
-            pred = torch.norm(x_hat, dim=1, keepdim=True)
+            #Sample-wise Mean SSIM
+            #Manually iterate instead of using batched solution since data_range argument of 
+            #   metric does not accept per-sample pixel ranges   
+            pred = torch.norm(x_hat, dim=1, keepdim=True) #[N,1,H,W] Magnitude image
             target = torch.norm(x, dim=1, keepdim=True)
-            pix_range = (torch.amax(target) - torch.amin(target)).item()
-            meta_error = (1 - structural_similarity_index_measure(preds=pred, 
-                                                                     target=target, 
-                                                                     reduction="sum", 
-                                                                     data_range=pix_range))
+            ssim_loss_list = []
+            for i in range(target.shape[0]):
+                #The double slice indexing [[i]] slices and keeps dimension intact
+                ssim_loss_list.append((1 - structural_similarity_index_measure(preds=pred[[i]], 
+                                                                               target=target[[i]], 
+                                                                               reduction="sum")))
+            meta_loss = torch.mean(torch.stack(ssim_loss_list))
         else:
             raise NotImplementedError("META LOSS NOT IMPLEMENTED!")
-        meta_loss = meta_error #+ reg_loss
+        
         meta_loss.backward()
         
         self.opt.step()
@@ -454,13 +459,7 @@ class GBML:
         
         #(6) Log Things
         with torch.no_grad():
-            grad_metrics_dict = {#"sigma": sigma.flatten().cpu().numpy(),
-                                 #"meas_sse": sse_per_samp.flatten().cpu().numpy(),
-                                 "meta_loss": np.array([meta_loss.item()] * x.shape[0]),
-                                 "meta_error": np.array([meta_error.item()] * x.shape[0]),
-                                 #"reg_loss": np.array([reg_loss.item()] * x.shape[0]),
-                                 #"likelihood_grad_norm": torch.norm(likelihood_score, p=2, dim=(1,2,3)).detach().cpu().numpy()
-                                }
+            grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0])}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
         return x_hat, x, y
@@ -480,15 +479,7 @@ class GBML:
                 x_hat, x, y = self._dps_loss(item, self.recon_alg.net)
                 self._add_batch_metrics(x_hat, x, y, "train")
             else:
-                #(1) Grab the reconstruction and log the metrics
-                x_hat, x, y = self._shared_step(item)
-                self._add_batch_metrics(x_hat, x, y, "train")
-
-                #(2) Calculate the meta-gradient and update
-                meta_grad = self._mle_grad(x_hat, x, y)
-                meta_grad /= bs
-                
-                self._opt_step(meta_grad)
+                raise NotImplementedError("Model type unsupported")
 
             #logging and saving
             if i == 0:
@@ -751,50 +742,6 @@ class GBML:
             self.scheduler.step()
             LR_NEW = self.opt.param_groups[0]['lr']
             self._print_if_verbose("\nDECAYING LR: ", LR_OLD, " --> ", LR_NEW)
-
-    def _mle_grad(self, x_hat, x, y):
-        """
-        Calculates the meta-gradient for an MLE step.
-        grad_c(meta_loss) = - grad_x_c[recon_loss] * (meta_loss)
-        (1) Find meta loss
-        (2) Get the HVP grad_x_c(recon_loss) * grad_x(meta_loss)
-        """
-        #(1) Get gradients of Meta loss w.r.t. image and hyperparams
-        if self.hparams.mask.meta_loss_type == "l2":
-            grad_x_meta_loss = x_hat - x
-        elif self.hparams.mask.meta_loss_type == "l1":
-            grad_x_meta_loss = torch.sign(x_hat - x)
-        else:
-            raise NotImplementedError("META LOSS NOT IMPLEMENTED!")
-
-        if self.ROI is not None:
-            H0, H1 = self.ROI[0]
-            W0, W1 = self.ROI[1]
-
-            mask = torch.zeros_like(grad_x_meta_loss)
-            mask[..., H0:H1, W0:W1] = 1.0
-
-            grad_x_meta_loss = grad_x_meta_loss * mask
-
-        grad_c_meta_loss = torch.zeros_like(self.c.weights)
-
-        #(2)
-        resid = self.cur_mask_sample * (self.A(x_hat) - y)
-        cond_log_grad = torch.view_as_real(torch.sum(ifft(resid) * torch.conj(self.A.s_maps), axis=1) ).permute(0,3,1,2)
-
-        out_grad = 0.0
-        out_grad -= hvp(self.c.weights, cond_log_grad, grad_x_meta_loss)
-        out_grad += grad_c_meta_loss
-
-        #Log the metrics for each gradient
-        with torch.no_grad():
-            grad_metrics_dict = {"total_grad_norm": np.array([torch.norm(out_grad).item()] * x.shape[0]),
-                                "meta_loss_grad_norm": np.array([torch.norm(grad_x_meta_loss).item()] * x.shape[0]),
-                                "meta_reg_grad_norm": np.array([torch.norm(grad_c_meta_loss).item()] * x.shape[0]),
-                                "inner_grad_norm": np.array([torch.norm(cond_log_grad).item()] * x.shape[0])}
-            self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
-
-        return out_grad
 
     def _init_dataset(self):
         train_set, test_set = get_dataset(self.hparams)
