@@ -422,7 +422,33 @@ class GBML:
         
         #(5) Update Step
         self.opt.zero_grad()
+        meta_loss = self._get_meta_loss(x_hat, x)
+        meta_loss.backward()
+        self.opt.step()
         
+        #NOTE TEWSTING SGLD
+        self._add_noise_to_weights()
+        # self.c.normalize_probs() #PGD
+        
+        #(6) Log Things
+        with torch.no_grad():
+            grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0])}
+            self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
+        
+        return x_hat, x, y
+    
+    def _get_meta_loss(self, x_hat, x):
+        """
+        Calculates loss between a reconstrution x_hat and true x.
+        
+        Args:
+            x_hat ([N, 2, H, W] real-valued Torch Tensor): The unnormalized predictions.
+            x ([N, 2, H, W] real-valued Torch Tensor): The unnormalized ground truth images. 
+        
+        Returns:
+            meta_loss (Torch Tensor): The meta loss - sample-wise mean of individual losses.
+                                      Type of meta loss to use is determined by self.hparams.mask.meta_loss_type.
+        """
         if self.hparams.mask.meta_loss_type == "l2":
             #Sample-Wise Mean Normalised SSE
             numerator = torch.sum(torch.square(x_hat - x), dim=(1,2,3))
@@ -443,26 +469,13 @@ class GBML:
             for i in range(target.shape[0]):
                 #The double slice indexing [[i]] slices and keeps dimension intact
                 ssim_loss_list.append((1 - structural_similarity_index_measure(preds=pred[[i]], 
-                                                                               target=target[[i]], 
-                                                                               reduction="sum")))
+                                                                                target=target[[i]], 
+                                                                                reduction="sum")))
             meta_loss = torch.mean(torch.stack(ssim_loss_list))
         else:
             raise NotImplementedError("META LOSS NOT IMPLEMENTED!")
         
-        meta_loss.backward()
-        
-        self.opt.step()
-        
-        #NOTE TEWSTING SGLD
-        self._add_noise_to_weights()
-        # self.c.normalize_probs() #PGD
-        
-        #(6) Log Things
-        with torch.no_grad():
-            grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0])}
-            self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
-        
-        return x_hat, x, y
+        return meta_loss
 
     def _run_outer_step(self):
         self._print_if_verbose("\nTRAINING\n")
