@@ -7,16 +7,16 @@ from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
 from utils_new.helpers import unnormalize, get_mvue_torch, get_min_max, normalize, complex_to_real, real_to_complex
 
 
-def get_noise_schedule(steps, sigma_max, sigma_min, rho, net):
+def get_noise_schedule(steps, sigma_max, sigma_min, rho, net, device):
     """
     Generates a [steps + 1] torch tensor with sigma values for reverse diffusion
         in descending order (final entry is always 0).
     """
     if steps == 1:
         sigma = (torch.randn() * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
-        return torch.tensor([sigma, 0.0], dtype=torch.float64, device=net.device)
+        return torch.tensor([sigma, 0.0], dtype=torch.float64, device=device)
     
-    step_indices = torch.arange(steps, dtype=torch.float64, device=net.device)
+    step_indices = torch.arange(steps, dtype=torch.float64, device=device)
     t_steps = (sigma_max ** (1 / rho) + step_indices / (steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
     

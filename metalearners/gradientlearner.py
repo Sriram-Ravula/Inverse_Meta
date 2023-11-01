@@ -397,7 +397,7 @@ class GBML:
         rho = 7.0
         net = self.recon_alg.net
         
-        t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net)
+        t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
         
         x_init = torch.randn_like(x) * t_steps[0]
         P = self.recon_alg.c.detach()
