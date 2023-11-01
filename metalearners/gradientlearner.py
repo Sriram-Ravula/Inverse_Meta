@@ -407,14 +407,14 @@ class GBML:
         S_max=float('inf')
         S_noise=1.
         
-        config = {}
-        
         # alg_type = "repaint"
+        # config = {}
         
-        # alg_type = "shallow_dps"
-        
-        alg_type = "dps"
+        alg_type = "shallow_dps"
         config = {'likelihood_step_size': 10.0}
+        
+        # alg_type = "dps"
+        # config = {'likelihood_step_size': 10.0}
         
         # alg_type = "cg"
         # S_churn = 40

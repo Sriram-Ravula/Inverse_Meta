@@ -118,5 +118,6 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
         
         # (1e) Take an Euler step using the gradient d_cur and the likelihood score
         x_next = x_t_hat + (t_next - t_hat) * d_cur - likelihood_score
+        x_next = x_next.detach()
     
     return unnormalize(x_next, norm_mins, norm_maxes)
