@@ -67,7 +67,7 @@ class GBML:
         self.best_val_weights = None
 
         #grab a single sampling pattern to 
-        c_shaped = self._sample_and_set_mask(1)
+        c_shaped = self._sample_and_set_mask(1, False)
 
         if self.hparams.net.model == 'dps':
             sys.path.append("/home/sravula/Inverse_Meta/edm") #need dnnlib and torch_utils accessible
@@ -407,7 +407,7 @@ class GBML:
         self.opt.step()
         
         #NOTE TEWSTING SGLD
-        self._add_noise_to_weights()
+        # self._add_noise_to_weights()
         # self.c.normalize_probs() #PGD
         
         #(6) Log Things
@@ -507,8 +507,9 @@ class GBML:
         
         #Restore best weights
         self.c.weights.requires_grad_(False)
-        self.c.weights.copy_(self.best_val_weights)
-        self._print_if_verbose("Restoring best validation weights")
+        if self.best_val_weights is not None:
+            self.c.weights.copy_(self.best_val_weights)
+            self._print_if_verbose("Restoring best validation weights")
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             #grab a new mask(s) for every sample
@@ -531,8 +532,8 @@ class GBML:
             slice_idxs = item['slice_idx']
             x_idx = [str(scan_id.item())+"_"+str(slice_id.item()) for scan_id, slice_id in zip(scan_idxs, slice_idxs)]
         
-        manual_save_flag = (iter_type=="test" and iter_idx==0)
-        self._save_all_images(x_hat, x, y, x_idx, iter_type, save_masks_manual=manual_save_flag)
+            manual_save_flag = (iter_type=="test" and iter_idx==0)
+            self._save_all_images(x_hat, x, y, x_idx, iter_type, save_masks_manual=manual_save_flag)
         
         return    
 
@@ -718,13 +719,14 @@ class GBML:
 
         return
     
-    def _sample_and_set_mask(self, num_samples):
+    def _sample_and_set_mask(self, num_samples, set_recon_alg=True):
         """
         Grabs num_samples sampling patterns, sets them as current, updates the recon_alg patterns,
             and returns a stopgrad version of the patterns.
             
         Args:
             num_samples (int): Number of patterns to sample.
+            set_recon_alg (bool, default=True): Whether to update the recon algorithm with the new patterns.
         
         Returns:
             c_shaped ([N, 1, H, W] real-valued Torch Tensor): The (detached) patterns that were sampled.  
@@ -735,7 +737,9 @@ class GBML:
             c_shaped = self.cur_mask_sample.detach().clone()
         else:
             c_shaped = self.c.sample_mask().repeat(num_samples, 1, 1, 1)
-        self.recon_alg.set_c(c_shaped)
+        
+        if set_recon_alg:
+            self.recon_alg.set_c(c_shaped)
         
         return c_shaped
 
