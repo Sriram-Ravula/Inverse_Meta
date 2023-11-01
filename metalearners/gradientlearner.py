@@ -290,10 +290,10 @@ class GBML:
                 sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) #[N, 1, 1, 1]
                 sse = torch.sum(sse_per_samp)
                 
-                if alg_type == "shallow_dps": #TODO fix the create_graph setting based on gradient calculation settings
-                    likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_denoised, create_graph=True)[0] 
+                if alg_type == "shallow_dps":
+                    likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_denoised, create_graph=False)[0] 
                 else:
-                    likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t_hat, create_graph=True)[0] 
+                    likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t_hat, create_graph=False)[0] 
                     
                 likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp)) * likelihood_score
             else:
@@ -703,11 +703,11 @@ class GBML:
         test_dataset = split_dict['test']
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
-                                num_workers=1, drop_last=True)
+                                num_workers=8, drop_last=True)
         self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
-                                num_workers=1, drop_last=True)
+                                num_workers=8, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
-                                num_workers=1, drop_last=True)
+                                num_workers=8, drop_last=True)
 
     def _init_c(self):
         num_acs_lines = getattr(self.hparams.mask, 'num_acs_lines', 20)
