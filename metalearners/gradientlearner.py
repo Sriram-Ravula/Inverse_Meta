@@ -189,52 +189,6 @@ class GBML:
         self._add_metrics_to_tb("test")
 
         self._checkpoint()
-    
-    def _unrolled_sampling(self, net, x_init, t_steps, FSx, norm_mins, norm_maxes, s_maps=None):
-        """
-        Performs unrolled conditional sampling using reverse diffusion.
-        
-        Args:
-            net: The diffusion network.
-            x_init: [N, 2, H, W] real-valued initialisation for reverse process.
-                    This should be normalized and noised appropriately before passing to
-                        _unrolled_sampling().
-            t_steps: [steps + 1] torch tensor containing sigma values for reverse process.
-            FSx: [N, C, H, W] complex tensor - fully-sampled ground truth k-space.
-            norm_mins, norm_maxes: [N, 1, 1, 1] tensors - min and max values for normalisation.
-        
-        Returns:
-            x_hat: [N, 2, H, W] real-valued torch tensor - sample from the reverse diffusion.  
-        """
-        class_labels = None
-        if net.label_dim:
-            class_labels = torch.zeros((x_init.shape[0], net.label_dim), device=self.device)#[N, label_dim]
-        
-        x_t = x_init
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
-            x_hat_0 = net(x_t, t_cur, class_labels)
-            if s_maps is None:
-                x_hat_0 = x_hat_0.requires_grad_()
-            
-            x_hat_0_unscaled = unnormalize(x_hat_0, norm_mins, norm_maxes)
-            
-            if s_maps is None:
-                residual = self.cur_mask_sample * (FSx - self.A(x_hat_0_unscaled))
-                sse_per_samp = torch.sum(torch.square(torch.abs(residual)), dim=(1,2,3), keepdim=True) 
-                sse = torch.sum(sse_per_samp)
-                likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] 
-                
-                d_cur = (x_t - x_hat_0) / t_cur
-                x_t = x_t + (t_next - t_cur) * d_cur - self.hparams.net.training_step_size * likelihood_score
-            else:
-                y_hat_0 = (1 - self.cur_mask_sample) * self.A(x_hat_0_unscaled) + self.cur_mask_sample * FSx
-                x_hat_0_repaint = get_mvue_torch(y_hat_0, s_maps)
-                x_hat_0_repaint = normalize(x_hat_0_repaint, norm_mins, norm_maxes)
-                
-                d_cur = (x_t - x_hat_0_repaint) / t_cur
-                x_t = x_t + (t_next - t_cur) * d_cur
-        
-        return unnormalize(x_t, norm_mins, norm_maxes)
 
     @torch.no_grad()
     def _add_noise_to_weights(self):
