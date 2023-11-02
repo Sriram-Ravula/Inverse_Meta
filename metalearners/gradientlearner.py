@@ -408,6 +408,7 @@ class GBML:
         S_noise=1.
         
         # alg_type = "repaint"
+        # S_churn = 40
         # config = {}
         
         alg_type = "shallow_dps"
