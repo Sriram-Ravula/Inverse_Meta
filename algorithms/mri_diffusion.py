@@ -24,7 +24,7 @@ def get_noise_schedule(steps, sigma_max, sigma_min, rho, net, device):
 
 def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
                             S_churn=0., S_min=0., S_max=float('inf'), S_noise=1.,
-                            **kwargs):
+                            gradient_update_steps=0, **kwargs):
     """
     Performs conditional sampling for solving MRI inverse problems using a diffusion-based model.
     
@@ -41,6 +41,10 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
         P ([N, 1, H, W] real-valued Torch Tensor): The sampling pattern, entries should be in [0, 1].
         S ([N, C, H, W] complex Torch Tensor): Sensitivity maps for each of C coils for each of the N samples.
         alg_type (string): The sampling algorithm to perform, from ["dps", "shallow_dps", "cg", "repaint"].
+        gradient_update_steps (int >= 0): Number of sampling steps to track on the computational graph.
+                                          Setting to 0 means we don't want to propagate gradients. 
+                                          Will track the steps at the end of sampling, e.g. if =5 then the last
+                                            5 sampling steps will be added to the computational graph.
     
     Returns:
         x_hat: ([N, 2, H, W] real-valued Torch Tensor): Output of the reverse diffusion process.
@@ -58,10 +62,16 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
         y = P * FSx #[N, C, H, W] complex, the undersampled multi-coil k-space measurements
         x_hat_mvue = get_mvue_torch(y, S)
         norm_mins, norm_maxes = get_min_max(x_hat_mvue)
+        
+    total_steps = torch.numel(t_steps) - 1
+    grad_flag = False
     
     #(1) Sampling Loop
     x_next = x_init
     for i, (t_cur, t_next) in tqdm(enumerate(zip(t_steps[:-1], t_steps[1:]))): # 0, ..., T-1
+        if (total_steps - i) == gradient_update_steps:
+            grad_flag = True
+            
         x_cur = x_next
         
         # (1a) Increase noise temporarily (for non-DDIM sampling).
@@ -108,16 +118,18 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
             sse = torch.sum(sse_per_samp)
             
             if alg_type == "shallow_dps":
-                likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_denoised, create_graph=False)[0] 
+                likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_denoised, create_graph=grad_flag)[0] 
             else:
-                likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t_hat, create_graph=False)[0] 
-                
-            likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp)) * likelihood_score
+                likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t_hat, create_graph=grad_flag)[0] 
+            
+            #Scale and detach the denominator regardless if tracking gradient     
+            likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp).detach()) * likelihood_score 
         else:
             likelihood_score = 0. 
         
         # (1e) Take an Euler step using the gradient d_cur and the likelihood score
         x_next = x_t_hat + (t_next - t_hat) * d_cur - likelihood_score
-        x_next = x_next.detach()
+        if not grad_flag:
+            x_next = x_next.detach()
     
     return unnormalize(x_next, norm_mins, norm_maxes)

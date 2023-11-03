@@ -386,10 +386,6 @@ class GBML:
         #set coil maps and forward operator including current coil maps
         self.recon_alg.H_funcs.s_maps = s_maps
         self.A = MulticoilForwardMRINoMask(s_maps)
-
-        #Get the reconstruction
-        # x_mod = torch.randn_like(x)
-        # x_hat = self.recon_alg(x_mod, y) #[N, 2, H, W] float
         
         steps = 100
         sigma_max = 80.0
@@ -426,10 +422,6 @@ class GBML:
         
         x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=P, S=s_maps, alg_type=alg_type,
                                        S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, **config)
-
-        #Do a fully-sampled forward-->adjoint on the output 
-        # x_hat = self.A(x_hat) #[N, C, H, W] complex in kspace domain
-        # x_hat = torch.view_as_real(torch.sum(ifft(x_hat) * torch.conj(s_maps), axis=1) ).permute(0,3,1,2)
 
         return x_hat, x, y
 
