@@ -207,7 +207,7 @@ class GBML:
                 p.data.add_(additive_noise)
     
     def _dps_loss(self, item, net):
-        #(0) Grab the necessary variables and operators
+        # Grab the necessary variables and operators
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float, x*
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W] complex, FSx*
         if len(y.shape) > 4:
@@ -216,42 +216,54 @@ class GBML:
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
+        if self.global_epoch < 5:
+            x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
+        else:
+            steps = 100
+            sigma_max = 80.0
+            sigma_min = 0.002
+            rho = 7.0
+            
+            S_churn=40.
+            S_min=0.
+            S_max=float('inf')
+            S_noise=1.
+            
+            # alg_type = "repaint"
+            # sigma_max = 1.0
+            # config = {}
+            
+            alg_type = "shallow_dps"
+            config = {'likelihood_step_size': 10.0}
+            
+            # alg_type = "dps"
+            # S_churn=0.
+            # config = {'likelihood_step_size': 10.0}
+            
+            # alg_type = "cg"
+            # config = {"cg_lambda": 0.3,
+            #           "cg_max_iter": 5,
+            #           "cg_eps": 0.000001}
+            
+            t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
+            
+            x_init = torch.randn_like(x) * t_steps[0]
+            
+            x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
+                        S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=1, **config)
         
-        # #(1) Grab the normalisation stats from (a) the undersampled MVUE and (b) the ground truth
-        # with torch.no_grad():
-        #     ref = self.cur_mask_sample * y #[N, C, H, W] complex, PFSx*
-        
-        #     estimated_mvue = get_mvue_torch(ref, s_maps)
-        #     norm_mins, norm_maxes = get_min_max(estimated_mvue)
-        
-        # x_mins, x_maxes = get_min_max(x)
-        
-        # #(2) Prepare parameters for running
-        # steps = 10
-        # sigma_max = np.random.rand() #1.0 #80.0
-        # sigma_min = 0.002
-        # rho = 7.0
-        
-        # t_steps = self._get_noise_schedule(steps, sigma_max, sigma_min, rho, net)
-        
-        # x_scaled = normalize(x, x_mins, x_maxes)
-        # n = torch.randn_like(x) * t_steps[0]
-        # x_t = x_scaled + n
-        
-        # x_hat = self._unrolled_sampling(net, x_t, t_steps, y, norm_mins, norm_maxes, s_maps)
-        
-        #(5) Update Step
+        # Update Step
         self.opt.zero_grad()
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
         self.opt.step()
         
-        #NOTE TEWSTING SGLD
-        # self._add_noise_to_weights()
-        # self.c.normalize_probs() #PGD
+        if self.global_epoch < 5:
+            self.c.normalize_probs()
+        else:
+            self._add_noise_to_weights()
         
-        #(6) Log Things
+        # Log Things
         with torch.no_grad():
             grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0])}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
