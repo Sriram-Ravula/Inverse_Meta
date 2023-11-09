@@ -48,14 +48,14 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "3D"
+ sample_pattern: "3D_circle"
  R: 20
  tau: 1.0
  num_acs_lines: 16
- mask_init: "uniform"
+ mask_init: "gaussian_psf"
 
 opt:
-  num_iters: 20 #number of meta iterations to run
+  num_iters: 100 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
 
