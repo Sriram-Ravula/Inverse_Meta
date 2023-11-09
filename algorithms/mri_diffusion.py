@@ -13,8 +13,8 @@ def get_noise_schedule(steps, sigma_max, sigma_min, rho, net, device):
         in descending order (final entry is always 0).
     """
     if steps == 1:
-        sigma = (torch.randn() * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
-        return torch.tensor([sigma, 0.0], dtype=torch.float64, device=device)
+        # sigma = (torch.randn() * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
+        return torch.tensor([sigma_max, 0.0], dtype=torch.float64, device=device)
     
     step_indices = torch.arange(steps, dtype=torch.float64, device=device)
     t_steps = (sigma_max ** (1 / rho) + step_indices / (steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
