@@ -247,7 +247,10 @@ class GBML:
         
         t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
         
-        x_init = x + torch.randn_like(x) * t_steps[0]
+        x_mins, x_maxes = get_min_max(x)
+        x_scaled = normalize(x, x_mins, x_maxes)
+        n = torch.randn_like(x) * t_steps[0]
+        x_init = x_scaled + n
         
         x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
                     S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=1, **config)
