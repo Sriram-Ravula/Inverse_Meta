@@ -68,7 +68,7 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
     
     #(1) Sampling Loop
     x_next = x_init
-    for i, (t_cur, t_next) in tqdm(enumerate(zip(t_steps[:-1], t_steps[1:]))): # 0, ..., T-1
+    for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., T-1
         if (total_steps - i) == gradient_update_steps:
             grad_flag = True
             

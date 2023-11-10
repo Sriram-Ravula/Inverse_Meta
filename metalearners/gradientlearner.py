@@ -219,8 +219,8 @@ class GBML:
         # if self.global_epoch < 5:
         #     x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
         # else:
-        steps = 1 #100
-        sigma_max = np.random.rand() #80.0
+        steps = 10 #100
+        sigma_max = 80.0 #np.random.rand() 
         sigma_min = 0.002
         rho = 7.0
         
@@ -230,7 +230,7 @@ class GBML:
         S_noise=1.
         
         alg_type = "repaint"
-        # sigma_max = 1.0
+        sigma_max = 1.0
         config = {}
         
         # alg_type = "shallow_dps"
@@ -252,8 +252,10 @@ class GBML:
         n = torch.randn_like(x) * t_steps[0]
         x_init = x_scaled + n
         
+        update_steps=10
+        
         x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
-                    S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=1, **config)
+                    S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
         
         # Update Step
         self.opt.zero_grad()
@@ -265,6 +267,8 @@ class GBML:
         #     self.c.normalize_probs()
         # else:
         # self._add_noise_to_weights()
+        if self.global_epoch > 9:
+            self._add_noise_to_weights()
         
         # Log Things
         with torch.no_grad():
