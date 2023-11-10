@@ -55,12 +55,12 @@ mask:
  mask_init: "gaussian_psf"
 
 opt:
-  num_iters: 100 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.001 #meta learning rate
+  lr: 0.005 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 5 #validate every n iterations
+  val_iters: 1 #validate every n iterations
   checkpoint_iters: 1 #checkpoint every n iterations
