@@ -66,6 +66,7 @@ class GBML:
         #track the best validation weights and restore them before test time
         self.best_val_psnr = 0
         self.best_val_weights = None
+        self.best_val_epoch = 0
 
         #grab a single sampling pattern to 
         c_shaped = self._sample_and_set_mask(1, False)
@@ -216,9 +217,7 @@ class GBML:
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        # if self.global_epoch < 5:
-        #     x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
-        # else:
+        # Prepare sampling variables
         steps = 100
         sigma_max = 80.0 #np.random.rand() 
         sigma_min = 0.002
@@ -229,16 +228,16 @@ class GBML:
         S_max=float('inf')
         S_noise=1.
         
-        # alg_type = "repaint"
-        # sigma_max = 1.0
-        # config = {}
+        alg_type = "repaint"
+        sigma_max = 1.0
+        config = {}
         
         # alg_type = "shallow_dps"
         # config = {'likelihood_step_size': 10.0}
         
-        alg_type = "dps"
-        S_churn=0.
-        config = {'likelihood_step_size': 10.0}
+        # alg_type = "dps"
+        # S_churn=0.
+        # config = {'likelihood_step_size': 10.0}
         
         # alg_type = "cg"
         # config = {"cg_lambda": 0.3,
@@ -252,7 +251,7 @@ class GBML:
         n = torch.randn_like(x) * t_steps[0]
         x_init = x_scaled + n
         
-        update_steps = 1
+        update_steps = 10
         
         x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
                     S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
@@ -262,12 +261,6 @@ class GBML:
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
         self.opt.step()
-        
-        # if self.global_epoch < 5:
-        #     self.c.normalize_probs()
-        # else:
-        # self._add_noise_to_weights()
-        # self._add_noise_to_weights()
         
         # Log Things
         with torch.no_grad():
@@ -359,7 +352,11 @@ class GBML:
         if cur_val_psnr > self.best_val_psnr:
             self.best_val_psnr = cur_val_psnr
             self.best_val_weights = self.c.weights.clone().detach()
+            self.best_val_epoch = self.global_epoch
             self._print_if_verbose("BEST VALIDATION PSNR: ", cur_val_psnr)
+        else:
+            self._print_if_verbose("Val metrics did not improve; projecting mask weights")
+            self.c.normalize_probs()
 
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")
@@ -368,7 +365,7 @@ class GBML:
         self.c.weights.requires_grad_(False)
         if self.best_val_weights is not None:
             self.c.weights.copy_(self.best_val_weights)
-            self._print_if_verbose("Restoring best validation weights")
+            self._print_if_verbose("Restoring best validation weights from epoch ", self.best_val_epoch)
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             #grab a new mask(s) for every sample
