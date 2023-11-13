@@ -112,7 +112,7 @@ class Probabilistic_Mask:
         else:
             normed_probs = 1 - (1 - self.sparsity_level)/(1 - mu) * (1 - probs)
         
-        projected_logits = torch.special.logit(normed_probs)
+        projected_logits = torch.special.logit(normed_probs, eps=1e-3)
         
         self.weights.copy_(projected_logits)
     

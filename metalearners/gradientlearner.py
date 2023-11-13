@@ -217,9 +217,14 @@ class GBML:
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
+        #NOTE TEMP TESTING
+        y_mag = torch.abs(y)
+        meas_noise = torch.randn_like(y) * torch.amin(y_mag)
+        y = y + meas_noise
+        
         # Prepare sampling variables
         steps = 100
-        sigma_max = 80.0 #np.random.rand() 
+        sigma_max = 80.0 #np.random.rand()   
         sigma_min = 0.002
         rho = 7.0
         
@@ -228,12 +233,12 @@ class GBML:
         S_max=float('inf')
         S_noise=1.
         
-        alg_type = "repaint"
-        sigma_max = 1.0
-        config = {}
+        # alg_type = "repaint"
+        # sigma_max = 1.0
+        # config = {}
         
-        # alg_type = "shallow_dps"
-        # config = {'likelihood_step_size': 10.0}
+        alg_type = "shallow_dps"
+        config = {'likelihood_step_size': 10.0}
         
         # alg_type = "dps"
         # S_churn=0.
@@ -262,9 +267,12 @@ class GBML:
         meta_loss.backward()
         self.opt.step()
         
+        # self._add_noise_to_weights()
+        
         # Log Things
         with torch.no_grad():
-            grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0])}
+            grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0]),
+                                 "sigma_max": np.array([t_steps[0].item()] * x.shape[0])}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
         return x_hat, x, y
