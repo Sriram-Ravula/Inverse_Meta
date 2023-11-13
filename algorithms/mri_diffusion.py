@@ -123,8 +123,7 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
                 likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t_hat, create_graph=grad_flag)[0] 
             
             #Scale and detach the denominator regardless if tracking gradient     
-            #NOTE temporarily suspending .detach() after the sqrt operation in the denominator
-            likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp)) * likelihood_score 
+            likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp).detach()) * likelihood_score 
         else:
             likelihood_score = 0. 
         

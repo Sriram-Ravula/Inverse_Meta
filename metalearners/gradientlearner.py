@@ -219,7 +219,7 @@ class GBML:
         
         #NOTE TEMP TESTING
         y_mag = torch.abs(y)
-        meas_noise = torch.randn_like(y) * torch.amin(y_mag)
+        meas_noise = torch.randn_like(y) * torch.mean(y_mag)
         y = y + meas_noise
         
         # Prepare sampling variables
@@ -233,12 +233,12 @@ class GBML:
         S_max=float('inf')
         S_noise=1.
         
-        # alg_type = "repaint"
-        # sigma_max = 1.0
-        # config = {}
+        alg_type = "repaint"
+        sigma_max = 1.0
+        config = {}
         
-        alg_type = "shallow_dps"
-        config = {'likelihood_step_size': 10.0}
+        # alg_type = "shallow_dps"
+        # config = {'likelihood_step_size': 10.0}
         
         # alg_type = "dps"
         # S_churn=0.
