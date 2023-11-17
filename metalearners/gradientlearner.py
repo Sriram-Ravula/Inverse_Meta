@@ -197,7 +197,7 @@ class GBML:
         for group in self.opt.param_groups:
             
             lr = group['lr']
-            noise_std = np.sqrt(2 * lr)
+            noise_std = np.sqrt(2*lr)
             
             for p in group['params']:
                 
@@ -217,18 +217,18 @@ class GBML:
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        #NOTE TEMP TESTING
-        y_mag = torch.abs(y)
-        meas_noise = torch.randn_like(y) * torch.mean(y_mag)
-        y = y + meas_noise
+        # #NOTE TEMP TESTING
+        # y_mag = torch.abs(y)
+        # meas_noise = torch.randn_like(y) * torch.mean(y_mag)
+        # y = y + meas_noise
         
         # Prepare sampling variables
-        steps = 100
+        steps = 10 #100
         sigma_max = 80.0 #np.random.rand()   
         sigma_min = 0.002
         rho = 7.0
         
-        S_churn=40.
+        S_churn=0 #40.
         S_min=0.
         S_max=float('inf')
         S_noise=1.
@@ -264,6 +264,8 @@ class GBML:
         # Update Step
         self.opt.zero_grad()
         meta_loss = self._get_meta_loss(x_hat, x)
+        reg = torch.mean(torch.abs(torch.sigmoid(self.c.weights)))
+        meta_loss = meta_loss + reg
         meta_loss.backward()
         self.opt.step()
         
@@ -272,6 +274,7 @@ class GBML:
         # Log Things
         with torch.no_grad():
             grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0]),
+                                 "reg_loss": np.array([reg.item()] * x.shape[0]),
                                  "sigma_max": np.array([t_steps[0].item()] * x.shape[0])}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
@@ -362,9 +365,9 @@ class GBML:
             self.best_val_weights = self.c.weights.clone().detach()
             self.best_val_epoch = self.global_epoch
             self._print_if_verbose("BEST VALIDATION PSNR: ", cur_val_psnr)
-        else:
-            self._print_if_verbose("Val metrics did not improve; projecting mask weights")
-            self.c.normalize_probs()
+        # else:
+        #     self._print_if_verbose("Val metrics did not improve; projecting mask weights")
+        #     self.c.normalize_probs()
 
     def _run_test(self):
         self._print_if_verbose("\nTESTING\n")

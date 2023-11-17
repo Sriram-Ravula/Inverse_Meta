@@ -46,7 +46,7 @@ data:
  num_channels: 2
 
 mask:
- meta_loss_type: 'l1' #["l2"]
+ meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "3D_circle"
  R: 20
@@ -55,7 +55,7 @@ mask:
  mask_init: "gaussian_psf"
 
 opt:
-  num_iters: 25 #number of meta iterations to run
+  num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.002 #meta learning rate
 
