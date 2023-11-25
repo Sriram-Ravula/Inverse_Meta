@@ -264,7 +264,7 @@ class GBML:
         # Update Step
         self.opt.zero_grad()
         meta_loss = self._get_meta_loss(x_hat, x)
-        reg = torch.mean(torch.abs(torch.sigmoid(self.c.weights)))
+        reg = 0.5 * torch.mean(torch.abs(torch.sigmoid(self.c.weights))) 
         meta_loss = meta_loss + reg
         meta_loss.backward()
         self.opt.step()
