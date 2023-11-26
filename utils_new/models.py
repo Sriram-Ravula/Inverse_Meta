@@ -120,7 +120,7 @@ class Fixed_Input_UNet(nn.Module):
         self.output_size = output_size
 
         self.model = UNet(ngf=self.ngf, output_size=self.output_size)
-        self.latent = torch.randn((1, 1, self.output_size, self.output_size))
+        self.latent = torch.randn((1, 1, self.output_size, self.output_size), require_grad=False)
     
     def forward(self):
         return self.model(self.latent)
