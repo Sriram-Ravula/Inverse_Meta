@@ -66,7 +66,7 @@ class Network_Mask:
 
         Note - this requires probability inputs, use sigmoid on input first if giving logits
         """
-        mu = torch.sum(prob_mask) / self.m #NOTE this calcs the mean only in supported areas
+        mu = torch.sum(self._mask_unsupported_idxs(prob_mask)) / self.m #NOTE this calcs the mean only in supported areas
         
         if mu >= self.sparsity_level:
             return (self.sparsity_level / mu) * prob_mask
@@ -90,8 +90,7 @@ class Network_Mask:
     def sample_mask(self, tau=0.5):
         logits = self.pattern_net().squeeze()
         probs = torch.sigmoid(logits)
-        supported_probs = self._mask_unsupported_idxs(probs)
-        normed_probs = self._normalize_probs(supported_probs)
+        normed_probs = self._normalize_probs(probs)
         sampled_mask = self._sample_mask(normed_probs, tau=tau)
         return self._apply_masks(sampled_mask)
     
@@ -102,8 +101,7 @@ class Network_Mask:
         """
         logits = self.pattern_net().squeeze()
         probs = torch.sigmoid(logits)
-        supported_probs = self._mask_unsupported_idxs(probs)
-        normed_probs = self._normalize_probs(supported_probs)
+        normed_probs = self._normalize_probs(probs)
         return self._apply_masks(normed_probs)
     
     @torch.no_grad()
