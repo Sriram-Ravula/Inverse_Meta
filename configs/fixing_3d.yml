@@ -48,7 +48,7 @@ data:
 mask:
  meta_loss_type: 'l2' #["l2"]
 
- sample_pattern: "3D_circle"
+ sample_pattern: "3D"
  R: 20
  tau: 1.0
  num_acs_lines: 16
@@ -57,7 +57,7 @@ mask:
 opt:
   num_iters: 10 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
-  lr: 0.002 #meta learning rate
+  lr: 0.001 #meta learning rate
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.

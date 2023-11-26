@@ -56,6 +56,9 @@ class Network_Mask:
         self.ngf = 8
         self.pattern_net = Fixed_Input_UNet(ngf=self.ngf, output_size=self.n)
         self.pattern_net.train(True) #Net has fixed input; always keep to train() since batchnorm stats dont matter
+    
+    def parameters(self):
+        return self.pattern_net.parameters()
         
     def _normalize_probs(self, prob_mask):
         """

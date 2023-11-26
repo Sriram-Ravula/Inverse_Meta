@@ -27,6 +27,7 @@ from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
 
 from metalearners.probabilistic_mask import Probabilistic_Mask
 from metalearners.baseline_mask import Baseline_Mask
+from metalearners.unet_mask import Network_Mask
 
 class GBML:
     def __init__(self, hparams, args):
@@ -217,49 +218,46 @@ class GBML:
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        # #NOTE TEMP TESTING
-        # y_mag = torch.abs(y)
-        # meas_noise = torch.randn_like(y) * torch.mean(y_mag)
-        # y = y + meas_noise
+        x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
         
-        # Prepare sampling variables
-        steps = 10 #100
-        sigma_max = 80.0 #np.random.rand()   
-        sigma_min = 0.002
-        rho = 7.0
+        # # Prepare sampling variables
+        # steps = 100
+        # sigma_max = 80.0 #np.random.rand()   
+        # sigma_min = 0.002
+        # rho = 7.0
         
-        S_churn=0 #40.
-        S_min=0.
-        S_max=float('inf')
-        S_noise=1.
+        # S_churn=40.
+        # S_min=0.
+        # S_max=float('inf')
+        # S_noise=1.
         
-        alg_type = "repaint"
-        sigma_max = 1.0
-        config = {}
+        # alg_type = "repaint"
+        # sigma_max = 1.0
+        # config = {}
         
-        # alg_type = "shallow_dps"
-        # config = {'likelihood_step_size': 10.0}
+        # # alg_type = "shallow_dps"
+        # # config = {'likelihood_step_size': 10.0}
         
-        # alg_type = "dps"
-        # S_churn=0.
-        # config = {'likelihood_step_size': 10.0}
+        # # alg_type = "dps"
+        # # S_churn=0.
+        # # config = {'likelihood_step_size': 10.0}
         
-        # alg_type = "cg"
-        # config = {"cg_lambda": 0.3,
-        #           "cg_max_iter": 5,
-        #           "cg_eps": 0.000001}
+        # # alg_type = "cg"
+        # # config = {"cg_lambda": 0.3,
+        # #           "cg_max_iter": 5,
+        # #           "cg_eps": 0.000001}
         
-        t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
+        # t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
         
-        x_mins, x_maxes = get_min_max(x)
-        x_scaled = normalize(x, x_mins, x_maxes)
-        n = torch.randn_like(x) * t_steps[0]
-        x_init = x_scaled + n
+        # x_mins, x_maxes = get_min_max(x)
+        # x_scaled = normalize(x, x_mins, x_maxes)
+        # n = torch.randn_like(x) * t_steps[0]
+        # x_init = x_scaled + n
         
-        update_steps = 10
+        # update_steps = 10
         
-        x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
-                    S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
+        # x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
+        #             S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
         
         # Update Step
         self.opt.zero_grad()
@@ -275,7 +273,8 @@ class GBML:
         with torch.no_grad():
             grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0]),
                                 #  "reg_loss": np.array([reg.item()] * x.shape[0]),
-                                 "sigma_max": np.array([t_steps[0].item()] * x.shape[0])}
+                                #  "sigma_max": np.array([t_steps[0].item()] * x.shape[0])
+                                }
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
         return x_hat, x, y
@@ -362,7 +361,7 @@ class GBML:
         cur_val_psnr = self.metrics.get_all_metrics(self.global_epoch, "val")['mean_psnr']
         if cur_val_psnr > self.best_val_psnr:
             self.best_val_psnr = cur_val_psnr
-            self.best_val_weights = self.c.weights.clone().detach()
+            # self.best_val_weights = self.c.weights.clone().detach()
             self.best_val_epoch = self.global_epoch
             self._print_if_verbose("BEST VALIDATION PSNR: ", cur_val_psnr)
         # else:
@@ -373,10 +372,10 @@ class GBML:
         self._print_if_verbose("\nTESTING\n")
         
         #Restore best weights
-        self.c.weights.requires_grad_(False)
-        if self.best_val_weights is not None:
-            self.c.weights.copy_(self.best_val_weights)
-            self._print_if_verbose("Restoring best validation weights from epoch ", self.best_val_epoch)
+        # self.c.weights.requires_grad_(False)
+        # if self.best_val_weights is not None:
+        #     self.c.weights.copy_(self.best_val_weights)
+        #     self._print_if_verbose("Restoring best validation weights from epoch ", self.best_val_epoch)
 
         for i, (item, x_idx) in tqdm(enumerate(self.test_loader)):
             #grab a new mask(s) for every sample
@@ -608,7 +607,8 @@ class GBML:
         num_acs_lines = getattr(self.hparams.mask, 'num_acs_lines', 20)
 
         if self.prob_c:
-            self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
+            # self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
+            self.c = Network_Mask(self.hparams, self.device, num_acs_lines)
         else:
             self.c = Baseline_Mask(self.hparams, self.device, num_acs_lines)
 
@@ -643,7 +643,8 @@ class GBML:
         lr = self.hparams.opt.lr
 
         if opt_type == 'adam':
-            meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
+            # meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
+            meta_opt = torch.optim.Adam([{'params': self.c.parameters()}], lr=lr)
         elif opt_type == 'sgd':
             meta_opt = torch.optim.SGD([{'params': self.c.weights}], lr=lr)
         else:
@@ -662,7 +663,8 @@ class GBML:
             return
 
         save_dict = {
-            "c_weights": self.c.weights.detach().cpu(),
+            # "c_weights": self.c.weights.detach().cpu(),
+            "c_weights": self.c.parameters(),
             "global_epoch": self.global_epoch,
             "opt_state": self.opt.state_dict(),
             "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None
