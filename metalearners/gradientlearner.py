@@ -264,8 +264,8 @@ class GBML:
         # Update Step
         self.opt.zero_grad()
         meta_loss = self._get_meta_loss(x_hat, x)
-        reg = 0.5 * torch.mean(torch.abs(torch.sigmoid(self.c.weights))) 
-        meta_loss = meta_loss + reg
+        # reg = 0.5 * torch.mean(torch.abs(torch.sigmoid(self.c.weights))) 
+        # meta_loss = meta_loss + reg
         meta_loss.backward()
         self.opt.step()
         
@@ -274,7 +274,7 @@ class GBML:
         # Log Things
         with torch.no_grad():
             grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0]),
-                                 "reg_loss": np.array([reg.item()] * x.shape[0]),
+                                #  "reg_loss": np.array([reg.item()] * x.shape[0]),
                                  "sigma_max": np.array([t_steps[0].item()] * x.shape[0])}
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
