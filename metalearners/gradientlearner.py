@@ -664,7 +664,6 @@ class GBML:
 
         save_dict = {
             # "c_weights": self.c.weights.detach().cpu(),
-            "c_weights": self.c.parameters(),
             "global_epoch": self.global_epoch,
             "opt_state": self.opt.state_dict(),
             "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None

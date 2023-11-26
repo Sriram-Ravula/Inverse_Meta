@@ -26,15 +26,15 @@ class Network_Mask:
         if self.hparams.mask.sample_pattern in ['horizontal', 'vertical']:
             raise NotImplementedError("2D Patterns Currently Unsupported!")
         elif self.hparams.mask.sample_pattern == '3D':
-            self.acs_mask = torch.zeros((self.n, self.n), requires_grad=False)
+            self.acs_mask = torch.zeros((self.n, self.n), requires_grad=False, device=self.device)
             self.acs_mask[acs_idx[:, None], acs_idx] = 1.
             
-            self.pattern_mask = torch.ones((self.n, self.n), requires_grad=False)
+            self.pattern_mask = torch.ones((self.n, self.n), requires_grad=False, device=self.device)
             
             self.m = self.n**2 - self.num_acs_lines**2
             self.sparsity_level = ((self.n**2)/self.R - self.num_acs_lines**2) / self.m
         elif self.hparams.mask.sample_pattern == '3D_circle':
-            self.acs_mask = torch.zeros((self.n, self.n), requires_grad=False)
+            self.acs_mask = torch.zeros((self.n, self.n), requires_grad=False, device=self.device)
             self.acs_mask[acs_idx[:, None], acs_idx] = 1.
             
             #Make the grids to be used for radius estimation
@@ -43,7 +43,7 @@ class Network_Mask:
             grid = torch.stack([grid_x, grid_y], dim=0)
             square_radius_grid = torch.sum(torch.square(grid), dim=0)
             
-            self.pattern_mask = torch.ones((self.n, self.n), requires_grad=False)
+            self.pattern_mask = torch.ones((self.n, self.n), requires_grad=False, device=self.device)
             self.pattern_mask[square_radius_grid > 1] = 0.
             
             corner_size = torch.sum(torch.ones((self.n, self.n)) - self.pattern_mask).item()
@@ -54,7 +54,7 @@ class Network_Mask:
         
         #(2) Make the pattern network
         self.ngf = 8
-        self.pattern_net = Fixed_Input_UNet(ngf=self.ngf, output_size=self.n)
+        self.pattern_net = Fixed_Input_UNet(ngf=self.ngf, output_size=self.n).to(self.device)
         self.pattern_net.train(True) #Net has fixed input; always keep to train() since batchnorm stats dont matter
     
     def parameters(self):
