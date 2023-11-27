@@ -46,14 +46,14 @@ class Network_Mask:
             self.pattern_mask = torch.ones((self.n, self.n), requires_grad=False, device=self.device)
             self.pattern_mask[square_radius_grid > 1] = 0.
             
-            corner_size = torch.sum(torch.ones((self.n, self.n)) - self.pattern_mask).item()
+            corner_size = torch.sum(torch.ones_like(self.pattern_mask) - self.pattern_mask).item()
             self.m = self.n**2 - self.num_acs_lines**2 - corner_size
             self.sparsity_level = ((self.n**2)/self.R - self.num_acs_lines**2) / self.m
         else:
             raise NotImplementedError("Pattern not supported!")
         
         #(2) Make the pattern network
-        self.ngf = 8
+        self.ngf = 16
         self.pattern_net = Fixed_Input_UNet(ngf=self.ngf, output_size=self.n).to(self.device)
         self.pattern_net.train(True) #Net has fixed input; always keep to train() since batchnorm stats dont matter
     

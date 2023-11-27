@@ -597,11 +597,11 @@ class GBML:
         test_dataset = split_dict['test']
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
-                                num_workers=8, drop_last=True)
+                                num_workers=5, drop_last=True)
         self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
-                                num_workers=8, drop_last=True)
+                                num_workers=5, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
-                                num_workers=8, drop_last=True)
+                                num_workers=5, drop_last=True)
 
     def _init_c(self):
         num_acs_lines = getattr(self.hparams.mask, 'num_acs_lines', 20)
