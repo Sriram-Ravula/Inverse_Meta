@@ -83,7 +83,10 @@ class Network_Mask:
         prob_mask_01 = torch.stack((1. - prob_mask, prob_mask), dim=0) #[2, ...]
 
         #pytorch function requires un-normalized log-probabilities
-        gumbel_mask_sample = F.gumbel_softmax(torch.log(prob_mask_01), tau=tau, hard=True, dim=0)[1] #[...]
+        gumbel_mask_sample = F.gumbel_softmax(torch.special.logit(prob_mask_01, eps=1e-3), 
+                                              tau=tau, 
+                                              hard=True, 
+                                              dim=0)[1] #[...]
 
         return gumbel_mask_sample
     
