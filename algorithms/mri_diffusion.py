@@ -7,13 +7,60 @@ from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
 from utils_new.helpers import unnormalize, get_mvue_torch, get_min_max, normalize, complex_to_real, real_to_complex
 
 
+def single_step_posterior_estimate(net, x_t, sigma_t, FSx, P, S, likelihood_step_size):
+    """
+    Performs a single-step reconstruction using the posterior sampling version of Tweedie's formula.
+    Uses the approximation: E[x_0 | x_t, y] = x^ - c * (d / dx^)||PFSx^ - y||^2, where x^ = E[x_0 | x_t].
+
+    Args:
+        net (Torch Module): The diffusion network, assumed to be a denoiser (i.e. net(x + noise) = x).
+                            Assumed to be an EDM network (Karras et al., 2022).
+        x_t ([N, 2, H, W] real-valued Torch Tensor): The noised sample. 
+                                                     The second axis holds the real and imaginary components.
+        sigma_t ([N, 1, 1, 1] Torch Tensor): Noise standard deviation at time t.
+        FSx ([N, C, H, W] complex Torch Tensor): Fully-sampled ground truth k-space with C coil measurements.
+        P ([N, 1, H, W] real-valued Torch Tensor): The sampling pattern, entries should be in [0, 1].
+        S ([N, C, H, W] complex Torch Tensor): Sensitivity maps for each of C coils for each of the N samples.
+        likelihood_step_size (float): Step size parameter for the likelihood term.
+    
+    Returns:
+        x_hat ([N, 2, H, W] real-valued Torch Tensor): Single-step posterior reconstruction E[x_0 | x_t, y].
+    """
+    #(0) Setup
+    device = x_t.device
+    
+    FS = MulticoilForwardMRINoMask(S) #[N, 2, H, W] float --> [N, C, H, W] complex
+    
+    class_labels = None
+    if net.label_dim:
+        class_labels = torch.zeros((x_t.shape[0], net.label_dim), device=device) #[N, label_dim]
+    
+    with torch.no_grad():
+        y = P * FSx #[N, C, H, W] complex, the undersampled multi-coil k-space measurements
+        x_hat_mvue = get_mvue_torch(y, S)
+        norm_mins, norm_maxes = get_min_max(x_hat_mvue)
+    
+    #(1) Get the unconditional denoised estimate and unscale properly
+    x_hat_0 = net(x_t, sigma_t, class_labels)
+    x_hat_0.requires_grad_()
+    x_hat_0_unscaled = unnormalize(x_hat_0, norm_mins, norm_maxes)
+    
+    #(2) Calculate the likelihood gradient
+    residual = P * (FS(x_hat_0_unscaled) - FSx)
+    sse = torch.sum(torch.square(torch.abs(residual)))
+    likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_hat_0, create_graph=True)[0] #create a graph to calculate loss gradients
+    
+    #(3) Create the final posterior mean prediction and unnormalize properly
+    x_hat = x_hat_0 - likelihood_step_size * likelihood_score
+    
+    return unnormalize(x_hat, norm_mins, norm_maxes)
+
 def get_noise_schedule(steps, sigma_max, sigma_min, rho, net, device):
     """
     Generates a [steps + 1] torch tensor with sigma values for reverse diffusion
         in descending order (final entry is always 0).
     """
     if steps == 1:
-        # sigma = (torch.randn() * 1.2 - 1.2).exp() #P_std=1.2, P_mean=-1.2
         return torch.tensor([sigma_max, 0.0], dtype=torch.float64, device=device)
     
     step_indices = torch.arange(steps, dtype=torch.float64, device=device)
@@ -122,8 +169,10 @@ def MRI_diffusion_sampling(net, x_init, t_steps, FSx, P, S, alg_type,
             else:
                 likelihood_score = torch.autograd.grad(outputs=sse, inputs=x_t_hat, create_graph=grad_flag)[0] 
             
-            #Scale and detach the denominator regardless if tracking gradient     
-            likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp).detach()) * likelihood_score 
+            if kwargs['normalize_grad']:
+                likelihood_score = (kwargs['likelihood_step_size'] / torch.sqrt(sse_per_samp).detach()) * likelihood_score 
+            else:
+                likelihood_score = kwargs['likelihood_step_size'] * likelihood_score
         else:
             likelihood_score = 0. 
         
