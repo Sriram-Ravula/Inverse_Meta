@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 from torch.utils.data import DataLoader
 from torchmetrics.functional import structural_similarity_index_measure
@@ -22,7 +23,7 @@ from datasets import get_dataset, split_dataset
 
 from utils_new.exp_utils import save_images, save_to_pickle, load_if_pickled
 from utils_new.metric_utils import Metrics
-from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real, get_mvue_torch, get_min_max
+from utils_new.helpers import normalize, unnormalize, real_to_complex, complex_to_real, get_mvue_torch, get_min_max, ifft
 from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
 
 from metalearners.probabilistic_mask import Probabilistic_Mask
@@ -208,7 +209,7 @@ class GBML:
                 additive_noise = torch.randn_like(p.data) * noise_std
                 p.data.add_(additive_noise)
     
-    def _dps_loss(self, item, net):
+    def _dps_loss(self, item, net, iter):
         # Grab the necessary variables and operators
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float, x*
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W] complex, FSx*
@@ -218,62 +219,62 @@ class GBML:
         
         self.A = MulticoilForwardMRINoMask(s_maps) #FS, [N, 2, H, W] float --> [N, C, H, W] complex
         
-        x_hat = get_mvue_torch(self.cur_mask_sample * y, s_maps)
+        # Prepare sampling variables
+        steps = 1 
+        sigma_max = np.random.rand()
+        sigma_min = 0.002
+        rho = 7.0
         
-        # # Prepare sampling variables
-        # steps = 100
-        # sigma_max = 80.0 #np.random.rand()   
-        # sigma_min = 0.002
-        # rho = 7.0
-        
-        # S_churn=40.
-        # S_min=0.
-        # S_max=float('inf')
-        # S_noise=1.
+        S_churn=0. 
+        S_min=0.
+        S_max=float('inf')
+        S_noise=1.
         
         # alg_type = "repaint"
-        # sigma_max = 1.0
+        # # sigma_max = 1.0
         # config = {}
         
-        # # alg_type = "shallow_dps"
-        # # config = {'likelihood_step_size': 10.0}
+        alg_type = "shallow_dps"
+        config = {'likelihood_step_size': 1.0,
+                  'normalize_grad': False}
         
-        # # alg_type = "dps"
-        # # S_churn=0.
-        # # config = {'likelihood_step_size': 10.0}
+        # alg_type = "dps"
+        # S_churn=0.
+        # config = {'likelihood_step_size': 1.0 if steps < 100 else 10.0,
+        #           'normalize_grad': False if steps < 100 else True}
         
-        # # alg_type = "cg"
-        # # config = {"cg_lambda": 0.3,
-        # #           "cg_max_iter": 5,
-        # #           "cg_eps": 0.000001}
+        # alg_type = "cg"
+        # config = {"cg_lambda": 0.3,
+        #           "cg_max_iter": 5,
+        #           "cg_eps": 0.000001}
         
-        # t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
+        t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
         
-        # x_mins, x_maxes = get_min_max(x)
-        # x_scaled = normalize(x, x_mins, x_maxes)
-        # n = torch.randn_like(x) * t_steps[0]
-        # x_init = x_scaled + n
+        x_mins, x_maxes = get_min_max(x)
+        x_scaled = normalize(x, x_mins, x_maxes)
+        n = torch.randn_like(x) * t_steps[0]
+        x_init = x_scaled + n
         
-        # update_steps = 10
+        update_steps = 1
         
-        # x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
-        #             S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
+        x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
+                    S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
         
         # Update Step
-        self.opt.zero_grad()
-        meta_loss = self._get_meta_loss(x_hat, x)
-        # reg = 0.5 * torch.mean(torch.abs(torch.sigmoid(self.c.weights))) 
-        # meta_loss = meta_loss + reg
-        meta_loss.backward()
-        self.opt.step()
+        num_accumulate_steps = 2
+        k = 150
         
-        # self._add_noise_to_weights()
+        meta_loss = self._get_meta_loss(x_hat, x)
+        meta_loss.backward()
+        if (iter + 1) % num_accumulate_steps == 0:
+            self.c.max_min_dist_step(k=k)
+            self.opt.zero_grad() 
         
         # Log Things
         with torch.no_grad():
             grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0]),
-                                #  "reg_loss": np.array([reg.item()] * x.shape[0]),
-                                #  "sigma_max": np.array([t_steps[0].item()] * x.shape[0])
+                                 "sigma_max": np.array([t_steps[0].item()] * x.shape[0]),
+                                 "num_weights": np.array([self.c.weights.numel()] * x.shape[0]),
                                 }
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
@@ -328,7 +329,7 @@ class GBML:
             _ = self._sample_and_set_mask(bs)
             
             if self.hparams.net.model in ['dps', 'diffusion_cg']:
-                x_hat, x, y = self._dps_loss(item, self.recon_alg.net)
+                x_hat, x, y = self._dps_loss(item, self.recon_alg.net, i)
                 self._add_batch_metrics(x_hat, x, y, "train")
             else:
                 raise NotImplementedError("Model type unsupported")
@@ -430,11 +431,13 @@ class GBML:
         # config = {}
         
         # alg_type = "shallow_dps"
-        # config = {'likelihood_step_size': 10.0}
+        # config = {'likelihood_step_size': 10.0,
+        #           'normalize_grad': True}
         
         alg_type = "dps"
         S_churn=0.
-        config = {'likelihood_step_size': 10.0}
+        config = {'likelihood_step_size': 10.0,
+                  'normalize_grad': True}
         
         # alg_type = "cg"
         # config = {"cg_lambda": 0.3,
@@ -599,16 +602,16 @@ class GBML:
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
                                 num_workers=5, drop_last=True)
         self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
-                                num_workers=5, drop_last=True)
+                                num_workers=1, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
-                                num_workers=5, drop_last=True)
+                                num_workers=1, drop_last=True)
 
     def _init_c(self):
         num_acs_lines = getattr(self.hparams.mask, 'num_acs_lines', 20)
 
         if self.prob_c:
-            # self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
-            self.c = Network_Mask(self.hparams, self.device, num_acs_lines)
+            self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
+            # self.c = Network_Mask(self.hparams, self.device, num_acs_lines)
         else:
             self.c = Baseline_Mask(self.hparams, self.device, num_acs_lines)
 
@@ -643,8 +646,8 @@ class GBML:
         lr = self.hparams.opt.lr
 
         if opt_type == 'adam':
-            # meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
-            meta_opt = torch.optim.Adam([{'params': self.c.parameters()}], lr=lr)
+            meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
+            # meta_opt = torch.optim.Adam([{'params': self.c.parameters()}], lr=lr)
         elif opt_type == 'sgd':
             meta_opt = torch.optim.SGD([{'params': self.c.weights}], lr=lr)
         else:
@@ -663,7 +666,7 @@ class GBML:
             return
 
         save_dict = {
-            # "c_weights": self.c.weights.detach().cpu(),
+            "c_weights": self.c.weights.detach().cpu(),
             "global_epoch": self.global_epoch,
             "opt_state": self.opt.state_dict(),
             "scheduler_state": self.scheduler.state_dict() if self.scheduler is not None else None

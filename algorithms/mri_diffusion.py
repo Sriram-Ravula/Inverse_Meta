@@ -7,6 +7,27 @@ from utils_new.cg import ZConjGrad, get_Aop_fun, get_cg_rhs
 from utils_new.helpers import unnormalize, get_mvue_torch, get_min_max, normalize, complex_to_real, real_to_complex
 
 
+def make_noisy_sample(x):
+    """
+    Scales and adds noise to a given sample image.
+    Uses Gaussian noise with standard deivation chosen uniformly in (0, 1)
+
+    Args:
+        x ([N, 2, H, W] real-valued Torch Tensor): The un-normalized clean image.
+    
+    Returns: 
+        x_t ([N, 2, H, W] real-valued Torch Tensor): The normalised, noised sample.
+        sigma_t ([N, 1, 1, 1] Torch Tensor): Noise standard deviation at time t.
+    """
+    sigma_t = torch.rand([x.shape[0], 1, 1, 1], device=x.device)
+    n = torch.randn_like(x) * sigma_t
+    
+    x_mins, x_maxes = get_min_max(x)
+    x_scaled = normalize(x, x_mins, x_maxes)
+    x_t = x_scaled + n
+    
+    return x_t, sigma_t
+
 def single_step_posterior_estimate(net, x_t, sigma_t, FSx, P, S, likelihood_step_size):
     """
     Performs a single-step reconstruction using the posterior sampling version of Tweedie's formula.
