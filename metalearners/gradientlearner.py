@@ -235,10 +235,11 @@ class GBML:
         
         # Update Step
         num_accumulate_steps = 2
-        k = 150
+        k = 250
         
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
+        finished_flag = False
         if (iter + 1) % num_accumulate_steps == 0:
             finished_flag = self.c.max_min_dist_step(k=k)
             self.opt.zero_grad() 

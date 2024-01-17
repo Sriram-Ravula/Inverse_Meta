@@ -55,7 +55,7 @@ mask:
  mask_init: "uniform"
 
 opt:
-  num_iters: 71 #number of meta iterations to run
+  num_iters: 72 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
 
