@@ -39,13 +39,6 @@ class GBML:
         #check if we have a probabilistic c
         self.prob_c = not(self.args.baseline)
 
-        #check if we have an ROI
-        self.ROI = getattr(self.hparams.mask, 'ROI', None) #this should be [(H_start, H_end), (W_start, W_end)]
-        if self.ROI is not None:
-            H0, H1 = self.ROI[0]
-            W0, W1 = self.ROI[1]
-            self._print_if_verbose("ROI: Height: (%d, %d), Width: (%d, %d)" % (H0, H1, W0, W1))
-
         #running parameters
         self._init_c()
         self._init_dataset()
@@ -102,17 +95,6 @@ class GBML:
 
         #take a snap of the initialization
         if not self.hparams.debug and self.hparams.save_imgs:
-            if self.ROI is not None:
-                H0, H1 = self.ROI[0]
-                W0, W1 = self.ROI[1]
-
-                ROI_IMG = torch.zeros(1, 1, self.hparams.data.image_size, self.hparams.data.image_size)
-                ROI_IMG[..., H0:H1, W0:W1] = 1.0
-
-                ROI_path = os.path.join(self.image_root, "learned_masks")
-
-                self._save_images(ROI_IMG, ["ROI"], ROI_path)
-
             if self.prob_c:
                 c_shaped = self.c.get_prob_mask()
                 c_shaped_binary = self.cur_mask_sample.detach().clone().squeeze()
@@ -172,13 +154,15 @@ class GBML:
         return
 
     def run_meta_opt(self):
+        finished_flag = False
+        
         for iter in tqdm(range(self.hparams.opt.num_iters)):
             #checkpoint
             if iter % self.hparams.opt.checkpoint_iters == 0:
                 self._checkpoint()
 
             #train
-            self._run_outer_step()
+            finished_flag = self._run_outer_step()
             self._add_metrics_to_tb("train")
             
             #validate
@@ -187,29 +171,18 @@ class GBML:
                 self._add_metrics_to_tb("val")
 
             self.global_epoch += 1
+            
+            #check if done
+            if finished_flag is True:
+                break
 
         #test
         self._run_test()
         self._add_metrics_to_tb("test")
 
         self._checkpoint()
-
-    @torch.no_grad()
-    def _add_noise_to_weights(self):
-        for group in self.opt.param_groups:
-            
-            lr = group['lr']
-            noise_std = np.sqrt(2*lr)
-            
-            for p in group['params']:
-                
-                if p.grad is None:
-                    continue
-                
-                additive_noise = torch.randn_like(p.data) * noise_std
-                p.data.add_(additive_noise)
     
-    def _dps_loss(self, item, net, iter):
+    def _posterior_loss(self, item, net, iter):
         # Grab the necessary variables and operators
         x = item['gt_image'].to(self.device) #[N, 2, H, W] float, x*
         y = item['ksp'].type(torch.cfloat).to(self.device) #[N, C, H, W] complex, FSx*
@@ -267,7 +240,7 @@ class GBML:
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
         if (iter + 1) % num_accumulate_steps == 0:
-            self.c.max_min_dist_step(k=k)
+            finished_flag = self.c.max_min_dist_step(k=k)
             self.opt.zero_grad() 
         
         # Log Things
@@ -278,7 +251,7 @@ class GBML:
                                 }
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
-        return x_hat, x, y
+        return x_hat, x, y, finished_flag
     
     def _get_meta_loss(self, x_hat, x):
         """
@@ -322,6 +295,8 @@ class GBML:
 
     def _run_outer_step(self):
         self._print_if_verbose("\nTRAINING\n")
+        
+        finished_flag = False
 
         for i, (item, x_idx) in tqdm(enumerate(self.train_loader)):
             #grab a new mask(s) for every sample
@@ -329,16 +304,23 @@ class GBML:
             _ = self._sample_and_set_mask(bs)
             
             if self.hparams.net.model in ['dps', 'diffusion_cg']:
-                x_hat, x, y = self._dps_loss(item, self.recon_alg.net, i)
+                x_hat, x, y, finished_flag = self._posterior_loss(item, self.recon_alg.net, i)
                 self._add_batch_metrics(x_hat, x, y, "train")
             else:
                 raise NotImplementedError("Model type unsupported")
 
             #logging and saving
             self._step_end_logging(i, "train", item, x_hat, x, y)
+            
+            #stop optimization if we have met the desired acceleration
+            if finished_flag is True:
+                self._print_if_verbose("\n", "FINAL ACCELERATION REACHED. STOPPING OPTIMIZATION", "\n")
+                break
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
+        
+        return finished_flag
 
     def _run_validation(self):
         self._print_if_verbose("\nVALIDATING\n")
@@ -493,7 +475,7 @@ class GBML:
             extra_metrics_dict["sparsity_level"] = np.array([sparsity_level.item()] * x.shape[0]) 
 
         self.metrics.add_external_metrics(extra_metrics_dict, self.global_epoch, iter_type)
-        self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type, self.ROI)
+        self.metrics.calc_iter_metrics(x_hat, x, self.global_epoch, iter_type)
 
     @torch.no_grad()
     def _save_all_images(self, x_hat, x, y, x_idx, iter_type, save_masks_manual=False):
@@ -554,15 +536,6 @@ class GBML:
         with open(avg_metric_path, 'w') as f:
             json.dump(avg_metric_dict, f, indent=4)
 
-        if self.ROI is not None:
-            H0, H1 = self.ROI[0]
-            W0, W1 = self.ROI[1]
-
-            x_hat_ROI = x_hat_vis[..., H0:H1, W0:W1]
-            x_idx_ROI = [s + "_ROI" for s in x_idx]
-
-            self._save_images(x_hat_ROI, x_idx_ROI, recovered_path)
-
         fake_maps = torch.ones_like(x)[:,0,:,:].unsqueeze(1) #[N, 1, H, W]
         recon_meas = MulticoilForwardMRINoMask(fake_maps)(x_hat)
         recon_meas = torch.abs(recon_meas)
@@ -577,15 +550,6 @@ class GBML:
             x_vis = torch.norm(x, dim=1).unsqueeze(1) #[N, 1, H, W]
 
             self._save_images(x_vis, x_idx, true_path)
-
-            if self.ROI is not None:
-                H0, H1 = self.ROI[0]
-                W0, W1 = self.ROI[1]
-
-                x_ROI = x_vis[..., H0:H1, W0:W1]
-                x_idx_ROI = [s + "_ROI" for s in x_idx]
-
-                self._save_images(x_ROI, x_idx_ROI, true_path)
 
             gt_meas = MulticoilForwardMRINoMask(fake_maps)(x)
             gt_meas = torch.abs(gt_meas)
@@ -611,7 +575,6 @@ class GBML:
 
         if self.prob_c:
             self.c = Probabilistic_Mask(self.hparams, self.device, num_acs_lines)
-            # self.c = Network_Mask(self.hparams, self.device, num_acs_lines)
         else:
             self.c = Baseline_Mask(self.hparams, self.device, num_acs_lines)
 
@@ -647,7 +610,6 @@ class GBML:
 
         if opt_type == 'adam':
             meta_opt = torch.optim.Adam([{'params': self.c.weights}], lr=lr)
-            # meta_opt = torch.optim.Adam([{'params': self.c.parameters()}], lr=lr)
         elif opt_type == 'sgd':
             meta_opt = torch.optim.SGD([{'params': self.c.weights}], lr=lr)
         else:

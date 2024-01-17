@@ -156,6 +156,10 @@ class Probabilistic_Mask:
 
         Note - this requires probability inputs, use sigmoid on input first if giving logits
         """
+        #make sure negative sparsity levels lead to all zeros in the weights
+        if self.sparsity_level <= 0:
+            return 0. * prob_mask
+        
         mu = torch.mean(prob_mask)
         
         if mu >= self.sparsity_level:
@@ -169,6 +173,10 @@ class Probabilistic_Mask:
 
         Uses the Gumbel straight-through estimator 
         """
+        #make sure negative sparsity levels lead to all zeros in the weights
+        if self.sparsity_level <= 0:
+            return 0. * prob_mask
+        
         #Sampling requires us to draw a gumbel sample for each category/binary outcome
         prob_mask_01 = torch.stack((1. - prob_mask, prob_mask), dim=1) #[m, 2]
 
@@ -230,7 +238,7 @@ class Probabilistic_Mask:
         """
         Returns a binary mask with acceleration R by keeping only the top logits.
         """
-        k = int(self.m * (1 - self.sparsity_level))
+        k = int(self.m * (1 - max(self.sparsity_level, 0.)))
         smallest_kept_val = torch.kthvalue(self.weights, k)[0]
         under_idx = self.weights < smallest_kept_val
 
@@ -269,6 +277,16 @@ class Probabilistic_Mask:
         return out_idx
 
     def max_min_dist_step(self, k=1):
+        """
+        Takes one step of greedy max-min neighbor optimization with a given k.
+        Returns True if the desired acceleration is met, else returns False.
+
+        Args:
+            k (int, optional): Top-k parameter for greedy optimization. Defaults to 1.
+        
+        Returns:
+            finished_flag (bool): Flag that indicates whether the desired acceleration level is met.
+        """
         n = self.hparams.data.image_size
         R = self.hparams.mask.R
         
@@ -294,4 +312,6 @@ class Probabilistic_Mask:
         weights.data = self.weights[keep_inds].data
         self.weights = weights
         
-        return
+        finished_flag = True if self.sparsity_level <= 0 else False
+        
+        return finished_flag
