@@ -38,7 +38,7 @@ data:
  num_val:   50
  num_test:  100
 
- train_batch_size: 1
+ train_batch_size: 2
  val_batch_size:   10
  test_batch_size:  10
 
@@ -49,13 +49,13 @@ mask:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "3D_circle"
- R: 20
+ R: 6
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
 
 opt:
-  num_iters: 72 #number of meta iterations to run
+  num_iters: 244 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
 
@@ -63,4 +63,4 @@ opt:
   lr_decay: 0.95 #exponential weight decay rate.
 
   val_iters: 1000 #validate every n iterations
-  checkpoint_iters: 2 #checkpoint every n iterations
+  checkpoint_iters: 4 #checkpoint every n iterations

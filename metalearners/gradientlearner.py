@@ -199,7 +199,7 @@ class GBML:
                                                S=s_maps, likelihood_step_size=self.hparams.net.training_step_size)
         
         #optimisation step
-        k = 250
+        k = 400
         
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
