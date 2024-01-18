@@ -199,7 +199,7 @@ class GBML:
                                                S=s_maps, likelihood_step_size=self.hparams.net.training_step_size)
         
         #optimisation step
-        k = 400
+        k = 300
         
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
@@ -588,7 +588,7 @@ class GBML:
         test_dataset = split_dict['test']
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
-                                num_workers=5, drop_last=True)
+                                num_workers=10, drop_last=True, pin_memory=True, persistent_workers=True)
         self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
                                 num_workers=1, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,
