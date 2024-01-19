@@ -43,6 +43,17 @@ class GBML:
         self._init_c()
         self._init_dataset()
         self.A = None #placeholder for forward operator - None since each sample has different coil map
+        
+        #automatic epochs selection - NOTE this is only for 3d
+        if self.hparams.opt.num_iters == -1:
+            n = self.hparams.data.image_size
+            R = self.hparams.mask.R
+            a = getattr(self.hparams.mask, 'num_acs_lines', 16)
+            updates_per_epoch = self.hparams.data.num_train / self.hparams.data.train_batch_size
+            
+            self.hparams.opt.num_iters = int(np.ceil(((n**2) / R - a**2) / updates_per_epoch))
+            
+            self._print_if_verbose("Setting Epochs to " + str(self.hparams.opt.num_iters))
 
         if not(self.args.baseline) and not(self.args.test):
             self._init_meta_optimizer()
@@ -199,7 +210,7 @@ class GBML:
                                                S=s_maps, likelihood_step_size=self.hparams.net.training_step_size)
         
         #optimisation step
-        k = 300
+        k = getattr(self.hparams.opt, 'k', 300)
         
         meta_loss = self._get_meta_loss(x_hat, x)
         meta_loss.backward()
@@ -214,66 +225,6 @@ class GBML:
                                  "k": np.array([k] * x.shape[0]),
                                 }
             self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
-        
-        # # Prepare sampling variables
-        # steps = 1 
-        # sigma_max = np.random.rand()
-        # sigma_min = 0.002
-        # rho = 7.0
-        
-        # S_churn=0. 
-        # S_min=0.
-        # S_max=float('inf')
-        # S_noise=1.
-        
-        # # alg_type = "repaint"
-        # # # sigma_max = 1.0
-        # # config = {}
-        
-        # alg_type = "shallow_dps"
-        # config = {'likelihood_step_size': 1.0,
-        #           'normalize_grad': False}
-        
-        # # alg_type = "dps"
-        # # S_churn=0.
-        # # config = {'likelihood_step_size': 1.0 if steps < 100 else 10.0,
-        # #           'normalize_grad': False if steps < 100 else True}
-        
-        # # alg_type = "cg"
-        # # config = {"cg_lambda": 0.3,
-        # #           "cg_max_iter": 5,
-        # #           "cg_eps": 0.000001}
-        
-        # t_steps = get_noise_schedule(steps, sigma_max, sigma_min, rho, net, self.device)
-        
-        # x_mins, x_maxes = get_min_max(x)
-        # x_scaled = normalize(x, x_mins, x_maxes)
-        # n = torch.randn_like(x) * t_steps[0]
-        # x_init = x_scaled + n
-        
-        # update_steps = 1
-        
-        # x_hat = MRI_diffusion_sampling(net=net, x_init=x_init, t_steps=t_steps, FSx=y, P=self.cur_mask_sample, S=s_maps, alg_type=alg_type,
-        #             S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise, gradient_update_steps=update_steps, **config)
-        
-        # # Update Step
-        # num_accumulate_steps = 2
-        # k = 250
-        
-        # meta_loss = self._get_meta_loss(x_hat, x)
-        # meta_loss.backward()
-        # finished_flag = False
-        # if (iter + 1) % num_accumulate_steps == 0:
-        #     finished_flag = self.c.max_min_dist_step(k=k)
-        #     self.opt.zero_grad() 
-        
-        # # Log Things
-        # with torch.no_grad():
-        #     grad_metrics_dict = {"meta_loss": np.array([meta_loss.item()] * x.shape[0]),
-        #                          "sigma_max": np.array([t_steps[0].item()] * x.shape[0]),
-        #                          "num_weights": np.array([self.c.weights.numel()] * x.shape[0]),
-        #                         }
-        #     self.metrics.add_external_metrics(grad_metrics_dict, self.global_epoch, "train")
         
         return x_hat, x, y, finished_flag
     

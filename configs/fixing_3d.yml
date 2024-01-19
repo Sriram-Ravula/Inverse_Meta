@@ -49,18 +49,20 @@ mask:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "3D_circle"
- R: 10
+ R: 8
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
 
 opt:
-  num_iters: 142 #number of meta iterations to run
+  num_iters: -1 #number of meta iterations to run
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
+
+  k: 500
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
 
-  val_iters: 1000 #validate every n iterations
-  checkpoint_iters: 5 #checkpoint every n iterations
+  val_iters: 100000 #validate every n iterations
+  checkpoint_iters: 10 #checkpoint every n iterations
