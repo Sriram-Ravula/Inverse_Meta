@@ -295,6 +295,10 @@ class GBML:
         self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
         self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
         
+        if finished_flag is True:
+            self._print_if_verbose("\n", "TEARING DOWN TRAINING SET", "\n")
+            self.train_loader.dataset.dataset.teardown()
+        
         return finished_flag
 
     def _run_validation(self):
@@ -539,7 +543,7 @@ class GBML:
         test_dataset = split_dict['test']
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.hparams.data.train_batch_size, shuffle=True,
-                                num_workers=10, drop_last=True, pin_memory=True, persistent_workers=True)
+                                num_workers=0, drop_last=True)
         self.val_loader = DataLoader(val_dataset, batch_size=self.hparams.data.val_batch_size, shuffle=False,
                                 num_workers=1, drop_last=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.hparams.data.test_batch_size, shuffle=False,

@@ -38,12 +38,14 @@ data:
  num_val:   50
  num_test:  100
 
- train_batch_size: 2
- val_batch_size:   10
- test_batch_size:  10
+ train_batch_size: 4
+ val_batch_size:   5
+ test_batch_size:  5
 
  image_size: 320
  num_channels: 2
+
+ cache_dataset: true
 
 mask:
  meta_loss_type: 'l2' #["l2"]
@@ -65,4 +67,4 @@ opt:
   lr_decay: 0.95 #exponential weight decay rate.
 
   val_iters: 100000 #validate every n iterations
-  checkpoint_iters: 10 #checkpoint every n iterations
+  checkpoint_iters: 20 #checkpoint every n iterations

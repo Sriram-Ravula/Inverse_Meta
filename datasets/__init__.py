@@ -41,7 +41,9 @@ def get_dataset(config):
                                 slice_mapper=train_slice_mapper,
                                 load_slice_info=load_slice_info,
                                 save_slice_info=save_slice_info,
-                                kspace_pad=train_pad_kspace)
+                                kspace_pad=train_pad_kspace,
+                                cache_data=config.data.cache_dataset,
+                                device=config.device)
 
         test_dataset = BrainMultiCoil(test_files,
                                 input_dir=config.data.test_input_dir,
@@ -78,7 +80,9 @@ def get_dataset(config):
                                 num_slices=train_num_slices,
                                 slice_mapper=train_slice_mapper,
                                 load_slice_info=load_slice_info,
-                                save_slice_info=save_slice_info)
+                                save_slice_info=save_slice_info,
+                                cache_data=config.data.cache_dataset,
+                                device=config.device)
 
         test_dataset = KneesMultiCoil(test_files,
                                 input_dir=config.data.test_input_dir,

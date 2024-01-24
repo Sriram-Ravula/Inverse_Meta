@@ -19,7 +19,9 @@ class BrainMultiCoil(Dataset):
                  save_slice_info=False,
                  kspace_pad=28,
                  remove_start=0,
-                 remove_end=5):
+                 remove_end=5,
+                 cache_data=False,
+                 device=None):
         # Attributes
         self.file_list    = file_list
         self.maps_dir     = maps_dir
@@ -30,6 +32,9 @@ class BrainMultiCoil(Dataset):
         
         self.remove_start = remove_start
         self.remove_end = remove_end
+        
+        self.cache_data = cache_data
+        self.device = device
 
         if not load_slice_info:
             # Comment next two blocks if we only want central 5 slices
@@ -54,12 +59,32 @@ class BrainMultiCoil(Dataset):
             print("Saving compiled scan information!\n")
             np.save(num_slices, self.num_slices)
             np.save(slice_mapper, self.slice_mapper)
+        
+        if self.cache_data:
+            self.dataset_cache = {}
 
     def __len__(self):
         #Comment this block if we only want central 5 slices
         total_slices = int(np.sum(self.num_slices))
         
         return total_slices
+    
+    def teardown(self):
+        """
+        Deletes the cached tensors if they exist
+        """
+        if not self.cache_data:
+            return
+        
+        for k in list(self.dataset_cache.keys()):
+            for k2 in list(self.dataset_cache[k].keys()):
+                del self.dataset_cache[k][k2]
+            del self.dataset_cache[k]
+        del self.dataset_cache
+        
+        torch.cuda.empty_cache()
+        
+        return
 
     # Cropping utility - works with numpy / tensors
     def _crop(self, x, wout, hout):
@@ -73,6 +98,10 @@ class BrainMultiCoil(Dataset):
         # Convert to numerical
         if torch.is_tensor(idx):
             idx = idx.tolist()
+            
+        #see if the sample is already cached
+        if self.cache_data and (str(idx) in self.dataset_cache):
+            return self.dataset_cache[str(idx)], idx
 
         # Get scan and slice index
         # First scan for which index is in the valid cumulative range
@@ -158,6 +187,15 @@ class BrainMultiCoil(Dataset):
                   # Just for feedback
                   'scan_idx': scan_idx,
                   'slice_idx': slice_idx}
+        
+        if self.cache_data:
+            self.dataset_cache[str(idx)] = {'ksp': torch.from_numpy(ksp).to(self.device), 
+                                            's_maps': torch.from_numpy(s_maps).to(self.device), 
+                                            'aliased_image': torch.from_numpy(aliased_mvue_two_channel.astype(np.float32)).to(self.device),
+                                            'gt_image': torch.from_numpy(gt_mvue_two_channel.astype(np.float32)).to(self.device),
+                                            'scale_factor': gt_mvue_scale_factor.astype(np.float32),
+                                            'scan_idx': scan_idx,
+                                            'slice_idx': slice_idx}
 
         return sample, idx
 
@@ -168,8 +206,10 @@ class KneesMultiCoil(BrainMultiCoil):
                  slice_mapper=None,
                  load_slice_info=False,
                  save_slice_info=False,
-                 kspace_pad=False):
+                 kspace_pad=False,
+                 cache_data=False,
+                 device=None):
         super(KneesMultiCoil, self).__init__(file_list, maps_dir, input_dir,
                                              image_size, num_slices, slice_mapper, 
                                              load_slice_info, save_slice_info, kspace_pad,
-                                             remove_start=10, remove_end=0)
+                                             remove_start=10, remove_end=0, cache_data=cache_data, device=device)
