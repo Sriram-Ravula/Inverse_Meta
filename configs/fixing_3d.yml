@@ -38,7 +38,7 @@ data:
  num_val:   50
  num_test:  100
 
- train_batch_size: 4
+ train_batch_size: 10
  val_batch_size:   5
  test_batch_size:  5
 
@@ -51,7 +51,7 @@ mask:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "3D_circle"
- R: 2
+ R: 12
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
@@ -61,7 +61,7 @@ opt:
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
 
-  k: 1000
+  k: 700
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.

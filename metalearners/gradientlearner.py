@@ -293,7 +293,8 @@ class GBML:
                 break
 
         self.metrics.aggregate_iter_metrics(self.global_epoch, "train")
-        self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
+        if (self.global_epoch % self.hparams.opt.checkpoint_iters == 0 or self.global_epoch == self.hparams.opt.num_iters - 1):
+            self._print_if_verbose("\n", self.metrics.get_all_metrics(self.global_epoch, "train"), "\n")
         
         if finished_flag is True:
             self._print_if_verbose("\n", "TEARING DOWN TRAINING SET", "\n")
