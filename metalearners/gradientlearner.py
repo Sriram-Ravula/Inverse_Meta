@@ -61,11 +61,13 @@ class GBML:
         if self.args.mask_path is not None:
             self.c.weights.requires_grad_(False)
             
-            checkpoint = load_if_pickled(os.path.join(args.mask_path))
-            self.c.weights.copy_(checkpoint["c_weights"].to(self.device))
+            # checkpoint = load_if_pickled(os.path.join(args.mask_path))
+            # self.c.weights.copy_(checkpoint["c_weights"].to(self.device))
+            checkpoint = torch.load(args.mask_path, map_location=torch.device("cpu"))
+            self.c.weights.copy_(checkpoint.flatten().to(self.device))
             
             self._print_if_verbose("Restoring Mask from given path")
-            self.c.weights.requires_grad_(True)
+            # self.c.weights.requires_grad_(True)
 
         self.global_epoch = 0
         
@@ -216,6 +218,8 @@ class GBML:
         meta_loss.backward()
         
         finished_flag = self.c.max_min_dist_step(k=k)
+        # finished_flag = False #comment line above and uncomment next two lines for gumbel-LOUPE
+        # self.opt.step() 
         self.opt.zero_grad() 
         
         # Log Things
@@ -388,19 +392,33 @@ class GBML:
         S_max=float('inf')
         S_noise=1.
         
+        ##Brains
         # alg_type = "repaint"
         # sigma_max = 1.0
         # config = {}
         
+        ##Knees
+        # alg_type = "repaint"
+        # config = {}
+        
+        ##Brains and Knees (untested for knees)
         # alg_type = "shallow_dps"
         # config = {'likelihood_step_size': 10.0,
         #           'normalize_grad': True}
         
+        #Brains
         alg_type = "dps"
         S_churn=0.
         config = {'likelihood_step_size': 10.0,
                   'normalize_grad': True}
         
+        ##Knees
+        # alg_type = "dps"
+        # S_churn=0.
+        # config = {'likelihood_step_size': 5.0,
+        #           'normalize_grad': True}
+        
+        ##Brains and Knees
         # alg_type = "cg"
         # config = {"cg_lambda": 0.3,
         #           "cg_max_iter": 5,

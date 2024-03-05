@@ -4,7 +4,7 @@ gpu_num: 0 #-1 means use all (DP mode)
 verbose: true
 debug: false #true won't save anything
 save_imgs: true
-save_dir: "/csiNAS2/slow/sriram/NeurIPS_experiments" #root of folder to save run information
+save_dir: "/csiNAS2/slow/sriram/new_experiments"
 
 seed: 2023
 
@@ -38,9 +38,9 @@ data:
  num_val:   50
  num_test:  100
 
- train_batch_size: 4
- val_batch_size:   5
- test_batch_size:  5
+ train_batch_size: 20
+ val_batch_size:   10
+ test_batch_size:  10
 
  image_size: 320
  num_channels: 2
@@ -51,7 +51,7 @@ mask:
  meta_loss_type: 'l2' #["l2"]
 
  sample_pattern: "3D_circle"
- R: 10
+ R: 20
  tau: 1.0
  num_acs_lines: 16
  mask_init: "uniform"
@@ -61,7 +61,7 @@ opt:
   optimizer: 'adam' #[adam, sgd]
   lr: 0.001 #meta learning rate
 
-  k: 500
+  k: 1
 
   decay: false
   lr_decay: 0.95 #exponential weight decay rate.
